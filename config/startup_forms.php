@@ -1,0 +1,25 @@
+<?php
+
+return [
+    ['id' => 1, 'name' => 'Form 1 - Startup Selection Criteria', 'category' => 'intake', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 2, 'name' => 'Form 2 - Application Form and Innovation Profile', 'category' => 'intake', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 3, 'name' => 'Form 3 - M-TSA Intent To Incubate Form', 'category' => 'intake', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 4, 'name' => 'Form 4 - Incubation Agreement (PDF Attachment)', 'category' => 'agreement', 'attachment_only' => true, 'prerequisite' => ['key' => 'prerequisite', 'required' => true, 'allowed_extensions' => ['pdf'], 'max_kilobytes' => 10240, 'filename_pattern' => '{startup-slug}-form-4-{uuid}.pdf']],
+    ['id' => 5, 'name' => 'Form 5 - Confidentiality and Non-Disclosure Agreement', 'category' => 'agreement', 'attachment_only' => true, 'prerequisite' => ['key' => 'prerequisite', 'required' => true, 'allowed_extensions' => ['pdf'], 'max_kilobytes' => 10240, 'filename_pattern' => '{startup-slug}-form-5-{uuid}.pdf']],
+    ['id' => 6, 'name' => 'Form 6 - Memorandum of Understanding', 'category' => 'agreement', 'attachment_only' => true, 'prerequisite' => ['key' => 'prerequisite', 'required' => true, 'allowed_extensions' => ['pdf'], 'max_kilobytes' => 10240, 'filename_pattern' => '{startup-slug}-form-6-{uuid}.pdf']],
+    ['id' => 7, 'name' => 'Form 7 - Training Needs Assessment', 'category' => 'training', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 8, 'name' => 'Form 8 - Training/Event Evaluation Survey', 'category' => 'training', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 9, 'name' => 'Form 9 - Progress Monitoring Report', 'category' => 'monitoring', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 10, 'name' => 'Form 10 - Quarterly Work Plan (QWP)', 'category' => 'planning', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 11, 'name' => 'Form 11 - Incubation Evaluation Form', 'category' => 'evaluation', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 12, 'name' => 'Form 12 - Startup Incubation Evaluation', 'category' => 'evaluation', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 13, 'name' => 'Form 13 - Clearance Certificate', 'category' => 'governance', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 14, 'name' => 'Form 14 - Business Plan Format (for Incubation)', 'category' => 'planning', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 15, 'name' => 'Form 15 - Incubation Exit (Graduation/Exit) Form', 'category' => 'evaluation', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 16, 'name' => 'Form 16 - TBI Code of Conduct, MARIAN TBI, UIC', 'category' => 'governance', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 17, 'name' => 'Form 17 - Incubatee Code of Conduct, MARIAN TBI, UIC', 'category' => 'governance', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 18, 'name' => 'Form 18 - Deed of Assignment of Startup Assets and Intellectual Property', 'category' => 'agreement', 'attachment_only' => true, 'prerequisite' => ['key' => 'prerequisite', 'required' => true, 'allowed_extensions' => ['pdf'], 'max_kilobytes' => 10240, 'filename_pattern' => '{startup-slug}-form-18-{uuid}.pdf']],
+    ['id' => 19, 'name' => 'Form 19 - Steering Committee Charter', 'category' => 'governance', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 20, 'name' => 'Form 20 - ICT for Health Ethics & Compliance Checklist', 'category' => 'governance', 'attachment_only' => false, 'prerequisite' => null],
+    ['id' => 21, 'name' => 'Form 21 - Personnel Transition, Document Turnover, and Asset Endorsement Form', 'category' => 'transition', 'attachment_only' => false, 'prerequisite' => null],
+];

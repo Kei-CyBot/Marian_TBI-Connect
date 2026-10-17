@@ -1,0 +1,60 @@
+<?php
+
+return [
+    [
+        'id' => 1, 'side' => 'internal', 'name' => 'Dr. Elena Cruz', 'email' => 'elena.cruz@example.edu',
+        'phone' => '+63 917 555 0101', 'affiliation_type' => 'University department / office',
+        'role' => 'University Faculty Advisor', 'organization' => 'College of Engineering',
+        'domains' => ['Clean Energy / Environment', 'Engineering / Manufacturing'], 'technical_skills' => ['Research Methods'],
+        'skill_details' => 'Solar materials research', 'nda_status' => 'MOU Signed', 'verification_status' => 'Verified Academic',
+        'incubatees' => ['PhotonGrid', 'AgriSense Labs'], 'activity_log' => ['Reviewed PhotonGrid IP plan — 2d ago', 'Attended mentoring session — 1w ago'],
+    ],
+    [
+        'id' => 2, 'side' => 'internal', 'name' => 'Marco Villanueva', 'email' => 'marco.villanueva@example.edu',
+        'phone' => '+63 917 555 0102', 'affiliation_type' => 'University department / office',
+        'role' => 'TTO Officer', 'organization' => 'Tech Transfer Office',
+        'domains' => ['Business / Entrepreneurship', 'Legal / Compliance'], 'technical_skills' => [],
+        'skill_details' => 'IP licensing', 'nda_status' => 'NDA Signed', 'verification_status' => 'Verified Academic',
+        'incubatees' => ['NanoCure Lab', 'LearnLoop'], 'activity_log' => ['Filed disclosure for NanoCure — 3d ago'],
+    ],
+    [
+        'id' => 3, 'side' => 'internal', 'name' => 'Prof. Grace Ong', 'email' => 'grace.ong@example.edu',
+        'phone' => '', 'affiliation_type' => 'University department / office',
+        'role' => 'Department Chair', 'organization' => 'Dept. of Agronomy',
+        'domains' => ['Agriculture / Food Systems'], 'technical_skills' => ['Research Methods'],
+        'skill_details' => 'Agronomy and field trials', 'nda_status' => 'Pending', 'verification_status' => 'Verified Academic',
+        'incubatees' => ['AgriSense Labs'], 'activity_log' => ['Approved lab space extension — 5d ago'],
+    ],
+    [
+        'id' => 4, 'side' => 'external', 'name' => 'Jonas Albright', 'email' => 'jonas.albright@example.com',
+        'phone' => '+63 917 555 0103', 'affiliation_type' => 'Investor / VC fund',
+        'role' => 'Venture Capitalist', 'organization' => 'Meridian Ventures',
+        'domains' => ['Finance / Fintech', 'Information Technology'], 'technical_skills' => [],
+        'skill_details' => 'Seed-stage investment', 'nda_status' => 'NDA Signed', 'verification_status' => 'Vetted Investor',
+        'incubatees' => ['LedgerLoop', 'MedRoute AI'], 'activity_log' => ['Received LedgerLoop pitch deck — 1d ago', 'Term sheet call — 1w ago'],
+    ],
+    [
+        'id' => 5, 'side' => 'external', 'name' => 'Priya Raman', 'email' => 'priya.raman@example.com',
+        'phone' => '+63 917 555 0104', 'affiliation_type' => 'Company / Corporation',
+        'role' => 'Industry Mentor', 'organization' => 'Helix Pharma',
+        'domains' => ['Health / Life Sciences'], 'technical_skills' => ['Research Methods'],
+        'skill_details' => 'Clinical research and product development', 'nda_status' => 'Both Signed', 'verification_status' => 'Industry Mentor',
+        'incubatees' => ['MedRoute AI', 'NanoCure Lab'], 'activity_log' => ['Mentoring session — 2d ago'],
+    ],
+    [
+        'id' => 6, 'side' => 'external', 'name' => 'Atty. Leo Navarro', 'email' => 'leo.navarro@example.com',
+        'phone' => '', 'affiliation_type' => 'Professional firm / Consultancy',
+        'role' => 'Legal/Compliance Advisor', 'organization' => 'Navarro & Partners',
+        'domains' => ['Legal / Compliance'], 'domain_other' => 'Corporate IP', 'technical_skills' => [],
+        'skill_details' => 'Commercial agreements and compliance', 'nda_status' => 'NDA Signed', 'verification_status' => 'Industry Mentor',
+        'incubatees' => ['BorderPay'], 'activity_log' => ['Reviewed commercial NDA — 4d ago'],
+    ],
+    [
+        'id' => 7, 'side' => 'external', 'name' => 'Hana Kim', 'email' => 'hana.kim@example.com',
+        'phone' => '+63 917 555 0105', 'affiliation_type' => 'Government agency',
+        'role' => 'Government Grant Officer', 'organization' => 'Regional Development Council',
+        'domains' => ['Agriculture / Food Systems', 'Clean Energy / Environment'], 'technical_skills' => [],
+        'skill_details' => 'Regional innovation grants', 'nda_status' => 'MOU Signed', 'verification_status' => 'Industry Mentor',
+        'incubatees' => ['CoastalCrate'], 'activity_log' => ['Grant call briefing — 1w ago'],
+    ],
+];

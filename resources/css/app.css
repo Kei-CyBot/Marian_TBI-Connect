@@ -1,0 +1,218 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+@source '../**/*.tsx';
+
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --color-rose: #b92369;
+    --color-rose-hover: #9a1b55;
+    --color-rose-tint: #fcf0f5;
+    --color-teal: #1a8a8e;
+    --color-teal-hover: #146e72;
+    --color-teal-tint: #eaf6f6;
+    --color-slate-ink: #0F172A;
+    --color-slate-canvas: #F8FAFC;
+    --color-slate-line: #E2E8F0;
+}
+
+@layer base {
+    button {
+        font-family: inherit;
+        font-weight: 600;
+        -webkit-tap-highlight-color: transparent;
+        transition:
+            color 150ms ease,
+            background-color 150ms ease,
+            border-color 150ms ease,
+            box-shadow 150ms ease,
+            transform 100ms ease;
+    }
+
+    button:focus-visible {
+        outline: 3px solid rgb(26 138 142 / 28%);
+        outline-offset: 2px;
+    }
+
+    button:active:not(:disabled) {
+        transform: scale(0.985);
+    }
+
+    button:disabled {
+        cursor: not-allowed;
+    }
+}
+
+button[class*="bg-[#b92369]"],
+button[class*="bg-[#FF2B5E]"] {
+    background-color: #b92369 !important;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 10%);
+}
+
+button[class*="bg-[#b92369]"]:hover:not(:disabled),
+button[class*="bg-[#FF2B5E]"]:hover:not(:disabled) {
+    background-color: #9a1b55 !important;
+    box-shadow: 0 3px 8px rgb(185 35 105 / 18%);
+}
+
+button[class*="bg-[#1a8a8e]"] {
+    background-color: #1a8a8e !important;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 10%);
+}
+
+button[class*="bg-[#1a8a8e]"]:hover:not(:disabled) {
+    background-color: #146e72 !important;
+    box-shadow: 0 3px 8px rgb(26 138 142 / 18%);
+}
+
+button[class*="text-[#b92369]"],
+button[class*="text-[#FF2B5E]"] {
+    color: #b92369 !important;
+}
+
+button[class*="text-[#1a8a8e]"] {
+    color: #1a8a8e !important;
+}
+
+button[class*="border-gray-200"],
+button[class*="border-slate-line"] {
+    border-color: #dbe2ea;
+}
+
+.cohort-toolbar button:disabled {
+    opacity: 1;
+    background-color: #f8fafc;
+    border-color: #e2e8f0;
+    color: #64748b;
+}
+
+.cohort-toolbar .cohort-add {
+    border-color: #b92369 !important;
+    background-color: #b92369 !important;
+    color: white !important;
+}
+
+.cohort-toolbar .cohort-add:hover:not(:disabled) {
+    background-color: #9a1b55 !important;
+}
+
+.cohort-toolbar .cohort-manage:not(:disabled) {
+    border-color: rgb(26 138 142 / 35%) !important;
+    background-color: #eaf6f6 !important;
+    color: #146e72 !important;
+}
+
+.cohort-toolbar .cohort-manage:hover:not(:disabled) {
+    border-color: #1a8a8e !important;
+    background-color: #d6eeee !important;
+}
+
+.cohort-toolbar .cohort-delete:not(:disabled) {
+    border-color: #fecaca !important;
+    background-color: #fff7f7 !important;
+    color: #b42336 !important;
+}
+
+.cohort-toolbar .cohort-delete:hover:not(:disabled) {
+    border-color: #fca5a5 !important;
+    background-color: #feecec !important;
+}
+
+.cohort-toolbar .cohort-delete:disabled {
+    border-color: #e8cbd6;
+    color: #9f596e;
+}
+
+.startup-source-form-portal > .fixed.inset-0 {
+    z-index: 70 !important;
+    align-items: flex-start !important;
+    overflow-y: auto;
+    padding: clamp(1rem, 3vh, 2rem) 1rem 9rem !important;
+    background: rgb(15 23 42 / 58%) !important;
+    backdrop-filter: blur(6px);
+}
+
+.startup-source-form-portal > .fixed.inset-0 > div {
+    width: min(100%, 80rem) !important;
+    max-width: 80rem !important;
+    max-height: calc(100dvh - 11rem) !important;
+    border: 1px solid #e2e8f0;
+    border-radius: 1.25rem !important;
+    box-shadow: 0 28px 80px rgb(15 23 42 / 24%);
+}
+
+.startup-source-form-portal [style*='linear-gradient'] {
+    background: linear-gradient(110deg, #b92369, #1a8a8e) !important;
+}
+
+.startup-source-form-portal [class*='bg-[#FF2B5E]'] {
+    background-color: #b92369 !important;
+}
+
+.startup-source-form-portal [class*='text-[#FF2B5E]'] {
+    color: #b92369 !important;
+}
+
+.startup-source-form-portal [class*='border-[#FF2B5E]'] {
+    border-color: #b92369 !important;
+}
+
+.startup-source-form-portal [class*='ring-[#FF2B5E]'] {
+    --tw-ring-color: rgb(185 35 105 / 30%) !important;
+}
+
+#startup-forms-root [class*='bg-[#FF2B5E]'] {
+    background-color: #b92369 !important;
+}
+
+#startup-forms-root [class*='hover:bg-[#E6275A]']:hover {
+    background-color: #9a1b55 !important;
+}
+
+#startup-forms-root [class*='text-[#FF2B5E]'] {
+    color: #9a1b55 !important;
+}
+
+#startup-forms-root [class*='focus:ring-[#FF2B5E]'] {
+    --tw-ring-color: rgb(185 35 105 / 30%) !important;
+}
+
+#startup-forms-root [class*='focus:border-[#FF2B5E]'] {
+    border-color: #b92369 !important;
+}
+
+#startup-forms-root [class*='accent-[#FF2B5E]'] {
+    accent-color: #b92369 !important;
+}
+
+.startup-source-form-portal input:not([type='checkbox']):not([type='radio']),
+.startup-source-form-portal select,
+.startup-source-form-portal textarea {
+    border-color: #cbd5e1;
+    border-radius: 0.75rem;
+    color: #0f172a;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.startup-source-form-portal input:focus,
+.startup-source-form-portal select:focus,
+.startup-source-form-portal textarea:focus {
+    border-color: #1a8a8e !important;
+    outline: none;
+    box-shadow: 0 0 0 3px rgb(26 138 142 / 14%);
+}
+
+@media (max-width: 640px) {
+    .startup-source-form-portal > .fixed.inset-0 {
+        padding: 0.5rem 0.5rem 5.5rem !important;
+    }
+
+    .startup-source-form-portal > .fixed.inset-0 > div {
+        max-height: calc(100dvh - 6rem) !important;
+        border-radius: 1rem !important;
+    }
+}
