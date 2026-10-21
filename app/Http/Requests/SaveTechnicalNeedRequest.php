@@ -28,7 +28,12 @@ class SaveTechnicalNeedRequest extends FormRequest
             'status' => ['required', Rule::in(['Ongoing', 'Done'])],
             'priority' => ['required', Rule::in(['Low', 'Moderate', 'High'])],
             'remarks' => ['nullable', 'string', 'max:5000'],
-            'signed_approval' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'signed_approval' => [
+                $this->isMethod('PUT') || $this->isMethod('PATCH') ? 'nullable' : 'required',
+                'file',
+                'mimes:pdf',
+                'max:10240',
+            ],
         ];
     }
 }

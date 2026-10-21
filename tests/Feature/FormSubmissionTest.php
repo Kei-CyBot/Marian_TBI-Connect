@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\Forms\ApprovalStatus;
 use App\Models\FormSubmission;
+use App\Models\Startup;
 use App\Models\User;
 use App\Support\Forms\StartupFormCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,6 +33,7 @@ class FormSubmissionTest extends TestCase
     public function test_attachment_only_form_submission_stores_a_required_pdf_and_metadata(): void
     {
         Storage::fake('local');
+        Startup::ensureConfigured();
         $user = User::factory()->create();
 
         $response = $this->actingAs($user)->post(route('form-submissions.store'), [
@@ -61,6 +63,7 @@ class FormSubmissionTest extends TestCase
 
     public function test_attachment_only_form_rejects_missing_or_non_pdf_prerequisite(): void
     {
+        Startup::ensureConfigured();
         $user = User::factory()->create();
         $payload = [
             'form_id' => 5,
@@ -88,6 +91,7 @@ class FormSubmissionTest extends TestCase
 
     public function test_non_attachment_form_can_be_submitted_without_a_prerequisite(): void
     {
+        Startup::ensureConfigured();
         $user = User::factory()->create();
 
         $this->actingAs($user)->post(route('form-submissions.store'), [
@@ -107,6 +111,7 @@ class FormSubmissionTest extends TestCase
 
     public function test_source_form_response_is_saved_for_the_external_track(): void
     {
+        Startup::ensureConfigured();
         $user = User::factory()->create();
         $data = [
             'source' => 'marian_TBI',
@@ -203,6 +208,135 @@ class FormSubmissionTest extends TestCase
             ->get(route('form-submissions.attachment', $submission))
             ->assertOk()
             ->assertHeader('content-disposition', 'attachment; filename=signed-agreement.pdf');
+    }
+
+    public function test_form_submission_requires_an_existing_startup(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->from('/incubatees')
+            ->post(route('form-submissions.store'), [
+                'form_id' => 2,
+                'startup' => 'Unknown Venture',
+                'track' => 'internal',
+                'signer_name' => 'Maria Santos',
+                'data' => json_encode(['founder' => 'Maria Santos'], JSON_THROW_ON_ERROR),
+            ])
+            ->assertSessionHasErrors('startup');
+
+        $this->assertDatabaseCount('form_submissions', 0);
+    }
+
+    public function test_form_submission_is_blocked_when_the_user_cannot_access_the_startup_folder(): void
+    {
+        $manager = User::factory()->create();
+        $otherMember = User::factory()->create();
+        Startup::ensureConfigured();
+        Startup::query()->findOrFail(1)->forceFill([
+            'folder_access_restricted' => true,
+            'folder_access_manager_id' => $manager->id,
+        ])->save();
+
+        $this->actingAs($otherMember)
+            ->from('/incubatees')
+            ->post(route('form-submissions.store'), [
+                'form_id' => 2,
+                'startup' => 'AgriSense Labs',
+                'track' => 'internal',
+                'signer_name' => 'Maria Santos',
+                'data' => json_encode(['founder' => 'Maria Santos'], JSON_THROW_ON_ERROR),
+            ])
+            ->assertSessionHasErrors('startup');
+
+        $this->assertDatabaseCount('form_submissions', 0);
+    }
+
+    public function test_form_submission_requires_mandatory_fields_and_valid_metadata(): void
+    {
+        Startup::ensureConfigured();
+        $user = User::factory()->create();
+        $valid = [
+            'form_id' => 2,
+            'startup' => 'AgriSense Labs',
+            'track' => 'internal',
+            'signer_name' => 'Maria Santos',
+            'data' => json_encode(['founder' => 'Maria Santos'], JSON_THROW_ON_ERROR),
+        ];
+
+        $withoutData = $valid;
+        unset($withoutData['data']);
+        $this->actingAs($user)
+            ->from('/incubatees')
+            ->post(route('form-submissions.store'), $withoutData)
+            ->assertSessionHasErrors('data');
+
+        $this->actingAs($user)
+            ->from('/incubatees')
+            ->post(route('form-submissions.store'), [...$valid, 'data' => '{invalid-json'])
+            ->assertSessionHasErrors('data');
+
+        $withoutSigner = $valid;
+        unset($withoutSigner['signer_name']);
+        $this->actingAs($user)
+            ->from('/incubatees')
+            ->post(route('form-submissions.store'), $withoutSigner)
+            ->assertSessionHasErrors('signer_name');
+
+        $this->actingAs($user)
+            ->from('/incubatees')
+            ->post(route('form-submissions.store'), [...$valid, 'form_id' => 99, 'track' => 'sideways'])
+            ->assertSessionHasErrors(['form_id', 'track']);
+
+        $this->assertDatabaseCount('form_submissions', 0);
+    }
+
+    public function test_json_submission_returns_validation_errors_for_missing_mandatory_fields(): void
+    {
+        Startup::ensureConfigured();
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->postJson(route('form-submissions.store'), [
+                'form_id' => 2,
+                'startup' => 'AgriSense Labs',
+                'track' => 'internal',
+                'data' => json_encode(['founder' => 'Maria Santos'], JSON_THROW_ON_ERROR),
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['signer_name']);
+
+        $this->actingAs($user)
+            ->postJson(route('form-submissions.store'), [
+                'form_id' => 2,
+                'startup' => 'AgriSense Labs',
+                'track' => 'internal',
+                'signer_name' => 'Maria Santos',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['data']);
+
+        $this->assertDatabaseCount('form_submissions', 0);
+    }
+
+    public function test_non_attachment_form_rejects_an_uploaded_prerequisite(): void
+    {
+        Startup::ensureConfigured();
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->from('/incubatees')
+            ->post(route('form-submissions.store'), [
+                'form_id' => 2,
+                'startup' => 'AgriSense Labs',
+                'track' => 'internal',
+                'signer_name' => 'Maria Santos',
+                'data' => json_encode(['founder' => 'Maria Santos'], JSON_THROW_ON_ERROR),
+                'prerequisite' => UploadedFile::fake()->create('signed-agreement.pdf', 20, 'application/pdf'),
+            ])
+            ->assertSessionHasErrors('prerequisite');
+
+        $this->assertDatabaseCount('form_submissions', 0);
     }
 
     public function test_guest_cannot_submit_a_form(): void

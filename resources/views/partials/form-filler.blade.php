@@ -73,15 +73,12 @@
         next(){ if(this.validate()) this.step++ },
         back(){ this.error=''; this.step-- },
         addOwner(){ this.owners.push({name:'',type:'Founder',pct:0}) },
-        sign(key){
-            if(key==='founder' && !this.signerName.trim()){ this.error='Type your full name to sign as founder.'; return false }
-            this.error='';
-            this.sig[key] = {name: key==='founder' ? this.signerName : (key==='reviewer' ? this.flow[1].role : 'Incubation Director'), at:new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})};
-            if(key==='founder') this.flash('Submitted — routed to reviewer');
-            return true;
-        },
         signAndSubmit(){
-            if(this.sign('founder')) this.$nextTick(()=>this.$refs.submissionForm.requestSubmit());
+            if(!this.signerName.trim()){ this.error='Type your full name to sign as founder.'; return false }
+            this.error='';
+            this.sig.founder={name:this.signerName, at:new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})};
+            this.flash('Signed — submitting form…');
+            this.$nextTick(()=>this.$refs.submissionForm.requestSubmit());
         },
         flash(m){ this.toast=m; setTimeout(()=>this.toast='',2600) }
      }"
@@ -92,7 +89,14 @@
         <div role="status" class="mb-4 rounded-xl border border-[#1a8a8e]/20 bg-[#eaf6f6] px-4 py-3 text-sm font-medium text-[#146e72]">{{ session('status') }}</div>
     @endif
     @if ($errors->any())
-        <div role="alert" class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ $errors->first() }}</div>
+        <div role="alert" class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <p class="font-semibold">The form could not be submitted:</p>
+            <ul class="mt-1 list-inside list-disc">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
     @endif
     <div x-show="open" x-cloak x-transition.opacity @click.self="close()" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-3 backdrop-blur-sm sm:p-6">
         <form x-ref="submissionForm" role="dialog" aria-modal="true" aria-label="Startup form filler" method="POST" action="{{ route('form-submissions.store') }}" enctype="multipart/form-data" class="flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
@@ -251,14 +255,12 @@
 
                                         <div x-show="s.key==='founder' && !sig.founder" class="mt-2 flex flex-wrap gap-2">
                                             <input x-model="signerName" placeholder="Type full name to sign" class="w-56 rounded-xl border border-slate-line px-3 py-1.5 text-sm italic focus:border-[#1a8a8e] focus:outline-none">
-                                            <button type="button" @click="signAndSubmit()" class="rounded-xl bg-[#b92369] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#9a1b55]">Sign & submit</button>
+                                            <button type="button" @click="signAndSubmit()" class="rounded-xl bg-[#b92369] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#9a1b55]">Sign &amp; Submit</button>
                                         </div>
-                                        <button type="button" x-show="s.key!=='founder' && stateOf(i)==='current'" x-cloak @click="sign(s.key)" class="mt-2 rounded-lg border border-dashed border-gray-300 px-3 py-1 text-[11px] font-semibold text-gray-500 hover:border-[#1a8a8e] hover:text-[#1a8a8e]">Demo: simulate <span x-text="s.role"></span> sign-off</button>
                                     </div>
                                 </li>
                             </template>
                         </ol>
-                        <p x-show="sig.director" x-cloak class="mt-4 rounded-xl bg-[#eaf6f6] px-3 py-2 text-xs font-semibold text-[#1a8a8e]">✓ Fully approved. The signed copy is ready to file in the startup's drive folder.</p>
                     </div>
                 </div>
             </div>
@@ -270,7 +272,6 @@
                         <button type="button" x-show="step>1" @click="back()" class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Back</button>
                         <button type="button" @click="close()" class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
                         <button type="button" x-show="step<3" @click="next()" class="rounded-xl px-5 py-2 text-sm font-semibold text-white transition hover:opacity-90" :style="'background:'+accent">Continue</button>
-                        <button type="button" x-show="step===3" x-cloak @click="close()" class="rounded-xl bg-[#b92369] px-5 py-2 text-sm font-semibold text-white hover:bg-[#9a1b55]">Done</button>
                     </div>
                 </div>
             </div>

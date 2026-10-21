@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import { StartupFormsList } from './StartupForms';
+import { StartupFormsList, FormRegistryProvider, useFormRegistry, findMissingRequiredFields } from './StartupForms';
 
 interface StartupFormsSession {
     startup: string;
@@ -12,110 +11,14 @@ interface StartupFormsAppProps {
     submitUrl: string | undefined;
 }
 
-type SourceField = { label: string; type: string; value: string | boolean | null };
-type SourceControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
-
-function sourceModalFor(control: SourceControl): HTMLElement | null {
-    let modal: HTMLElement | null = control.parentElement;
-    while (modal && !(modal.classList.contains('fixed') && modal.classList.contains('inset-0'))) {
-        modal = modal.parentElement;
-    }
-
-    return modal && Number.parseInt(window.getComputedStyle(modal).zIndex, 10) >= 60
-        ? modal
-        : null;
-}
-
-function fieldLabel(control: SourceControl): string {
-    const explicitLabel = control.labels?.[0]?.innerText.trim()
-        || control.closest('label')?.textContent?.trim();
-    if (explicitLabel) {
-        return explicitLabel;
-    }
-
-    let container = control.parentElement;
-    while (container && !container.classList.contains('fixed')) {
-        const directLabel = Array.from(container.children)
-            .find((child) => child.tagName === 'LABEL' && !child.contains(control));
-        if (directLabel?.textContent?.trim()) {
-            return directLabel.textContent.trim().replace(/\s*\*\s*$/, '');
-        }
-
-        container = container.parentElement;
-    }
-
-    const cell = control.closest('td');
-    const row = cell?.closest('tr');
-    if (cell && row) {
-        const cells = Array.from(row.cells);
-        const cellIndex = cells.indexOf(cell);
-        const context = cells
-            .slice(0, cellIndex)
-            .map((previousCell) => previousCell.textContent?.trim())
-            .filter((text): text is string => Boolean(text));
-        if (context.length > 0) {
-            return context.join(' — ');
-        }
-    }
-
-    return control.getAttribute('aria-label')?.trim()
-        || control.getAttribute('placeholder')?.trim()
-        || control.getAttribute('name')?.trim()
-        || 'Unlabelled field';
-}
-
-function controlValue(control: SourceControl): string | boolean | null {
-    if (control instanceof HTMLInputElement && control.type === 'checkbox') {
-        return control.checked;
-    }
-    if (control instanceof HTMLSelectElement && control.multiple) {
-        return Array.from(control.selectedOptions, (option) => option.value).join(', ');
-    }
-    if (control instanceof HTMLInputElement && control.type === 'radio') {
-        return control.checked ? control.value : null;
-    }
-
-    return control.value || null;
-}
-
-function collectVisibleSourceFormFields(): Array<SourceField & { key: string }> {
-    const controls = Array.from(
-        document.querySelectorAll<SourceControl>('input, select, textarea'),
-    ).filter((control) => {
-        const excludedTypes = ['hidden', 'file', 'button', 'submit', 'reset'];
-        return !excludedTypes.includes(control.type)
-            && !control.disabled
-            && sourceModalFor(control) !== null
-            && control.getClientRects().length > 0;
-    });
-
-    return controls.flatMap((control) => {
-        const value = controlValue(control);
-        if (value === null) {
-            return [];
-        }
-
-        const label = fieldLabel(control);
-        const type = control.type || control.tagName.toLowerCase();
-        const sameLabelIndex = controls
-            .filter((candidate) => fieldLabel(candidate) === label && candidate.type === control.type)
-            .indexOf(control);
-        const key = control instanceof HTMLInputElement && control.type === 'radio' && control.name
-            ? `radio:${control.name}`
-            : `${label}:${type}:${sameLabelIndex}`;
-
-        return [{ key, label, type, value }];
-    });
-}
-
-export default function StartupFormsApp({ submitUrl }: StartupFormsAppProps) {
+function StartupFormsAppInner({ submitUrl }: StartupFormsAppProps) {
     const [session, setSession] = useState<StartupFormsSession | null>(null);
     const [selectedFormId, setSelectedFormId] = useState<number | null>(null);
     const [signerName, setSignerName] = useState('');
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const selectedFormIdRef = useRef<number | null>(null);
-    const capturedFields = useRef<Map<string, SourceField>>(new Map());
+    const registry = useFormRegistry();
 
     useEffect(() => {
         const openForms = (event: Event) => {
@@ -129,49 +32,11 @@ export default function StartupFormsApp({ submitUrl }: StartupFormsAppProps) {
             setSelectedFormId(null);
             setSignerName('');
             setError('');
-            capturedFields.current.clear();
-        };
-        const captureField = (event: Event) => {
-            if (selectedFormIdRef.current === null
-                || !(event.target instanceof HTMLInputElement
-                    || event.target instanceof HTMLSelectElement
-                    || event.target instanceof HTMLTextAreaElement)) {
-                return;
-            }
-
-            const control = event.target;
-            const modal = sourceModalFor(control);
-            if (!modal || control.disabled || ['hidden', 'file', 'button', 'submit', 'reset'].includes(control.type)) {
-                return;
-            }
-
-            if (control instanceof HTMLInputElement && control.type === 'radio' && !control.checked) {
-                return;
-            }
-
-            const label = fieldLabel(control);
-            const type = control.type || control.tagName.toLowerCase();
-            const sameLabelControls = Array.from(
-                modal.querySelectorAll<SourceControl>('input, select, textarea'),
-            ).filter((candidate) => fieldLabel(candidate) === label && candidate.type === control.type);
-            const sameLabelIndex = sameLabelControls.indexOf(control);
-            const key = control instanceof HTMLInputElement && control.type === 'radio' && control.name
-                ? `radio:${control.name}`
-                : `${label}:${type}:${sameLabelIndex}`;
-            const value = controlValue(control);
-
-            if (value !== null) {
-                capturedFields.current.set(key, { label, type, value });
-            }
         };
 
         window.addEventListener('open-source-startup-forms', openForms);
-        document.addEventListener('input', captureField, true);
-        document.addEventListener('change', captureField, true);
         return () => {
             window.removeEventListener('open-source-startup-forms', openForms);
-            document.removeEventListener('input', captureField, true);
-            document.removeEventListener('change', captureField, true);
         };
     }, []);
 
@@ -205,6 +70,22 @@ export default function StartupFormsApp({ submitUrl }: StartupFormsAppProps) {
             return;
         }
 
+        const values = registry?.read(selectedFormId) ?? null;
+        if (values === null) {
+            setError('The form has not finished loading. Close it and open it again.');
+            return;
+        }
+
+        const missing = findMissingRequiredFields(selectedFormId, values);
+        if (missing.length > 0) {
+            const labels = missing.map((field) => field.label);
+            const summary = labels.length <= 6
+                ? labels.join(', ')
+                : `${labels.slice(0, 6).join(', ')} and ${labels.length - 6} more`;
+            setError(`Complete the required fields before saving: ${summary}.`);
+            return;
+        }
+
         const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
         if (!csrfToken) {
             setError('The security token is missing. Refresh the page and try again.');
@@ -217,11 +98,9 @@ export default function StartupFormsApp({ submitUrl }: StartupFormsAppProps) {
         payload.append('startup', session.startup);
         payload.append('track', session.track);
         payload.append('signer_name', signerName.trim());
-        const fields = new Map(capturedFields.current);
-        collectVisibleSourceFormFields().forEach(({ key, ...field }) => fields.set(key, field));
         payload.append('data', JSON.stringify({
             source: 'marian_TBI',
-            fields: Array.from(fields.values()),
+            ...values,
         }));
 
         setSubmitting(true);
@@ -323,9 +202,6 @@ export default function StartupFormsApp({ submitUrl }: StartupFormsAppProps) {
                         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                             <StartupFormsList
                                 onSelectForm={(formId) => {
-                                    if (selectedFormIdRef.current !== formId) {
-                                        capturedFields.current.clear();
-                                    }
                                     selectedFormIdRef.current = formId;
                                     setSelectedFormId(formId);
                                     setError('');
@@ -348,6 +224,8 @@ export default function StartupFormsApp({ submitUrl }: StartupFormsAppProps) {
                         Submitted by
                         <input
                             value={signerName}
+                            data-field="signerName"
+                            name="signer_name"
                             onChange={(event) => setSignerName(event.target.value)}
                             autoComplete="name"
                             className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-normal text-slate-900 shadow-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/20"
@@ -366,5 +244,13 @@ export default function StartupFormsApp({ submitUrl }: StartupFormsAppProps) {
                 </div>
             )}
         </>
+    );
+}
+
+export default function StartupFormsApp(props: StartupFormsAppProps) {
+    return (
+        <FormRegistryProvider>
+            <StartupFormsAppInner {...props} />
+        </FormRegistryProvider>
     );
 }

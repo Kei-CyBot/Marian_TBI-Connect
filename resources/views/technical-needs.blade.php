@@ -154,7 +154,7 @@
                     <label><span class="mb-1 block text-xs font-semibold text-gray-700">Number of months needed</span><input name="months_needed" type="number" min="1" max="65535" x-model="draft.months" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
                     <label><span class="mb-1 block text-xs font-semibold text-gray-700">Responsible team member</span><input name="responsible_team_member" x-model="draft.responsible" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
                     <label><span class="mb-1 block text-xs font-semibold text-gray-700">Date entry <span class="text-red-600">*</span></span><input name="date_entry" type="date" x-model="draft.dateEntry" required class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Date needed</span><input name="date_needed" type="date" x-model="draft.dateNeeded" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Date needed</span><input name="date_needed" type="date" x-model="draft.dateNeeded" :min="draft.dateEntry" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
                     <label><span class="mb-1 block text-xs font-semibold text-gray-700">Resource / tool needed</span><input name="resource_tool" x-model="draft.resource" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
                     <label><span class="mb-1 block text-xs font-semibold text-gray-700">Prospect resource person</span><input name="prospect_resource_person" x-model="draft.prospect" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
                     <label><span class="mb-1 block text-xs font-semibold text-gray-700">Status</span><select name="status" x-model="draft.status" required class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"><option>Ongoing</option><option>Done</option></select></label>
@@ -163,14 +163,14 @@
                     <div class="sm:col-span-2 rounded-2xl border border-teal-200 bg-teal-50/60 p-4">
                         <div class="flex flex-wrap items-start justify-between gap-3">
                             <div>
-                                <h3 class="text-sm font-semibold text-teal-950">Signed approval is required</h3>
-                                <p class="mt-1 max-w-xl text-xs leading-5 text-teal-900">Print the completed request, obtain the required signatures, scan it, and upload the signed form as a PDF. The request cannot be saved without it.</p>
+                                <h3 class="text-sm font-semibold text-teal-950" x-text="editing ? 'Signed approval on file' : 'Signed approval is required'"></h3>
+                                <p class="mt-1 max-w-xl text-xs leading-5 text-teal-900">Print the completed request, obtain the required signatures, scan it, and upload the signed form as a PDF.<span x-show="!editing"> The request cannot be saved without it.</span></p>
                             </div>
                             <button type="button" @click="printApprovalForm()" class="shrink-0 rounded-xl border border-teal-300 bg-white px-3.5 py-2 text-sm font-semibold text-teal-900 shadow-sm hover:bg-teal-50">Print approval form</button>
                         </div>
                         <label class="mt-4 block">
-                            <span class="mb-1.5 block text-xs font-semibold text-slate-800">Upload signed approval (PDF, max 10 MB) <span class="text-red-600">*</span></span>
-                            <input name="signed_approval" type="file" accept="application/pdf,.pdf" required class="block w-full rounded-xl border border-teal-200 bg-white px-3 py-2 text-sm text-slate-800 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-teal-900">
+                            <span class="mb-1.5 block text-xs font-semibold text-slate-800">Upload signed approval (PDF, max 10 MB) <span x-show="!editing" class="text-red-600">*</span></span>
+                            <input name="signed_approval" type="file" accept="application/pdf,.pdf" :required="!editing" class="block w-full rounded-xl border border-teal-200 bg-white px-3 py-2 text-sm text-slate-800 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-teal-900">
                         </label>
                         <p x-show="editing" class="mt-2 text-xs text-teal-900">Uploading this signed form replaces the approval document currently on file.</p>
                     </div>

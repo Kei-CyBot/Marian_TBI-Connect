@@ -116,25 +116,35 @@ class TechnicalNeedController extends Controller
         abort_unless($startup && $startup->userCanAccessFolder($request->user()), 403);
         $approval = $request->file('signed_approval');
         $oldPath = $technicalNeed->approval_document_path;
-        $newPath = $approval->store('technical-needs/'.$startup->id, 'local');
-        if ($newPath === false) {
-            throw new RuntimeException('The signed technical-needs approval could not be stored.');
+        $newPath = null;
+
+        if ($approval !== null) {
+            $newPath = $approval->store('technical-needs/'.$startup->id, 'local');
+            if ($newPath === false) {
+                throw new RuntimeException('The signed technical-needs approval could not be stored.');
+            }
         }
 
         try {
             DB::transaction(function () use ($technicalNeed, $validated, $approval, $newPath): void {
-                $attributes = collect($validated)->except('signed_approval')->all() + [
-                    'approval_document_path' => $newPath,
-                    'approval_document_original_name' => $approval->getClientOriginalName(),
-                ];
+                $attributes = collect($validated)->except('signed_approval')->all();
+
+                if ($approval !== null) {
+                    $attributes['approval_document_path'] = $newPath;
+                    $attributes['approval_document_original_name'] = $approval->getClientOriginalName();
+                }
+
                 $technicalNeed->update($attributes);
             });
         } catch (Throwable $exception) {
-            Storage::disk('local')->delete($newPath);
+            if ($newPath !== null) {
+                Storage::disk('local')->delete($newPath);
+            }
+
             throw $exception;
         }
 
-        if ($oldPath) {
+        if ($newPath !== null && $oldPath) {
             Storage::disk('local')->delete($oldPath);
         }
 

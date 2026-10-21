@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Forms;
 
+use App\Models\Startup;
 use App\Support\Forms\StartupFormCatalog;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -45,7 +47,30 @@ class SubmitFormRequest extends FormRequest
                 static fn ($definition): int => $definition->id,
                 $catalog->all()
             ))],
-            'startup' => ['required', 'string', 'max:255'],
+            'startup' => [
+                'required',
+                'string',
+                'max:255',
+                function (string $attribute, mixed $value, Closure $fail): void {
+                    if (! is_string($value)) {
+                        return;
+                    }
+
+                    $startup = Startup::withTrashed()->where('name', $value)->first();
+
+                    if ($startup === null) {
+                        $fail('The selected startup does not exist.');
+
+                        return;
+                    }
+
+                    $user = $this->user();
+
+                    if ($user === null || ! $startup->userCanAccessFolder($user)) {
+                        $fail('You do not have access to this startup folder.');
+                    }
+                },
+            ],
             'track' => ['required', Rule::in(['internal', 'external'])],
             'data' => ['required', 'array'],
             'signer_name' => ['required', 'string', 'max:255'],

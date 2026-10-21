@@ -88,6 +88,77 @@ class TechnicalNeedTest extends TestCase
         $this->assertDatabaseMissing('technical_needs', ['id' => $need->id]);
     }
 
+    public function test_updating_a_need_without_a_new_approval_keeps_the_existing_document(): void
+    {
+        Startup::ensureConfigured();
+        Storage::fake('local');
+        $user = User::factory()->create();
+        $payload = [
+            'startup_id' => 1,
+            'requirement' => 'Lab equipment',
+            'date_entry' => '2026-10-01',
+            'status' => 'Ongoing',
+            'priority' => 'Moderate',
+        ];
+
+        $this->actingAs($user)
+            ->post(route('technical-needs.store'), $payload + [
+                'signed_approval' => UploadedFile::fake()->create('signed-approval.pdf', 10, 'application/pdf'),
+            ])
+            ->assertRedirect(route('technical-needs', ['startup_id' => 1]));
+
+        $need = TechnicalNeed::query()->firstOrFail();
+        $oldApprovalPath = $need->approval_document_path;
+        $this->assertTrue(Storage::disk('local')->exists($oldApprovalPath));
+
+        $this->actingAs($user)
+            ->put(route('technical-needs.update', $need), [...$payload, 'requirement' => 'Updated lab equipment'])
+            ->assertRedirect(route('technical-needs', ['startup_id' => 1]));
+
+        $need->refresh();
+        $this->assertSame('Updated lab equipment', $need->requirement);
+        $this->assertSame($oldApprovalPath, $need->approval_document_path);
+        $this->assertTrue(Storage::disk('local')->exists($oldApprovalPath));
+    }
+
+    public function test_updating_a_need_with_a_new_approval_replaces_the_existing_document(): void
+    {
+        Startup::ensureConfigured();
+        Storage::fake('local');
+        $user = User::factory()->create();
+        $payload = [
+            'startup_id' => 1,
+            'requirement' => 'Lab equipment',
+            'date_entry' => '2026-10-01',
+            'status' => 'Ongoing',
+            'priority' => 'Moderate',
+        ];
+
+        $this->actingAs($user)
+            ->post(route('technical-needs.store'), $payload + [
+                'signed_approval' => UploadedFile::fake()->create('signed-approval.pdf', 10, 'application/pdf'),
+            ])
+            ->assertRedirect(route('technical-needs', ['startup_id' => 1]));
+
+        $need = TechnicalNeed::query()->firstOrFail();
+        $oldApprovalPath = $need->approval_document_path;
+
+        $this->actingAs($user)
+            ->put(route('technical-needs.update', $need), [
+                ...$payload,
+                'requirement' => 'Updated lab equipment',
+                'signed_approval' => UploadedFile::fake()->create('replacement-approval.pdf', 12, 'application/pdf'),
+            ])
+            ->assertRedirect(route('technical-needs', ['startup_id' => 1]));
+
+        $need->refresh();
+        $this->assertSame('Updated lab equipment', $need->requirement);
+        $this->assertNotSame($oldApprovalPath, $need->approval_document_path);
+        $this->assertSame('replacement-approval.pdf', $need->approval_document_original_name);
+        $this->assertTrue(Storage::disk('local')->exists($need->approval_document_path));
+        $this->assertFalse(Storage::disk('local')->exists($oldApprovalPath));
+    }
+
     public function test_need_date_cannot_precede_its_entry_date(): void
     {
         Startup::ensureConfigured();

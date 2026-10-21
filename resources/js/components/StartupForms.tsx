@@ -1,6 +1,145 @@
 import { X, FileText, Paperclip, Printer, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useMemo, useContext, createContext, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+
+export type FormFieldValue = string | boolean | string[] | number | Record<string, unknown>;
+export type FormValues = Record<string, FormFieldValue>;
+
+interface FormRegistry {
+  register: (formId: number, read: () => FormValues) => void;
+  unregister: (formId: number) => void;
+  read: (formId: number) => FormValues | null;
+}
+
+const FormRegistryContext = createContext<FormRegistry | null>(null);
+
+export function FormRegistryProvider({ children }: { children: ReactNode }) {
+  const entries = useRef(new Map<number, () => FormValues>());
+  const registry = useMemo<FormRegistry>(() => ({
+    register: (formId, read) => {
+      entries.current.set(formId, read);
+    },
+    unregister: (formId) => {
+      entries.current.delete(formId);
+    },
+    read: (formId) => entries.current.get(formId)?.() ?? null,
+  }), []);
+
+  return <FormRegistryContext.Provider value={registry}>{children}</FormRegistryContext.Provider>;
+}
+
+export function useFormRegistry(): FormRegistry | null {
+  return useContext(FormRegistryContext);
+}
+
+export function useFormValues(formId: number, read: () => FormValues): void {
+  const registry = useContext(FormRegistryContext);
+  useEffect(() => {
+    registry?.register(formId, read);
+    return () => {
+      registry?.unregister(formId);
+    };
+  });
+}
+
+export interface RequiredFormField {
+  key: string;
+  label: string;
+  isEmpty?: (value: FormFieldValue | undefined) => boolean;
+}
+
+const isEmptyFieldValue = (value: FormFieldValue | undefined): boolean => {
+  if (value === undefined || value === null) {
+    return true;
+  }
+  if (typeof value === 'string') {
+    return value.trim() === '';
+  }
+  if (typeof value === 'boolean') {
+    return !value;
+  }
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+  if (typeof value === 'object') {
+    return Object.keys(value).length === 0;
+  }
+  return false;
+};
+
+const missingTrainingCategory = (value: FormFieldValue | undefined): boolean => {
+  if (value === undefined || value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return true;
+  }
+  const keys = Object.keys(value);
+  return [0, 1, 2, 3, 4, 5].some((category) => !keys.some((key) => key.startsWith(`${category}-`)));
+};
+
+export const FORM_REQUIRED_FIELDS: Record<number, RequiredFormField[]> = {
+  2: [
+    { key: 'dateOfApplication', label: 'Date of Application' },
+    { key: 'applicantName', label: 'Name of Applicant' },
+    { key: 'address', label: 'Address' },
+    { key: 'mobileNumber', label: 'Mobile Number' },
+    { key: 'emailAddress', label: 'Email Address' },
+    { key: 'biography', label: 'Biography' },
+    { key: 'keyExperience', label: 'Key Experience / Expertise to share' },
+    { key: 'sectorInterest', label: 'Sectors of Interest' },
+    { key: 'startupName', label: 'Proposed / Working Name of your Startup/Company' },
+    { key: 'orgWebsite', label: 'Organization Website' },
+    { key: 'companyMembers', label: 'Company Members' },
+    { key: 'innovationTitle', label: 'Title of your Innovation' },
+    { key: 'firstSector', label: 'First Relevant Sector' },
+    { key: 'secondSector', label: 'Second Relevant Sector' },
+    { key: 'theProblem', label: 'The Problem' },
+    { key: 'theSolution', label: 'The Solution' },
+    { key: 'keyBenefits', label: 'Key benefits or competitive advantage' },
+    { key: 'targetMarket', label: 'Target Market' },
+    { key: 'trlStatus', label: 'Status (TRL)' },
+    { key: 'commercializationRoute', label: 'Commercialization Route' },
+    { key: 'ipStatus', label: 'Intellectual Property (IP) Status' },
+    { key: 'fundingStatus', label: 'Funding Status' },
+    { key: 'revenueModel', label: 'Revenue Model' },
+    { key: 'searchKeywords', label: 'Search Keywords' },
+    { key: 'innovationDevelopment', label: 'Innovation/Company Development' },
+    { key: 'tbiGoal', label: 'Goal for the MARIAN TBI Incubation Program' },
+    { key: 'tbiAssistance', label: 'Assistance you are looking for from MARIAN TBI' },
+    { key: 'sdgs', label: 'UN Sustainable Development Goals (SDGs)' },
+    { key: 'mediaUrl1', label: 'Media Description and URL (first entry)' },
+    { key: 'mediaUrl2', label: 'Media Description and URL (second entry)' },
+  ],
+  3: [
+    { key: 'teamLeadName', label: 'Team Lead Name' },
+    { key: 'courseYear', label: 'Course / Year' },
+    { key: 'emailMobile', label: 'Email & Mobile' },
+    { key: 'thesisTitle', label: 'Thesis Title' },
+    { key: 'thesisAdvisor', label: 'Thesis Advisor' },
+    { key: 'projectStage', label: 'Where is the project right now?' },
+    { key: 'whoHasProblem', label: 'Who has the problem you are solving?' },
+    { key: 'whyBetter', label: 'Why is your solution better than what they use now?' },
+    { key: 'whyJoin', label: 'Why do you want to join M-TSA?' },
+  ],
+  7: [
+    { key: 'startupName', label: 'Name of Startup/Company' },
+    { key: 'members', label: 'Members' },
+    { key: 'ratings', label: 'Future training area ratings', isEmpty: missingTrainingCategory },
+    { key: 'otherSkills', label: 'Other critical skills / training' },
+  ],
+  8: [
+    { key: 'preRatings', label: 'Pre-training survey ratings' },
+    { key: 'postContentRatings', label: 'Content Quality ratings' },
+    { key: 'postInstructorRatings', label: 'Instructor/Facilitator ratings' },
+    { key: 'postImpactRatings', label: 'Impact and Value ratings' },
+    { key: 'feedback10', label: 'Future training topics (Question 10)' },
+  ],
+};
+
+export function findMissingRequiredFields(formId: number, values: FormValues): RequiredFormField[] {
+  return (FORM_REQUIRED_FIELDS[formId] ?? []).filter((field) => {
+    const value = values[field.key];
+    return field.isEmpty ? field.isEmpty(value) : isEmptyFieldValue(value);
+  });
+}
 
 // ──────────────────────────────────────────────
 //  Master list of all 21 startup forms
@@ -392,6 +531,12 @@ function Form1Modal({ onClose }: { onClose: () => void }) {
   const evalInputClass =
     'w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#FF2B5E] focus:border-transparent';
 
+  useFormValues(1, () => ({
+    scores,
+    selectionOutcome,
+    evaluators,
+  }));
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -469,7 +614,7 @@ function Form1Modal({ onClose }: { onClose: () => void }) {
                           ({row.points})
                         </td>
                         <td className="border border-gray-300 px-3 py-2 text-center">
-                          <input
+                          <input data-field="scores"
                             type="text"
                             value={scores[row.subCriteria] || ''}
                             onChange={e => updateScore(row.subCriteria, e.target.value)}
@@ -516,7 +661,7 @@ function Form1Modal({ onClose }: { onClose: () => void }) {
                   { value: 'not-recommended', label: 'Not Recommended:', desc: '(Score ≤ 54 or critical flaws identified)' },
                 ].map(opt => (
                   <label key={opt.value} className="flex items-center gap-2 cursor-pointer group">
-                    <input
+                    <input data-field="selectionOutcome"
                       type="radio"
                       name="selectionOutcome"
                       value={opt.value}
@@ -564,7 +709,7 @@ function Form1Modal({ onClose }: { onClose: () => void }) {
                 {evaluators.map((ev, i) => (
                   <tr key={i}>
                     <td className="border border-gray-300 px-2 py-2">
-                      <input
+                      <input data-field="evaluators"
                         type="text"
                         value={ev.name}
                         onChange={e => updateEvaluator(i, 'name', e.target.value)}
@@ -573,7 +718,7 @@ function Form1Modal({ onClose }: { onClose: () => void }) {
                       />
                     </td>
                     <td className="border border-gray-300 px-2 py-2">
-                      <input
+                      <input data-field="evaluators"
                         type="text"
                         value={ev.role}
                         onChange={e => updateEvaluator(i, 'role', e.target.value)}
@@ -585,7 +730,7 @@ function Form1Modal({ onClose }: { onClose: () => void }) {
                       <p className="text-[10px] text-gray-400">(Signature Over Printed Name)</p>
                     </td>
                     <td className="border border-gray-300 px-2 py-2">
-                      <input
+                      <input data-field="evaluators"
                         type="date"
                         value={ev.date}
                         onChange={e => updateEvaluator(i, 'date', e.target.value)}
@@ -828,39 +973,39 @@ function Form2Modal({ onClose }: { onClose: () => void }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Date of Application <span className="text-red-500">*</span></label>
-              <input type="date" value={dateOfApplication} onChange={e => setDateOfApplication(e.target.value)} className={inputClass} />
+              <input data-field="dateOfApplication" type="date" value={dateOfApplication} onChange={e => setDateOfApplication(e.target.value)} className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Name of Applicant (Last Name, First Name, Middle Name) <span className="text-red-500">*</span></label>
-              <input type="text" value={applicantName} onChange={e => setApplicantName(e.target.value)} placeholder="Your answer" className={inputClass} />
+              <input data-field="applicantName" type="text" value={applicantName} onChange={e => setApplicantName(e.target.value)} placeholder="Your answer" className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">UIC Affiliation (if any)</label>
-              <input type="text" value={uicAffiliation} onChange={e => setUicAffiliation(e.target.value)} placeholder="Your answer" className={inputClass} />
+              <input data-field="uicAffiliation" type="text" value={uicAffiliation} onChange={e => setUicAffiliation(e.target.value)} placeholder="Your answer" className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Address <span className="text-red-500">*</span></label>
-              <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Your answer" className={inputClass} />
+              <input data-field="address" type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="Your answer" className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number <span className="text-red-500">*</span></label>
-              <input type="text" value={mobileNumber} onChange={e => setMobileNumber(e.target.value)} placeholder="Your answer" className={inputClass} />
+              <input data-field="mobileNumber" type="text" value={mobileNumber} onChange={e => setMobileNumber(e.target.value)} placeholder="Your answer" className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email Address <span className="text-red-500">*</span></label>
-              <input type="email" value={emailAddress} onChange={e => setEmailAddress(e.target.value)} placeholder="Your answer" className={inputClass} />
+              <input data-field="emailAddress" type="email" value={emailAddress} onChange={e => setEmailAddress(e.target.value)} placeholder="Your answer" className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Biography (at most 150 words – stating your current education, employment, recognition and awards, and any connection to UIC) <span className="text-red-500">*</span></label>
-              <textarea rows={3} value={biography} onChange={e => setBiography(e.target.value)} placeholder="Your answer" className={textareaClass} />
+              <textarea data-field="biography" rows={3} value={biography} onChange={e => setBiography(e.target.value)} placeholder="Your answer" className={textareaClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Key Experience / Expertise to share (List top 3-5 relevant skills, expertise, or hobbies) <span className="text-red-500">*</span></label>
-              <textarea rows={2} value={keyExperience} onChange={e => setKeyExperience(e.target.value)} placeholder="Your answer" className={textareaClass} />
+              <textarea data-field="keyExperience" rows={2} value={keyExperience} onChange={e => setKeyExperience(e.target.value)} placeholder="Your answer" className={textareaClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">I am broadly interested in the following sectors: (ex. robotics, electronics, agriculture, software) <span className="text-red-500">*</span></label>
-              <input type="text" value={sectorInterest} onChange={e => setSectorInterest(e.target.value)} placeholder="Your answer" className={inputClass} />
+              <input data-field="sectorInterest" type="text" value={sectorInterest} onChange={e => setSectorInterest(e.target.value)} placeholder="Your answer" className={inputClass} />
             </div>
           </div>
         );
@@ -874,16 +1019,16 @@ function Form2Modal({ onClose }: { onClose: () => void }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Proposed / Working Name of your Startup/Company <span className="text-red-500">*</span></label>
-              <input type="text" value={startupName} onChange={e => setStartupName(e.target.value)} placeholder="Your answer" className={inputClass} />
+              <input data-field="startupName" type="text" value={startupName} onChange={e => setStartupName(e.target.value)} placeholder="Your answer" className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Organization Website (if any) <span className="text-red-500">*</span></label>
-              <input type="text" value={orgWebsite} onChange={e => setOrgWebsite(e.target.value)} placeholder="Your answer" className={inputClass} />
+              <input data-field="orgWebsite" type="text" value={orgWebsite} onChange={e => setOrgWebsite(e.target.value)} placeholder="Your answer" className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Company Members (Other than the applicant) <span className="text-red-500">*</span></label>
               <p className="text-xs text-gray-500 mb-1">(Name, Email Address, Role/Description)</p>
-              <textarea rows={4} value={companyMembers} onChange={e => setCompanyMembers(e.target.value)} placeholder="Your answer" className={textareaClass} />
+              <textarea data-field="companyMembers" rows={4} value={companyMembers} onChange={e => setCompanyMembers(e.target.value)} placeholder="Your answer" className={textareaClass} />
             </div>
           </div>
         );
@@ -897,37 +1042,37 @@ function Form2Modal({ onClose }: { onClose: () => void }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Title of your Innovation (one-sentence descriptive title) <span className="text-red-500">*</span></label>
-              <input type="text" value={innovationTitle} onChange={e => setInnovationTitle(e.target.value)} placeholder="Your answer" className={inputClass} />
+              <input data-field="innovationTitle" type="text" value={innovationTitle} onChange={e => setInnovationTitle(e.target.value)} placeholder="Your answer" className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">First Relevant Sector <span className="text-red-500">*</span></label>
-              <select value={firstSector} onChange={e => setFirstSector(e.target.value)} className={selectClass}>
+              <select data-field="firstSector" value={firstSector} onChange={e => setFirstSector(e.target.value)} className={selectClass}>
                 <option value="">Choose</option>
                 {SECTOR_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Second Relevant Sector <span className="text-red-500">*</span></label>
-              <select value={secondSector} onChange={e => setSecondSector(e.target.value)} className={selectClass}>
+              <select data-field="secondSector" value={secondSector} onChange={e => setSecondSector(e.target.value)} className={selectClass}>
                 <option value="">Choose</option>
                 {SECTOR_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">The Problem (at most 200 words – What problem are you solving? Focus on the specific problem in the local/regional context, if applicable.) <span className="text-red-500">*</span></label>
-              <textarea rows={4} value={theProblem} onChange={e => setTheProblem(e.target.value)} placeholder="Your answer" className={textareaClass} />
+              <textarea data-field="theProblem" rows={4} value={theProblem} onChange={e => setTheProblem(e.target.value)} placeholder="Your answer" className={textareaClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">The Solution (at most 200 words – Describe what your innovation/company and how it addresses the problem?) <span className="text-red-500">*</span></label>
-              <textarea rows={4} value={theSolution} onChange={e => setTheSolution(e.target.value)} placeholder="Your answer" className={textareaClass} />
+              <textarea data-field="theSolution" rows={4} value={theSolution} onChange={e => setTheSolution(e.target.value)} placeholder="Your answer" className={textareaClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Key benefits or competitive advantage (List 1-4 benefits to your users over your competitors) <span className="text-red-500">*</span></label>
-              <textarea rows={3} value={keyBenefits} onChange={e => setKeyBenefits(e.target.value)} placeholder="Your answer" className={textareaClass} />
+              <textarea data-field="keyBenefits" rows={3} value={keyBenefits} onChange={e => setKeyBenefits(e.target.value)} placeholder="Your answer" className={textareaClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Target Market (In 1-2 sentences, provide details of the target market(s) and ideal customers) <span className="text-red-500">*</span></label>
-              <textarea rows={2} value={targetMarket} onChange={e => setTargetMarket(e.target.value)} placeholder="Your answer" className={textareaClass} />
+              <textarea data-field="targetMarket" rows={2} value={targetMarket} onChange={e => setTargetMarket(e.target.value)} placeholder="Your answer" className={textareaClass} />
             </div>
           </div>
         );
@@ -941,43 +1086,43 @@ function Form2Modal({ onClose }: { onClose: () => void }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status (TRL) <span className="text-red-500">*</span></label>
-              <select value={trlStatus} onChange={e => setTrlStatus(e.target.value)} className={selectClass}>
+              <select data-field="trlStatus" value={trlStatus} onChange={e => setTrlStatus(e.target.value)} className={selectClass}>
                 <option value="">Choose</option>
                 {TRL_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Commercialization Route <span className="text-red-500">*</span></label>
-              <select value={commercializationRoute} onChange={e => setCommercializationRoute(e.target.value)} className={selectClass}>
+              <select data-field="commercializationRoute" value={commercializationRoute} onChange={e => setCommercializationRoute(e.target.value)} className={selectClass}>
                 <option value="">Choose</option>
                 {COMMERCIALIZATION_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Intellectual Property (IP) Status <span className="text-red-500">*</span></label>
-              <select value={ipStatus} onChange={e => setIpStatus(e.target.value)} className={selectClass}>
+              <select data-field="ipStatus" value={ipStatus} onChange={e => setIpStatus(e.target.value)} className={selectClass}>
                 <option value="">Choose</option>
                 {IP_STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Funding Status <span className="text-red-500">*</span></label>
-              <select value={fundingStatus} onChange={e => setFundingStatus(e.target.value)} className={selectClass}>
+              <select data-field="fundingStatus" value={fundingStatus} onChange={e => setFundingStatus(e.target.value)} className={selectClass}>
                 <option value="">Choose</option>
                 {FUNDING_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Revenue Model (In 1-2 sentences, how will your innovation generate revenue?) <span className="text-red-500">*</span></label>
-              <textarea rows={2} value={revenueModel} onChange={e => setRevenueModel(e.target.value)} placeholder="Your answer" className={textareaClass} />
+              <textarea data-field="revenueModel" rows={2} value={revenueModel} onChange={e => setRevenueModel(e.target.value)} placeholder="Your answer" className={textareaClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Search Keywords (At least 3 words that are related to your innovation) <span className="text-red-500">*</span></label>
-              <input type="text" value={searchKeywords} onChange={e => setSearchKeywords(e.target.value)} placeholder="Your answer" className={inputClass} />
+              <input data-field="searchKeywords" type="text" value={searchKeywords} onChange={e => setSearchKeywords(e.target.value)} placeholder="Your answer" className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Innovation/Company Development (In 1-2 sentences, provide details of the current development and next milestone.) <span className="text-red-500">*</span></label>
-              <textarea rows={2} value={innovationDevelopment} onChange={e => setInnovationDevelopment(e.target.value)} placeholder="Your answer" className={textareaClass} />
+              <textarea data-field="innovationDevelopment" rows={2} value={innovationDevelopment} onChange={e => setInnovationDevelopment(e.target.value)} placeholder="Your answer" className={textareaClass} />
             </div>
           </div>
         );
@@ -991,15 +1136,15 @@ function Form2Modal({ onClose }: { onClose: () => void }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">What is the single most important goal you wish to achieve during the MARIAN TBI Incubation Program? (at 50 words) <span className="text-red-500">*</span></label>
-              <textarea rows={3} value={tbiGoal} onChange={e => setTbiGoal(e.target.value)} placeholder="Your answer" className={textareaClass} />
+              <textarea data-field="tbiGoal" rows={3} value={tbiGoal} onChange={e => setTbiGoal(e.target.value)} placeholder="Your answer" className={textareaClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">What specific assistance are you looking for from MARIAN TBI? (e.g., technical mentoring, business planning, funding assistance, prototyping facilities, networking) <span className="text-red-500">*</span></label>
-              <textarea rows={3} value={tbiAssistance} onChange={e => setTbiAssistance(e.target.value)} placeholder="Your answer" className={textareaClass} />
+              <textarea data-field="tbiAssistance" rows={3} value={tbiAssistance} onChange={e => setTbiAssistance(e.target.value)} placeholder="Your answer" className={textareaClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">UN Sustainable Development Goals (SDGs): Choose up to three that your innovation addresses (List of 17 SDGs) <span className="text-red-500">*</span></label>
-              <textarea rows={2} value={sdgs} onChange={e => setSdgs(e.target.value)} placeholder="Your answer" className={textareaClass} />
+              <textarea data-field="sdgs" rows={2} value={sdgs} onChange={e => setSdgs(e.target.value)} placeholder="Your answer" className={textareaClass} />
             </div>
           </div>
         );
@@ -1013,11 +1158,11 @@ function Form2Modal({ onClose }: { onClose: () => void }) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Description and URL <span className="text-red-500">*</span></label>
-              <input type="text" value={mediaUrl1} onChange={e => setMediaUrl1(e.target.value)} placeholder="Your answer" className={inputClass} />
+              <input data-field="mediaUrl1" type="text" value={mediaUrl1} onChange={e => setMediaUrl1(e.target.value)} placeholder="Your answer" className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Description and URL <span className="text-red-500">*</span></label>
-              <input type="text" value={mediaUrl2} onChange={e => setMediaUrl2(e.target.value)} placeholder="Your answer" className={inputClass} />
+              <input data-field="mediaUrl2" type="text" value={mediaUrl2} onChange={e => setMediaUrl2(e.target.value)} placeholder="Your answer" className={inputClass} />
             </div>
           </div>
         );
@@ -1036,6 +1181,40 @@ function Form2Modal({ onClose }: { onClose: () => void }) {
     'TBI Goals',
     'Media & Publications',
   ];
+
+  useFormValues(2, () => ({
+    dateOfApplication,
+    applicantName,
+    uicAffiliation,
+    address,
+    mobileNumber,
+    emailAddress,
+    biography,
+    keyExperience,
+    sectorInterest,
+    startupName,
+    orgWebsite,
+    companyMembers,
+    innovationTitle,
+    firstSector,
+    secondSector,
+    theProblem,
+    theSolution,
+    keyBenefits,
+    targetMarket,
+    trlStatus,
+    commercializationRoute,
+    ipStatus,
+    fundingStatus,
+    revenueModel,
+    searchKeywords,
+    innovationDevelopment,
+    tbiGoal,
+    tbiAssistance,
+    sdgs,
+    mediaUrl1,
+    mediaUrl2,
+  }));
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
@@ -1228,6 +1407,25 @@ function Form3Modal({ onClose }: { onClose: () => void }) {
   const sectionHeaderClass =
     'text-sm font-bold text-gray-900 mb-3 pb-1 border-b-2 border-[#FF2B5E]';
 
+  useFormValues(3, () => ({
+    teamLeadName,
+    courseYear,
+    emailMobile,
+    coFounder1,
+    coFounder2,
+    coFounder3,
+    thesisTitle,
+    thesisAdvisor,
+    projectStage,
+    whoHasProblem,
+    whyBetter,
+    whyJoin,
+    hasThesisAbstract,
+    commitAgreed,
+    receivedBy,
+    receivedDate,
+  }));
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -1256,30 +1454,30 @@ function Form3Modal({ onClose }: { onClose: () => void }) {
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Team Lead Name <span className="text-red-500">*</span></label>
-                <input type="text" value={teamLeadName} onChange={e => setTeamLeadName(e.target.value)} placeholder="Enter team lead name" className={inputClass} />
+                <input data-field="teamLeadName" type="text" value={teamLeadName} onChange={e => setTeamLeadName(e.target.value)} placeholder="Enter team lead name" className={inputClass} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Course / Year <span className="text-red-500">*</span></label>
-                <input type="text" value={courseYear} onChange={e => setCourseYear(e.target.value)} placeholder="e.g., BSIT / 4th Year" className={inputClass} />
+                <input data-field="courseYear" type="text" value={courseYear} onChange={e => setCourseYear(e.target.value)} placeholder="e.g., BSIT / 4th Year" className={inputClass} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email &amp; Mobile <span className="text-red-500">*</span></label>
-                <input type="text" value={emailMobile} onChange={e => setEmailMobile(e.target.value)} placeholder="email@example.com / 09XX-XXX-XXXX" className={inputClass} />
+                <input data-field="emailMobile" type="text" value={emailMobile} onChange={e => setEmailMobile(e.target.value)} placeholder="email@example.com / 09XX-XXX-XXXX" className={inputClass} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Co-Founders / Members</label>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-400 w-4">1.</span>
-                    <input type="text" value={coFounder1} onChange={e => setCoFounder1(e.target.value)} placeholder="Name" className={inputClass} />
+                    <input data-field="coFounder1" type="text" value={coFounder1} onChange={e => setCoFounder1(e.target.value)} placeholder="Name" className={inputClass} />
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-400 w-4">2.</span>
-                    <input type="text" value={coFounder2} onChange={e => setCoFounder2(e.target.value)} placeholder="Name" className={inputClass} />
+                    <input data-field="coFounder2" type="text" value={coFounder2} onChange={e => setCoFounder2(e.target.value)} placeholder="Name" className={inputClass} />
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-400 w-4">3.</span>
-                    <input type="text" value={coFounder3} onChange={e => setCoFounder3(e.target.value)} placeholder="Name" className={inputClass} />
+                    <input data-field="coFounder3" type="text" value={coFounder3} onChange={e => setCoFounder3(e.target.value)} placeholder="Name" className={inputClass} />
                   </div>
                 </div>
               </div>
@@ -1292,11 +1490,11 @@ function Form3Modal({ onClose }: { onClose: () => void }) {
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Thesis Title <span className="text-red-500">*</span></label>
-                <input type="text" value={thesisTitle} onChange={e => setThesisTitle(e.target.value)} placeholder="Enter thesis title" className={inputClass} />
+                <input data-field="thesisTitle" type="text" value={thesisTitle} onChange={e => setThesisTitle(e.target.value)} placeholder="Enter thesis title" className={inputClass} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Thesis Advisor <span className="text-red-500">*</span></label>
-                <input type="text" value={thesisAdvisor} onChange={e => setThesisAdvisor(e.target.value)} placeholder="Enter thesis advisor name" className={inputClass} />
+                <input data-field="thesisAdvisor" type="text" value={thesisAdvisor} onChange={e => setThesisAdvisor(e.target.value)} placeholder="Enter thesis advisor name" className={inputClass} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Where is the project right now? <span className="text-red-500">*</span></label>
@@ -1307,7 +1505,7 @@ function Form3Modal({ onClose }: { onClose: () => void }) {
                     { value: 'lab', label: 'Lab Tested (TRL 4): It works in the lab under controlled conditions.' },
                   ].map(opt => (
                     <label key={opt.value} className="flex items-start gap-2 cursor-pointer group">
-                      <input
+                      <input data-field="projectStage"
                         type="radio"
                         name="projectStage"
                         value={opt.value}
@@ -1330,12 +1528,12 @@ function Form3Modal({ onClose }: { onClose: () => void }) {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Who has the problem you are solving? <span className="text-red-500">*</span></label>
                 <p className="text-xs text-gray-400 mb-1">e.g., Rice farmers, Call center agents, Medical students</p>
-                <input type="text" value={whoHasProblem} onChange={e => setWhoHasProblem(e.target.value)} placeholder="Your answer" className={inputClass} />
+                <input data-field="whoHasProblem" type="text" value={whoHasProblem} onChange={e => setWhoHasProblem(e.target.value)} placeholder="Your answer" className={inputClass} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Why is your solution better than what they use now? <span className="text-red-500">*</span></label>
                 <p className="text-xs text-gray-400 mb-1">e.g., It's cheaper, faster, or eco-friendly</p>
-                <input type="text" value={whyBetter} onChange={e => setWhyBetter(e.target.value)} placeholder="Your answer" className={inputClass} />
+                <input data-field="whyBetter" type="text" value={whyBetter} onChange={e => setWhyBetter(e.target.value)} placeholder="Your answer" className={inputClass} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Why do you want to join M-TSA? <span className="text-red-500">*</span></label>
@@ -1346,7 +1544,7 @@ function Form3Modal({ onClose }: { onClose: () => void }) {
                     { value: 'improve', label: 'To improve the prototype.' },
                   ].map(opt => (
                     <label key={opt.value} className="flex items-center gap-2 cursor-pointer group">
-                      <input
+                      <input data-field="whyJoin"
                         type="checkbox"
                         checked={whyJoin.includes(opt.value)}
                         onChange={() => toggleWhyJoin(opt.value)}
@@ -1364,7 +1562,7 @@ function Form3Modal({ onClose }: { onClose: () => void }) {
           <div>
             <h3 className={sectionHeaderClass}>4. REQUIRED ATTACHMENT</h3>
             <label className="flex items-center gap-2 cursor-pointer group">
-              <input
+              <input data-field="hasThesisAbstract"
                 type="checkbox"
                 checked={hasThesisAbstract}
                 onChange={e => setHasThesisAbstract(e.target.checked)}
@@ -1378,7 +1576,7 @@ function Form3Modal({ onClose }: { onClose: () => void }) {
           <div>
             <h3 className={sectionHeaderClass}>5. COMMITMENT</h3>
             <label className="flex items-start gap-2 cursor-pointer group">
-              <input
+              <input data-field="commitAgreed"
                 type="checkbox"
                 checked={commitAgreed}
                 onChange={e => setCommitAgreed(e.target.checked)}
@@ -1394,11 +1592,11 @@ function Form3Modal({ onClose }: { onClose: () => void }) {
           <div className="border-t border-gray-200 pt-4 space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Received by</label>
-              <input type="text" value={receivedBy} onChange={e => setReceivedBy(e.target.value)} placeholder="Name" className={inputClass} />
+              <input data-field="receivedBy" type="text" value={receivedBy} onChange={e => setReceivedBy(e.target.value)} placeholder="Name" className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-              <input type="date" value={receivedDate} onChange={e => setReceivedDate(e.target.value)} className={inputClass} />
+              <input data-field="receivedDate" type="date" value={receivedDate} onChange={e => setReceivedDate(e.target.value)} className={inputClass} />
             </div>
           </div>
 
@@ -1559,6 +1757,13 @@ function Form7Modal({ onClose }: { onClose: () => void }) {
     w.print();
   };
 
+  useFormValues(7, () => ({
+    startupName,
+    members,
+    ratings,
+    otherSkills,
+  }));
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -1605,7 +1810,7 @@ function Form7Modal({ onClose }: { onClose: () => void }) {
               {/* Startup name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name of Startup/Company: <span className="text-[#FF2B5E]">*</span></label>
-                <input
+                <input data-field="startupName"
                   type="text"
                   value={startupName}
                   onChange={e => setStartupName(e.target.value)}
@@ -1617,7 +1822,7 @@ function Form7Modal({ onClose }: { onClose: () => void }) {
               {/* Members */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Members (Last Name, First Name, Middle Initial): <span className="text-[#FF2B5E]">*</span></label>
-                <input
+                <input data-field="members"
                   type="text"
                   value={members}
                   onChange={e => setMembers(e.target.value)}
@@ -1656,7 +1861,7 @@ function Form7Modal({ onClose }: { onClose: () => void }) {
                             <td className="px-3 py-2 text-gray-700">{item}</td>
                             {[5, 4, 3, 2, 1].map(v => (
                               <td key={v} className="text-center px-3 py-2">
-                                <input
+                                <input data-field="ratings"
                                   type="radio"
                                   name={`form7-cat${catIdx}-item${itemIdx}`}
                                   checked={ratings[`${catIdx}-${itemIdx}`] === v}
@@ -1678,7 +1883,7 @@ function Form7Modal({ onClose }: { onClose: () => void }) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   List down other skills/training not mentioned that you believe are critical for your venture: <span className="text-[#FF2B5E]">*</span>
                 </label>
-                <input
+                <input data-field="otherSkills"
                   type="text"
                   value={otherSkills}
                   onChange={e => setOtherSkills(e.target.value)}
@@ -1838,7 +2043,8 @@ function Form8Modal({ onClose }: { onClose: () => void }) {
     ratings: Record<number, number>,
     setRating: (idx: number, val: number) => void,
     namePrefix: string,
-    scaleLabel: string
+    scaleLabel: string,
+    fieldKey: string
   ) => (
     <div className="overflow-x-auto">
       <p className="text-xs text-gray-500 mb-2">{scaleLabel}</p>
@@ -1859,6 +2065,7 @@ function Form8Modal({ onClose }: { onClose: () => void }) {
                 <td key={v} className="text-center px-3 py-2">
                   <input
                     type="radio"
+                    data-field={fieldKey}
                     name={`${namePrefix}-${idx}`}
                     checked={ratings[idx] === v}
                     onChange={() => setRating(idx, v)}
@@ -1890,6 +2097,15 @@ function Form8Modal({ onClose }: { onClose: () => void }) {
       </tbody>
     </table>
   );
+
+  useFormValues(8, () => ({
+    preRatings,
+    postContentRatings,
+    postInstructorRatings,
+    postImpactRatings,
+    feedback9,
+    feedback10,
+  }));
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
@@ -1955,7 +2171,8 @@ function Form8Modal({ onClose }: { onClose: () => void }) {
                 preRatings,
                 (idx, val) => setPreRatings(prev => ({ ...prev, [idx]: val })),
                 'f8-pre',
-                'Rating Scale: 1 = Low, 5 = High'
+                'Rating Scale: 1 = Low, 5 = High',
+                'preRatings'
               )}
             </>
           )}
@@ -1977,7 +2194,8 @@ function Form8Modal({ onClose }: { onClose: () => void }) {
                 postContentRatings,
                 (idx, val) => setPostContentRatings(prev => ({ ...prev, [idx]: val })),
                 'f8-content',
-                ''
+                '',
+                'postContentRatings'
               )}
 
               {/* II. Instructor/Facilitator */}
@@ -1987,7 +2205,8 @@ function Form8Modal({ onClose }: { onClose: () => void }) {
                 postInstructorRatings,
                 (idx, val) => setPostInstructorRatings(prev => ({ ...prev, [idx]: val })),
                 'f8-instructor',
-                ''
+                '',
+                'postInstructorRatings'
               )}
 
               {/* III. Impact and Value */}
@@ -1997,7 +2216,8 @@ function Form8Modal({ onClose }: { onClose: () => void }) {
                 postImpactRatings,
                 (idx, val) => setPostImpactRatings(prev => ({ ...prev, [idx]: val })),
                 'f8-impact',
-                ''
+                '',
+                'postImpactRatings'
               )}
 
               {/* IV. Open Feedback */}
@@ -2007,7 +2227,7 @@ function Form8Modal({ onClose }: { onClose: () => void }) {
                   <label className="block text-sm text-gray-700 mb-1">
                     9. What was the <em>most</em> valuable part of the training?
                   </label>
-                  <input
+                  <input data-field="feedback9"
                     type="text"
                     value={feedback9}
                     onChange={e => setFeedback9(e.target.value)}
@@ -2019,7 +2239,7 @@ function Form8Modal({ onClose }: { onClose: () => void }) {
                   <label className="block text-sm text-gray-700 mb-1">
                     10. What specific topic should be covered in more detail in the future? <span className="text-[#FF2B5E]">*</span>
                   </label>
-                  <input
+                  <input data-field="feedback10"
                     type="text"
                     value={feedback10}
                     onChange={e => setFeedback10(e.target.value)}
@@ -2185,7 +2405,7 @@ function Form9Modal({ onClose }: { onClose: () => void }) {
               <td className="px-3 py-2 text-gray-700 border border-gray-200 font-medium text-xs">{row.label}</td>
               {['plan', 'progress', 'variance'].map(col => (
                 <td key={col} className="px-1 py-1 border border-gray-200">
-                  <input
+                  <input data-field="grid"
                     type="text"
                     value={grid[`${sectionKey}-${idx}-${col}`] || ''}
                     onChange={e => setCell(`${sectionKey}-${idx}-${col}`, e.target.value)}
@@ -2220,6 +2440,24 @@ function Form9Modal({ onClose }: { onClose: () => void }) {
     w.print();
   };
 
+  useFormValues(9, () => ({
+    startupName,
+    members,
+    reportDate,
+    periodFrom,
+    periodTo,
+    trlStart,
+    trlAchieved,
+    trlTarget,
+    grid,
+    evalRatings,
+    evalRemarks,
+    overallPerf,
+    evalName,
+    evalTitle,
+    evalDate,
+  }));
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -2250,26 +2488,26 @@ function Form9Modal({ onClose }: { onClose: () => void }) {
               <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Name of Startup / Company</label>
-                  <input type="text" value={startupName} onChange={e => setStartupName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                  <input data-field="startupName" type="text" value={startupName} onChange={e => setStartupName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                 </div>
                 {[0, 1, 2, 3, 4].map(i => (
                   <div key={i}>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Member {i + 1}</label>
-                    <input type="text" value={members[i]} onChange={e => setMember(i, e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                    <input data-field="members" type="text" value={members[i]} onChange={e => setMember(i, e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                   </div>
                 ))}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date of Report</label>
-                  <input type="date" value={reportDate} onChange={e => setReportDate(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                  <input data-field="reportDate" type="date" value={reportDate} onChange={e => setReportDate(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Reporting Period – From</label>
-                    <input type="date" value={periodFrom} onChange={e => setPeriodFrom(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                    <input data-field="periodFrom" type="date" value={periodFrom} onChange={e => setPeriodFrom(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Reporting Period – To</label>
-                    <input type="date" value={periodTo} onChange={e => setPeriodTo(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                    <input data-field="periodTo" type="date" value={periodTo} onChange={e => setPeriodTo(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                   </div>
                 </div>
               </div>
@@ -2296,14 +2534,14 @@ function Form9Modal({ onClose }: { onClose: () => void }) {
                   </thead>
                   <tbody>
                     {[
-                      { label: 'TRL Start', value: trlStart, set: setTrlStart },
-                      { label: 'TRL Achieved', value: trlAchieved, set: setTrlAchieved },
-                      { label: 'TRL Target', value: trlTarget, set: setTrlTarget },
+                      { label: 'TRL Start', field: 'trlStart', value: trlStart, set: setTrlStart },
+                      { label: 'TRL Achieved', field: 'trlAchieved', value: trlAchieved, set: setTrlAchieved },
+                      { label: 'TRL Target', field: 'trlTarget', value: trlTarget, set: setTrlTarget },
                     ].map((r, i) => (
                       <tr key={i}>
                         <td className="px-3 py-2 text-gray-700 border border-gray-200 font-medium text-xs w-[30%]">{r.label}</td>
                         <td className="px-1 py-1 border border-gray-200">
-                          <input type="text" value={r.value} onChange={e => r.set(e.target.value)} className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
+                          <input type="text" data-field={r.field} value={r.value} onChange={e => r.set(e.target.value)} className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
                         </td>
                       </tr>
                     ))}
@@ -2365,10 +2603,10 @@ function Form9Modal({ onClose }: { onClose: () => void }) {
                       <tr key={idx}>
                         <td className="px-3 py-2 text-gray-700 border border-gray-200 font-medium text-xs">{row.label}</td>
                         <td className="px-1 py-1 border border-gray-200">
-                          <input type="text" value={grid[`s5-${idx}-activities`] || ''} onChange={e => setCell(`s5-${idx}-activities`, e.target.value)} className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
+                          <input data-field="grid" type="text" value={grid[`s5-${idx}-activities`] || ''} onChange={e => setCell(`s5-${idx}-activities`, e.target.value)} className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
                         </td>
                         <td className="px-1 py-1 border border-gray-200">
-                          <input type="text" value={grid[`s5-${idx}-date`] || ''} onChange={e => setCell(`s5-${idx}-date`, e.target.value)} className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
+                          <input data-field="grid" type="text" value={grid[`s5-${idx}-date`] || ''} onChange={e => setCell(`s5-${idx}-date`, e.target.value)} className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
                         </td>
                       </tr>
                     ))}
@@ -2404,7 +2642,7 @@ function Form9Modal({ onClose }: { onClose: () => void }) {
                         <td className="px-3 py-2 text-gray-700 border border-gray-200 font-medium text-xs">{dim}</td>
                         {['Exceeding', 'On Track', 'Needs Attention'].map(opt => (
                           <td key={opt} className="text-center px-2 py-2 border border-gray-200">
-                            <input
+                            <input data-field="evalRatings"
                               type="radio"
                               name={`eval-dim-${idx}`}
                               checked={evalRatings[idx] === opt}
@@ -2414,7 +2652,7 @@ function Form9Modal({ onClose }: { onClose: () => void }) {
                           </td>
                         ))}
                         <td className="px-1 py-1 border border-gray-200">
-                          <input type="text" value={evalRemarks[idx] || ''} onChange={e => setEvalRemarks(prev => ({ ...prev, [idx]: e.target.value }))} className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
+                          <input data-field="evalRemarks" type="text" value={evalRemarks[idx] || ''} onChange={e => setEvalRemarks(prev => ({ ...prev, [idx]: e.target.value }))} className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
                         </td>
                       </tr>
                     ))}
@@ -2428,7 +2666,7 @@ function Form9Modal({ onClose }: { onClose: () => void }) {
                 <div className="flex flex-wrap gap-4">
                   {['Excellent', 'Good', 'Satisfactory', 'Needs Attention'].map(opt => (
                     <label key={opt} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                      <input
+                      <input data-field="overallPerf"
                         type="radio"
                         name="overall-perf"
                         checked={overallPerf === opt}
@@ -2445,15 +2683,15 @@ function Form9Modal({ onClose }: { onClose: () => void }) {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Evaluator's Name</label>
-                  <input type="text" value={evalName} onChange={e => setEvalName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                  <input data-field="evalName" type="text" value={evalName} onChange={e => setEvalName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Evaluator's Title</label>
-                  <input type="text" value={evalTitle} onChange={e => setEvalTitle(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                  <input data-field="evalTitle" type="text" value={evalTitle} onChange={e => setEvalTitle(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date of Evaluation</label>
-                  <input type="date" value={evalDate} onChange={e => setEvalDate(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                  <input data-field="evalDate" type="date" value={evalDate} onChange={e => setEvalDate(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                 </div>
               </div>
             </>
@@ -2682,7 +2920,7 @@ function Form10Modal({ onClose }: { onClose: () => void }) {
             <tr key={idx}>
               {['activity', 'outcome', 'kpi', 'date', 'notes'].map(col => (
                 <td key={col} className="px-1 py-1 border border-gray-200">
-                  <textarea
+                  <textarea data-field="grid"
                     value={grid[`${sectionKey}-${idx}-${col}`] || ''}
                     onChange={e => setCell(`${sectionKey}-${idx}-${col}`, e.target.value)}
                     rows={2}
@@ -2737,6 +2975,22 @@ function Form10Modal({ onClose }: { onClose: () => void }) {
     </table>
   );
 
+  useFormValues(10, () => ({
+    startupName,
+    periodFrom,
+    periodTo,
+    incubationStage,
+    founderName,
+    mentors,
+    tbiManagerName,
+    grid,
+    goalTech,
+    goalMarket,
+    goalFunding,
+    authDate1,
+    authDate2,
+  }));
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -2773,16 +3027,16 @@ function Form10Modal({ onClose }: { onClose: () => void }) {
               <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Name of Startup / Company</label>
-                  <input type="text" value={startupName} onChange={e => setStartupName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                  <input data-field="startupName" type="text" value={startupName} onChange={e => setStartupName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Period Covered – From</label>
-                    <input type="date" value={periodFrom} onChange={e => setPeriodFrom(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                    <input data-field="periodFrom" type="date" value={periodFrom} onChange={e => setPeriodFrom(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Period Covered – To</label>
-                    <input type="date" value={periodTo} onChange={e => setPeriodTo(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                    <input data-field="periodTo" type="date" value={periodTo} onChange={e => setPeriodTo(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                   </div>
                 </div>
 
@@ -2792,7 +3046,7 @@ function Form10Modal({ onClose }: { onClose: () => void }) {
                   <div className="space-y-2">
                     {INCUBATION_STAGES.map(s => (
                       <label key={s} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                        <input type="radio" name="qwp-stage" checked={incubationStage === s} onChange={() => setIncubationStage(s)} className="w-4 h-4 accent-[#FF2B5E]" />
+                        <input data-field="incubationStage" type="radio" name="qwp-stage" checked={incubationStage === s} onChange={() => setIncubationStage(s)} className="w-4 h-4 accent-[#FF2B5E]" />
                         {s}
                       </label>
                     ))}
@@ -2802,21 +3056,21 @@ function Form10Modal({ onClose }: { onClose: () => void }) {
                 {/* Prepared by */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Prepared by (Founder/CEO) – Name</label>
-                  <input type="text" value={founderName} onChange={e => setFounderName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                  <input data-field="founderName" type="text" value={founderName} onChange={e => setFounderName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                 </div>
 
                 {/* Mentors */}
                 {mentors.map((m, i) => (
                   <div key={i}>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Mentor/Adviser {i + 1} – Name</label>
-                    <input type="text" value={m.name} onChange={e => setMentor(i, e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                    <input data-field="mentors" type="text" value={m.name} onChange={e => setMentor(i, e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                   </div>
                 ))}
 
                 {/* TBI Manager */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">TBI Manager – Name</label>
-                  <input type="text" value={tbiManagerName} onChange={e => setTbiManagerName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                  <input data-field="tbiManagerName" type="text" value={tbiManagerName} onChange={e => setTbiManagerName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                 </div>
               </div>
             </>
@@ -2882,15 +3136,15 @@ function Form10Modal({ onClose }: { onClose: () => void }) {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">1. Top Priority Technical Goal</label>
-                  <input type="text" value={goalTech} onChange={e => setGoalTech(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                  <input data-field="goalTech" type="text" value={goalTech} onChange={e => setGoalTech(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">2. Top Priority Market Goal</label>
-                  <input type="text" value={goalMarket} onChange={e => setGoalMarket(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                  <input data-field="goalMarket" type="text" value={goalMarket} onChange={e => setGoalMarket(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">3. Top Priority Funding/Operational Goal</label>
-                  <input type="text" value={goalFunding} onChange={e => setGoalFunding(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                  <input data-field="goalFunding" type="text" value={goalFunding} onChange={e => setGoalFunding(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                 </div>
               </div>
 
@@ -2907,7 +3161,7 @@ function Form10Modal({ onClose }: { onClose: () => void }) {
                   <p className="text-xs text-gray-500">(Signature Over Printed Name)</p>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Date</label>
-                    <input type="date" value={authDate1} onChange={e => setAuthDate1(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-1 text-sm bg-transparent transition-colors" />
+                    <input data-field="authDate1" type="date" value={authDate1} onChange={e => setAuthDate1(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-1 text-sm bg-transparent transition-colors" />
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -2916,7 +3170,7 @@ function Form10Modal({ onClose }: { onClose: () => void }) {
                   <p className="text-xs text-gray-500">(Signature Over Printed Name)</p>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Date</label>
-                    <input type="date" value={authDate2} onChange={e => setAuthDate2(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-1 text-sm bg-transparent transition-colors" />
+                    <input data-field="authDate2" type="date" value={authDate2} onChange={e => setAuthDate2(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-1 text-sm bg-transparent transition-colors" />
                   </div>
                 </div>
               </div>
@@ -3124,6 +3378,25 @@ function Form11Modal({ onClose }: { onClose: () => void }) {
     w.print();
   };
 
+  useFormValues(11, () => ({
+    startupName,
+    techFocus,
+    evalDate,
+    tenancyLength,
+    incubationStage,
+    basicRatings,
+    kpiRatings,
+    kpiComments,
+    recArea,
+    recSpecific,
+    recIncubationStatus,
+    recNextSteps,
+    evalByName,
+    evalByDate,
+    mgrName,
+    mgrDate,
+  }));
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
@@ -3154,20 +3427,20 @@ function Form11Modal({ onClose }: { onClose: () => void }) {
               <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Name of Startup / Company</label>
-                  <input type="text" value={startupName} onChange={e => setStartupName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                  <input data-field="startupName" type="text" value={startupName} onChange={e => setStartupName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Technology / Focus Area</label>
-                  <input type="text" value={techFocus} onChange={e => setTechFocus(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                  <input data-field="techFocus" type="text" value={techFocus} onChange={e => setTechFocus(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Date of Evaluation</label>
-                    <input type="date" value={evalDate} onChange={e => setEvalDate(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                    <input data-field="evalDate" type="date" value={evalDate} onChange={e => setEvalDate(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Length of Tenancy</label>
-                    <input type="text" value={tenancyLength} onChange={e => setTenancyLength(e.target.value)} placeholder="e.g., 12 months" className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
+                    <input data-field="tenancyLength" type="text" value={tenancyLength} onChange={e => setTenancyLength(e.target.value)} placeholder="e.g., 12 months" className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-2 text-sm bg-transparent transition-colors" />
                   </div>
                 </div>
                 <div>
@@ -3175,7 +3448,7 @@ function Form11Modal({ onClose }: { onClose: () => void }) {
                   <div className="space-y-2">
                     {INCUBATION_STAGES.map(s => (
                       <label key={s} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                        <input type="radio" name="f11-stage" checked={incubationStage === s} onChange={() => setIncubationStage(s)} className="w-4 h-4 accent-[#FF2B5E]" />
+                        <input data-field="incubationStage" type="radio" name="f11-stage" checked={incubationStage === s} onChange={() => setIncubationStage(s)} className="w-4 h-4 accent-[#FF2B5E]" />
                         {s}
                       </label>
                     ))}
@@ -3210,7 +3483,7 @@ function Form11Modal({ onClose }: { onClose: () => void }) {
                         <td className="px-3 py-2 text-gray-800 border border-gray-200 font-semibold text-xs">{ind.criteria}</td>
                         <td className="px-3 py-2 text-gray-600 border border-gray-200 text-xs">{ind.outcome}</td>
                         <td className="px-1 py-1 border border-gray-200 text-center">
-                          <select
+                          <select data-field="basicRatings"
                             value={basicRatings[idx] ?? ''}
                             onChange={e => setBasicRatings(prev => ({ ...prev, [idx]: Number(e.target.value) }))}
                             className="w-full text-center text-sm border-0 outline-none bg-transparent py-1 cursor-pointer"
@@ -3256,7 +3529,7 @@ function Form11Modal({ onClose }: { onClose: () => void }) {
                             <tr key={itemIdx}>
                               <td className="px-3 py-2 text-gray-800 border border-gray-200 font-medium text-xs">{item.indicator}</td>
                               <td className="px-1 py-1 border border-gray-200">
-                                <textarea
+                                <textarea data-field="kpiComments"
                                   value={kpiComments[key] ?? item.rationale}
                                   onChange={e => setKpiComments(prev => ({ ...prev, [key]: e.target.value }))}
                                   rows={2}
@@ -3264,7 +3537,7 @@ function Form11Modal({ onClose }: { onClose: () => void }) {
                                 />
                               </td>
                               <td className="px-1 py-1 border border-gray-200 text-center">
-                                <select
+                                <select data-field="kpiRatings"
                                   value={kpiRatings[key] ?? ''}
                                   onChange={e => setKpiRatings(prev => ({ ...prev, [key]: Number(e.target.value) }))}
                                   className="w-full text-center text-sm border-0 outline-none bg-transparent py-1 cursor-pointer"
@@ -3316,22 +3589,22 @@ function Form11Modal({ onClose }: { onClose: () => void }) {
                   <tbody>
                     <tr>
                       <td className="px-1 py-1 border border-gray-200">
-                        <input type="text" value={recArea} onChange={e => setRecArea(e.target.value)} placeholder="e.g., Technology, Market" className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
+                        <input data-field="recArea" type="text" value={recArea} onChange={e => setRecArea(e.target.value)} placeholder="e.g., Technology, Market" className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
                       </td>
                       <td className="px-1 py-1 border border-gray-200">
-                        <input type="text" value={recSpecific} onChange={e => setRecSpecific(e.target.value)} placeholder="e.g., Extend tenancy, Exit to commercialization, Need more R&D" className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
+                        <input data-field="recSpecific" type="text" value={recSpecific} onChange={e => setRecSpecific(e.target.value)} placeholder="e.g., Extend tenancy, Exit to commercialization, Need more R&D" className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
                       </td>
                     </tr>
                     <tr>
                       <td className="px-3 py-2 text-gray-700 border border-gray-200 font-medium text-xs">Incubation Status</td>
                       <td className="px-1 py-1 border border-gray-200">
-                        <input type="text" value={recIncubationStatus} onChange={e => setRecIncubationStatus(e.target.value)} className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
+                        <input data-field="recIncubationStatus" type="text" value={recIncubationStatus} onChange={e => setRecIncubationStatus(e.target.value)} className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
                       </td>
                     </tr>
                     <tr>
                       <td className="px-3 py-2 text-gray-700 border border-gray-200 font-medium text-xs">Next Steps / Action Plan</td>
                       <td className="px-1 py-1 border border-gray-200">
-                        <input type="text" value={recNextSteps} onChange={e => setRecNextSteps(e.target.value)} className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
+                        <input data-field="recNextSteps" type="text" value={recNextSteps} onChange={e => setRecNextSteps(e.target.value)} className="w-full px-2 py-1 text-xs border-0 outline-none bg-transparent" />
                       </td>
                     </tr>
                   </tbody>
@@ -3349,24 +3622,24 @@ function Form11Modal({ onClose }: { onClose: () => void }) {
                   <p className="text-sm font-medium text-gray-700">Evaluated by:</p>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Name</label>
-                    <input type="text" value={evalByName} onChange={e => setEvalByName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-1 text-sm bg-transparent transition-colors" />
+                    <input data-field="evalByName" type="text" value={evalByName} onChange={e => setEvalByName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-1 text-sm bg-transparent transition-colors" />
                   </div>
                   <p className="text-xs text-gray-400">(Signature Over Printed Name)</p>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Date</label>
-                    <input type="date" value={evalByDate} onChange={e => setEvalByDate(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-1 text-sm bg-transparent transition-colors" />
+                    <input data-field="evalByDate" type="date" value={evalByDate} onChange={e => setEvalByDate(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-1 text-sm bg-transparent transition-colors" />
                   </div>
                 </div>
                 <div className="space-y-3">
                   <p className="text-sm font-medium text-gray-700">MARIAN TBI Manager</p>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Name</label>
-                    <input type="text" value={mgrName} onChange={e => setMgrName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-1 text-sm bg-transparent transition-colors" />
+                    <input data-field="mgrName" type="text" value={mgrName} onChange={e => setMgrName(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-1 text-sm bg-transparent transition-colors" />
                   </div>
                   <p className="text-xs text-gray-400">(Signature Over Printed Name)</p>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Date</label>
-                    <input type="date" value={mgrDate} onChange={e => setMgrDate(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-1 text-sm bg-transparent transition-colors" />
+                    <input data-field="mgrDate" type="date" value={mgrDate} onChange={e => setMgrDate(e.target.value)} className="w-full border-b-2 border-gray-300 focus:border-[#FF2B5E] outline-none py-1 text-sm bg-transparent transition-colors" />
                   </div>
                 </div>
               </div>
@@ -3565,6 +3838,19 @@ function Form12Modal({ onClose }: { onClose: () => void }) {
     { value: '3', label: '3 - Active Incubation' },
   ];
 
+  useFormValues(12, () => ({
+    startupName,
+    members,
+    evalDate,
+    incubationStage,
+    ratings,
+    observations,
+    selectedRec,
+    recReasons,
+    evaluatorName,
+    evaluatorDate,
+  }));
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]">
@@ -3592,24 +3878,24 @@ function Form12Modal({ onClose }: { onClose: () => void }) {
             <div className="space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Name of Startup / Company</label>
-                <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={startupName} onChange={e => setStartupName(e.target.value)} />
+                <input data-field="startupName" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={startupName} onChange={e => setStartupName(e.target.value)} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {members.map((m, i) => (
                   <div key={i}>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Member {i + 1}</label>
-                    <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={m} onChange={e => setMember(i, e.target.value)} />
+                    <input data-field="members" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={m} onChange={e => setMember(i, e.target.value)} />
                   </div>
                 ))}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Date of Evaluation</label>
-                  <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={evalDate} onChange={e => setEvalDate(e.target.value)} />
+                  <input data-field="evalDate" type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={evalDate} onChange={e => setEvalDate(e.target.value)} />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Current Incubation Stage</label>
-                  <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={incubationStage} onChange={e => setIncubationStage(e.target.value)}>
+                  <select data-field="incubationStage" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={incubationStage} onChange={e => setIncubationStage(e.target.value)}>
                     <option value="">Select stage...</option>
                     {stageOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>
@@ -3651,13 +3937,13 @@ function Form12Modal({ onClose }: { onClose: () => void }) {
                           <p className="text-[10px] text-gray-500 mt-0.5 italic">{p.hint}</p>
                         </td>
                         <td className="border border-gray-300 px-2 py-2 text-center">
-                          <select className="border border-gray-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none w-16" value={ratings[p.no] || ''} onChange={e => setRatings({ ...ratings, [p.no]: e.target.value })}>
+                          <select data-field="ratings" className="border border-gray-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none w-16" value={ratings[p.no] || ''} onChange={e => setRatings({ ...ratings, [p.no]: e.target.value })}>
                             <option value="">—</option>
                             {[1, 2, 3, 4, 5].map(r => <option key={r} value={String(r)}>{r}</option>)}
                           </select>
                         </td>
                         <td className="border border-gray-300 px-2 py-2">
-                          <textarea className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none resize-none" rows={2} value={observations[p.no] || ''} onChange={e => setObservations({ ...observations, [p.no]: e.target.value })} placeholder="Key observations..." />
+                          <textarea data-field="observations" className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none resize-none" rows={2} value={observations[p.no] || ''} onChange={e => setObservations({ ...observations, [p.no]: e.target.value })} placeholder="Key observations..." />
                         </td>
                       </tr>
                     ))}
@@ -3686,10 +3972,10 @@ function Form12Modal({ onClose }: { onClose: () => void }) {
                       <tr key={opt.label} className="hover:bg-gray-50">
                         <td className="border border-gray-300 px-2 py-2 text-xs font-semibold">{opt.label}</td>
                         <td className="border border-gray-300 px-2 py-2 text-center">
-                          <input type="radio" name="form12rec" checked={selectedRec === opt.label} onChange={() => setSelectedRec(opt.label)} className="accent-[#FF2B5E]" />
+                          <input data-field="selectedRec" type="radio" name="form12rec" checked={selectedRec === opt.label} onChange={() => setSelectedRec(opt.label)} className="accent-[#FF2B5E]" />
                         </td>
                         <td className="border border-gray-300 px-2 py-2">
-                          <textarea className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none resize-none" rows={2} value={recReasons[opt.label] || ''} onChange={e => setRecReasons({ ...recReasons, [opt.label]: e.target.value })} placeholder={opt.note} />
+                          <textarea data-field="recReasons" className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none resize-none" rows={2} value={recReasons[opt.label] || ''} onChange={e => setRecReasons({ ...recReasons, [opt.label]: e.target.value })} placeholder={opt.note} />
                         </td>
                       </tr>
                     ))}
@@ -3701,11 +3987,11 @@ function Form12Modal({ onClose }: { onClose: () => void }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Evaluator's Name</label>
-                  <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={evaluatorName} onChange={e => setEvaluatorName(e.target.value)} />
+                  <input data-field="evaluatorName" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={evaluatorName} onChange={e => setEvaluatorName(e.target.value)} />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Date</label>
-                  <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={evaluatorDate} onChange={e => setEvaluatorDate(e.target.value)} />
+                  <input data-field="evaluatorDate" type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={evaluatorDate} onChange={e => setEvaluatorDate(e.target.value)} />
                 </div>
               </div>
 
@@ -3920,7 +4206,7 @@ function Form13Modal({ onClose }: { onClose: () => void }) {
     w.print();
   };
 
-  const renderClearanceTable = (reqs: typeof PART1_REQUIREMENTS, statusMap: Record<number, string>, dateMap: Record<number, string>, signMap: Record<number, string>, setStatusMap: (v: Record<number, string>) => void, setDateMap: (v: Record<number, string>) => void, setSignMap: (v: Record<number, string>) => void) => (
+  const renderClearanceTable = (reqs: typeof PART1_REQUIREMENTS, statusMap: Record<number, string>, dateMap: Record<number, string>, signMap: Record<number, string>, setStatusMap: (v: Record<number, string>) => void, setDateMap: (v: Record<number, string>) => void, setSignMap: (v: Record<number, string>) => void, fieldKeys: { status: string; date: string; sign: string }) => (
     <div className="overflow-x-auto">
       <table className="w-full text-sm border border-gray-300">
         <thead>
@@ -3941,17 +4227,17 @@ function Form13Modal({ onClose }: { onClose: () => void }) {
                 <div className="flex flex-wrap justify-center gap-2">
                   {r.statusOpts.map(opt => (
                     <label key={opt} className="flex items-center gap-1 text-xs cursor-pointer">
-                      <input type="radio" name={`clearance-${r.no}-${r.signLabel}`} checked={statusMap[r.no] === opt} onChange={() => setStatusMap({ ...statusMap, [r.no]: opt })} className="accent-[#FF2B5E]" />
+                      <input type="radio" data-field={fieldKeys.status} name={`clearance-${r.no}-${r.signLabel}`} checked={statusMap[r.no] === opt} onChange={() => setStatusMap({ ...statusMap, [r.no]: opt })} className="accent-[#FF2B5E]" />
                       {opt}
                     </label>
                   ))}
                 </div>
               </td>
               <td className="border border-gray-300 px-2 py-2 text-center">
-                <input type="date" className="border border-gray-200 rounded px-1 py-0.5 text-xs w-full focus:ring-2 focus:ring-pink-400 focus:outline-none" value={dateMap[r.no] || ''} onChange={e => setDateMap({ ...dateMap, [r.no]: e.target.value })} />
+                <input type="date" data-field={fieldKeys.date} className="border border-gray-200 rounded px-1 py-0.5 text-xs w-full focus:ring-2 focus:ring-pink-400 focus:outline-none" value={dateMap[r.no] || ''} onChange={e => setDateMap({ ...dateMap, [r.no]: e.target.value })} />
               </td>
               <td className="border border-gray-300 px-2 py-2">
-                <input type="text" className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none" value={signMap[r.no] || ''} onChange={e => setSignMap({ ...signMap, [r.no]: e.target.value })} placeholder={r.signLabel} />
+                <input type="text" data-field={fieldKeys.sign} className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none" value={signMap[r.no] || ''} onChange={e => setSignMap({ ...signMap, [r.no]: e.target.value })} placeholder={r.signLabel} />
               </td>
             </tr>
           ))}
@@ -3959,6 +4245,27 @@ function Form13Modal({ onClose }: { onClose: () => void }) {
       </table>
     </div>
   );
+
+  useFormValues(13, () => ({
+    startupName,
+    members,
+    legalEntity,
+    programCohort,
+    dateEntry,
+    dateExit,
+    p1Status,
+    p1Date,
+    p1Sign,
+    p2Status,
+    p2Date,
+    p2Sign,
+    exitReason,
+    exitOtherSpecify,
+    tbiManagerName,
+    tbiManagerDate,
+    uttoHeadName,
+    uttoHeadDate,
+  }));
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
@@ -3991,14 +4298,14 @@ function Form13Modal({ onClose }: { onClose: () => void }) {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Name of Startup</label>
-                <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={startupName} onChange={e => setStartupName(e.target.value)} />
+                <input data-field="startupName" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={startupName} onChange={e => setStartupName(e.target.value)} />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {members.map((m, i) => (
                   <div key={i}>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Member {i + 1}</label>
-                    <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={m} onChange={e => setMember(i, e.target.value)} />
+                    <input data-field="members" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={m} onChange={e => setMember(i, e.target.value)} />
                   </div>
                 ))}
               </div>
@@ -4006,7 +4313,7 @@ function Form13Modal({ onClose }: { onClose: () => void }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Legal Entity</label>
-                  <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={legalEntity} onChange={e => setLegalEntity(e.target.value)}>
+                  <select data-field="legalEntity" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={legalEntity} onChange={e => setLegalEntity(e.target.value)}>
                     <option value="">Select...</option>
                     <option value="Corporation">Corporation</option>
                     <option value="Sole Proprietorship">Sole Proprietorship</option>
@@ -4014,18 +4321,18 @@ function Form13Modal({ onClose }: { onClose: () => void }) {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Program / Cohort</label>
-                  <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={programCohort} onChange={e => setProgramCohort(e.target.value)} />
+                  <input data-field="programCohort" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={programCohort} onChange={e => setProgramCohort(e.target.value)} />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Date of Entry</label>
-                  <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={dateEntry} onChange={e => setDateEntry(e.target.value)} />
+                  <input data-field="dateEntry" type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={dateEntry} onChange={e => setDateEntry(e.target.value)} />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Date of Exit / Graduation</label>
-                  <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={dateExit} onChange={e => setDateExit(e.target.value)} />
+                  <input data-field="dateExit" type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={dateExit} onChange={e => setDateExit(e.target.value)} />
                 </div>
               </div>
             </div>
@@ -4037,13 +4344,13 @@ function Form13Modal({ onClose }: { onClose: () => void }) {
               <div>
                 <h3 className="font-bold text-sm text-gray-800 mb-1">Part I: Financial and Administrative Clearance</h3>
                 <p className="text-xs text-gray-500 mb-3">The following departments/offices confirm that the Incubatee has settled all outstanding dues and fulfilled administrative requirements:</p>
-                {renderClearanceTable(PART1_REQUIREMENTS, p1Status, p1Date, p1Sign, setP1Status, setP1Date, setP1Sign)}
+                {renderClearanceTable(PART1_REQUIREMENTS, p1Status, p1Date, p1Sign, setP1Status, setP1Date, setP1Sign, { status: 'p1Status', date: 'p1Date', sign: 'p1Sign' })}
               </div>
 
               <div>
                 <h3 className="font-bold text-sm text-gray-800 mb-1">Part II: Technology and Intellectual Property (IP) Clearance</h3>
                 <p className="text-xs text-gray-500 mb-3">This section confirms the status of the startup's intellectual output and its relationship with the University's resources:</p>
-                {renderClearanceTable(PART2_REQUIREMENTS, p2Status, p2Date, p2Sign, setP2Status, setP2Date, setP2Sign)}
+                {renderClearanceTable(PART2_REQUIREMENTS, p2Status, p2Date, p2Sign, setP2Status, setP2Date, setP2Sign, { status: 'p2Status', date: 'p2Date', sign: 'p2Sign' })}
               </div>
             </div>
           )}
@@ -4061,12 +4368,12 @@ function Form13Modal({ onClose }: { onClose: () => void }) {
                 <div className="space-y-2">
                   {EXIT_REASONS.map(r => (
                     <label key={r.value} className="flex items-start gap-2 cursor-pointer">
-                      <input type="radio" name="exitReason" checked={exitReason === r.value} onChange={() => setExitReason(r.value)} className="accent-[#FF2B5E] mt-0.5" />
+                      <input data-field="exitReason" type="radio" name="exitReason" checked={exitReason === r.value} onChange={() => setExitReason(r.value)} className="accent-[#FF2B5E] mt-0.5" />
                       <span className="text-sm">{r.label}</span>
                     </label>
                   ))}
                   {exitReason === 'other' && (
-                    <input type="text" className="ml-6 w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" placeholder="Specify reason..." value={exitOtherSpecify} onChange={e => setExitOtherSpecify(e.target.value)} />
+                    <input data-field="exitOtherSpecify" type="text" className="ml-6 w-full max-w-md border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" placeholder="Specify reason..." value={exitOtherSpecify} onChange={e => setExitOtherSpecify(e.target.value)} />
                   )}
                 </div>
               </div>
@@ -4078,22 +4385,22 @@ function Form13Modal({ onClose }: { onClose: () => void }) {
                     <p className="text-xs font-bold text-gray-700 uppercase">TBI Manager</p>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Printed Name</label>
-                      <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={tbiManagerName} onChange={e => setTbiManagerName(e.target.value)} />
+                      <input data-field="tbiManagerName" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={tbiManagerName} onChange={e => setTbiManagerName(e.target.value)} />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
-                      <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={tbiManagerDate} onChange={e => setTbiManagerDate(e.target.value)} />
+                      <input data-field="tbiManagerDate" type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={tbiManagerDate} onChange={e => setTbiManagerDate(e.target.value)} />
                     </div>
                   </div>
                   <div className="border border-gray-200 rounded-lg p-4 space-y-3">
                     <p className="text-xs font-bold text-gray-700 uppercase">Head, UIC Technology Transfer Office (UTTO) / IP Manager</p>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Printed Name</label>
-                      <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={uttoHeadName} onChange={e => setUttoHeadName(e.target.value)} />
+                      <input data-field="uttoHeadName" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={uttoHeadName} onChange={e => setUttoHeadName(e.target.value)} />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
-                      <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={uttoHeadDate} onChange={e => setUttoHeadDate(e.target.value)} />
+                      <input data-field="uttoHeadDate" type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={uttoHeadDate} onChange={e => setUttoHeadDate(e.target.value)} />
                     </div>
                   </div>
                 </div>
@@ -4254,7 +4561,7 @@ function Form14Modal({ onClose }: { onClose: () => void }) {
       <div key={sec.key} className="space-y-2">
         <h3 className="font-bold text-sm text-gray-800">{sec.num}. {sec.title} <span className="text-xs font-normal text-gray-500">(max {sec.maxWords} words)</span></h3>
         <p className="text-xs text-gray-500 italic">{sec.prompt}</p>
-        <textarea
+        <textarea data-field="sectionTexts"
           className={`w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none resize-y ${overLimit ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
           rows={6}
           value={text}
@@ -4267,6 +4574,10 @@ function Form14Modal({ onClose }: { onClose: () => void }) {
       </div>
     );
   };
+
+  useFormValues(14, () => ({
+    sectionTexts,
+  }));
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
@@ -4428,6 +4739,25 @@ function Form15Modal({ onClose }: { onClose: () => void }) {
     w.print();
   };
 
+  useFormValues(15, () => ({
+    startupName,
+    members,
+    email,
+    contactNumber,
+    allotmentNumber,
+    evalDate,
+    checkedCriteria,
+    fillAmount,
+    fillRevenue,
+    primaryTrigger,
+    remarksPerformance,
+    postIncubationPlan,
+    tbiManagerName,
+    tbiManagerDate,
+    rpicDirectorName,
+    rpicDirectorDate,
+  }));
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]">
@@ -4455,34 +4785,34 @@ function Form15Modal({ onClose }: { onClose: () => void }) {
             <div className="space-y-5">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">Name of Startup / Company</label>
-                <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={startupName} onChange={e => setStartupName(e.target.value)} />
+                <input data-field="startupName" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={startupName} onChange={e => setStartupName(e.target.value)} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {members.map((m, i) => (
                   <div key={i}>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Member {i + 1}</label>
-                    <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={m} onChange={e => setMember(i, e.target.value)} />
+                    <input data-field="members" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={m} onChange={e => setMember(i, e.target.value)} />
                   </div>
                 ))}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
-                  <input type="email" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={email} onChange={e => setEmail(e.target.value)} />
+                  <input data-field="email" type="email" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={email} onChange={e => setEmail(e.target.value)} />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Contact Number</label>
-                  <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={contactNumber} onChange={e => setContactNumber(e.target.value)} />
+                  <input data-field="contactNumber" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={contactNumber} onChange={e => setContactNumber(e.target.value)} />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Incubation Support Allotment Number</label>
-                  <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={allotmentNumber} onChange={e => setAllotmentNumber(e.target.value)} />
+                  <input data-field="allotmentNumber" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={allotmentNumber} onChange={e => setAllotmentNumber(e.target.value)} />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Date of Final Evaluation</label>
-                  <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={evalDate} onChange={e => setEvalDate(e.target.value)} />
+                  <input data-field="evalDate" type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={evalDate} onChange={e => setEvalDate(e.target.value)} />
                 </div>
               </div>
             </div>
@@ -4501,17 +4831,17 @@ function Form15Modal({ onClose }: { onClose: () => void }) {
                 <div className="space-y-3">
                   {EXIT_CRITERIA_A.map(c => (
                     <div key={c.no} className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50">
-                      <input type="checkbox" checked={!!checkedCriteria[c.no]} onChange={() => toggleCriteria(c.no)} className="accent-[#FF2B5E] mt-1" />
+                      <input data-field="checkedCriteria" type="checkbox" checked={!!checkedCriteria[c.no]} onChange={() => toggleCriteria(c.no)} className="accent-[#FF2B5E] mt-1" />
                       <div className="flex-1">
                         <span className="text-xs"><strong>{c.no}.</strong> {c.text}</span>
                         {c.hasFill === 'amount' && checkedCriteria[c.no] && (
                           <div className="mt-1">
-                            <input type="text" className="border border-gray-300 rounded px-2 py-1 text-xs w-48 focus:ring-2 focus:ring-pink-400 focus:outline-none" placeholder="Amount in ₱ Million" value={fillAmount} onChange={e => setFillAmount(e.target.value)} />
+                            <input data-field="fillAmount" type="text" className="border border-gray-300 rounded px-2 py-1 text-xs w-48 focus:ring-2 focus:ring-pink-400 focus:outline-none" placeholder="Amount in ₱ Million" value={fillAmount} onChange={e => setFillAmount(e.target.value)} />
                           </div>
                         )}
                         {c.hasFill === 'revenueThreshold' && checkedCriteria[c.no] && (
                           <div className="mt-1 flex gap-2">
-                            <input type="text" className="border border-gray-300 rounded px-2 py-1 text-xs w-48 focus:ring-2 focus:ring-pink-400 focus:outline-none" placeholder="Revenue / Valuation threshold" value={fillRevenue} onChange={e => setFillRevenue(e.target.value)} />
+                            <input data-field="fillRevenue" type="text" className="border border-gray-300 rounded px-2 py-1 text-xs w-48 focus:ring-2 focus:ring-pink-400 focus:outline-none" placeholder="Revenue / Valuation threshold" value={fillRevenue} onChange={e => setFillRevenue(e.target.value)} />
                           </div>
                         )}
                       </div>
@@ -4526,7 +4856,7 @@ function Form15Modal({ onClose }: { onClose: () => void }) {
                 <div className="space-y-3">
                   {EXIT_CRITERIA_B.map(c => (
                     <div key={c.no} className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50">
-                      <input type="checkbox" checked={!!checkedCriteria[c.no]} onChange={() => toggleCriteria(c.no)} className="accent-[#FF2B5E] mt-1" />
+                      <input data-field="checkedCriteria" type="checkbox" checked={!!checkedCriteria[c.no]} onChange={() => toggleCriteria(c.no)} className="accent-[#FF2B5E] mt-1" />
                       <span className="text-xs flex-1"><strong>{c.no}.</strong> {c.text}</span>
                     </div>
                   ))}
@@ -4543,17 +4873,17 @@ function Form15Modal({ onClose }: { onClose: () => void }) {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">Primary Exit Trigger (Summary)</label>
-                    <textarea className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none resize-none" rows={2} value={primaryTrigger} onChange={e => setPrimaryTrigger(e.target.value)} placeholder="State the main exit criteria number and brief summary..." />
+                    <textarea data-field="primaryTrigger" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none resize-none" rows={2} value={primaryTrigger} onChange={e => setPrimaryTrigger(e.target.value)} placeholder="State the main exit criteria number and brief summary..." />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">Remarks on Performance</label>
                     <p className="text-[10px] text-gray-500 italic mb-1">Briefly summarize the company's performance and impact, e.g., "Graduated with 8 new jobs created and TRL 8."</p>
-                    <textarea className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none resize-none" rows={3} value={remarksPerformance} onChange={e => setRemarksPerformance(e.target.value)} />
+                    <textarea data-field="remarksPerformance" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none resize-none" rows={3} value={remarksPerformance} onChange={e => setRemarksPerformance(e.target.value)} />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">Post-Incubation Plan (Future Tracking)</label>
                     <p className="text-[10px] text-gray-500 italic mb-1">Note the company's new location, post-program monitoring commitment, and if they will join the TBI Alumni Network.</p>
-                    <textarea className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none resize-none" rows={3} value={postIncubationPlan} onChange={e => setPostIncubationPlan(e.target.value)} />
+                    <textarea data-field="postIncubationPlan" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none resize-none" rows={3} value={postIncubationPlan} onChange={e => setPostIncubationPlan(e.target.value)} />
                   </div>
                 </div>
               </div>
@@ -4565,22 +4895,22 @@ function Form15Modal({ onClose }: { onClose: () => void }) {
                     <p className="text-xs font-bold text-gray-700 uppercase">Verified by: TBI Manager</p>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Printed Name</label>
-                      <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={tbiManagerName} onChange={e => setTbiManagerName(e.target.value)} />
+                      <input data-field="tbiManagerName" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={tbiManagerName} onChange={e => setTbiManagerName(e.target.value)} />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
-                      <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={tbiManagerDate} onChange={e => setTbiManagerDate(e.target.value)} />
+                      <input data-field="tbiManagerDate" type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={tbiManagerDate} onChange={e => setTbiManagerDate(e.target.value)} />
                     </div>
                   </div>
                   <div className="border border-gray-200 rounded-lg p-4 space-y-3">
                     <p className="text-xs font-bold text-gray-700 uppercase">Approved by: RPIC Director</p>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Printed Name</label>
-                      <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={rpicDirectorName} onChange={e => setRpicDirectorName(e.target.value)} />
+                      <input data-field="rpicDirectorName" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={rpicDirectorName} onChange={e => setRpicDirectorName(e.target.value)} />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
-                      <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={rpicDirectorDate} onChange={e => setRpicDirectorDate(e.target.value)} />
+                      <input data-field="rpicDirectorDate" type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={rpicDirectorDate} onChange={e => setRpicDirectorDate(e.target.value)} />
                     </div>
                   </div>
                 </div>
@@ -4719,6 +5049,8 @@ function Form16Modal({ onClose }: { onClose: () => void }) {
     w.focus();
     w.print();
   };
+
+  useFormValues(16, () => ({}));
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
@@ -4896,6 +5228,11 @@ function Form17Modal({ onClose }: { onClose: () => void }) {
     },
   ];
 
+  useFormValues(17, () => ({
+    signatories,
+    witnessName,
+  }));
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[90vh]">
@@ -4968,10 +5305,10 @@ function Form17Modal({ onClose }: { onClose: () => void }) {
                       <tr key={i} className="hover:bg-gray-50">
                         <td className="border border-gray-300 px-3 py-2 text-center text-xs font-semibold">{i + 1}</td>
                         <td className="border border-gray-300 px-3 py-2">
-                          <input type="text" className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={s.name} onChange={e => setSig(i, 'name', e.target.value)} placeholder="Full name" />
+                          <input data-field="signatories" type="text" className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={s.name} onChange={e => setSig(i, 'name', e.target.value)} placeholder="Full name" />
                         </td>
                         <td className="border border-gray-300 px-3 py-2">
-                          <input type="date" className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={s.date} onChange={e => setSig(i, 'date', e.target.value)} />
+                          <input data-field="signatories" type="date" className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={s.date} onChange={e => setSig(i, 'date', e.target.value)} />
                         </td>
                       </tr>
                     ))}
@@ -4981,7 +5318,7 @@ function Form17Modal({ onClose }: { onClose: () => void }) {
 
               <div className="border border-gray-200 rounded-lg p-4 max-w-sm">
                 <p className="text-xs font-bold text-gray-700 uppercase mb-2">Witnessed by: TBI Program Manager</p>
-                <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={witnessName} onChange={e => setWitnessName(e.target.value)} placeholder="Name of TBI Program Manager" />
+                <input data-field="witnessName" type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-400 focus:outline-none" value={witnessName} onChange={e => setWitnessName(e.target.value)} placeholder="Name of TBI Program Manager" />
               </div>
             </div>
           )}
@@ -5128,6 +5465,8 @@ function Form19Modal({ onClose }: { onClose: () => void }) {
       ],
     },
   ];
+
+  useFormValues(19, () => ({}));
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
@@ -5346,7 +5685,7 @@ function Form20Modal({ onClose }: { onClose: () => void }) {
                     <span className="text-xs"><strong>{item.sub}.</strong> {item.question}</span>
                   </td>
                   <td className="border border-gray-300 px-2 py-2 text-center">
-                    <select className="border border-gray-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none w-16" value={responses[key] || ''} onChange={e => setResponse(key, e.target.value)}>
+                    <select data-field="responses" className="border border-gray-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none w-16" value={responses[key] || ''} onChange={e => setResponse(key, e.target.value)}>
                       <option value="">—</option>
                       <option value="Yes">Yes</option>
                       <option value="No">No</option>
@@ -5364,6 +5703,11 @@ function Form20Modal({ onClose }: { onClose: () => void }) {
       </div>
     </div>
   );
+
+  useFormValues(20, () => ({
+    responses,
+    reviewRows,
+  }));
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
@@ -5424,13 +5768,13 @@ function Form20Modal({ onClose }: { onClose: () => void }) {
                     {reviewRows.map((r, i) => (
                       <tr key={i} className="hover:bg-gray-50">
                         <td className="border border-gray-300 px-2 py-2">
-                          <input type="date" className="w-full border border-gray-200 rounded px-1 py-0.5 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none" value={r.date} onChange={e => setReviewRow(i, 'date', e.target.value)} />
+                          <input data-field="reviewRows" type="date" className="w-full border border-gray-200 rounded px-1 py-0.5 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none" value={r.date} onChange={e => setReviewRow(i, 'date', e.target.value)} />
                         </td>
                         <td className="border border-gray-300 px-2 py-2">
-                          <input type="text" className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none" value={r.reviewer} onChange={e => setReviewRow(i, 'reviewer', e.target.value)} placeholder="Reviewer name" />
+                          <input data-field="reviewRows" type="text" className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none" value={r.reviewer} onChange={e => setReviewRow(i, 'reviewer', e.target.value)} placeholder="Reviewer name" />
                         </td>
                         <td className="border border-gray-300 px-2 py-2">
-                          <select className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none" value={r.outcome} onChange={e => setReviewRow(i, 'outcome', e.target.value)}>
+                          <select data-field="reviewRows" className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none" value={r.outcome} onChange={e => setReviewRow(i, 'outcome', e.target.value)}>
                             <option value="">Select...</option>
                             <option value="Pass">Pass</option>
                             <option value="Milestones Required">Milestones Required</option>
@@ -5438,7 +5782,7 @@ function Form20Modal({ onClose }: { onClose: () => void }) {
                           </select>
                         </td>
                         <td className="border border-gray-300 px-2 py-2">
-                          <textarea className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none resize-none" rows={2} value={r.notes} onChange={e => setReviewRow(i, 'notes', e.target.value)} placeholder="Notes..." />
+                          <textarea data-field="reviewRows" className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-pink-400 focus:outline-none resize-none" rows={2} value={r.notes} onChange={e => setReviewRow(i, 'notes', e.target.value)} placeholder="Notes..." />
                         </td>
                       </tr>
                     ))}
@@ -5584,6 +5928,35 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
     setKtRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
   };
 
+  useFormValues(21, () => ({
+    employeeName,
+    position,
+    department: 'MARIAN TBI',
+    effectivityDate,
+    ktRows,
+    digitalRepoPath,
+    sec1Files,
+    sec1Credentials,
+    sec1StatusReport,
+    sec1TechAsst,
+    sec1TbiManager,
+    laptopChecked,
+    laptopSerial,
+    laptopCondition,
+    tabletChecked,
+    tabletSerial,
+    tabletCondition,
+    keysChecked,
+    equipChecked,
+    equipSpecify,
+    sec2Liaison,
+    sec2Custodian,
+    mgrName,
+    mgrDate,
+    hrName,
+    hrDate,
+  }));
+
   return (
   <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
@@ -5649,7 +6022,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                 <label className="block text-xs font-semibold text-gray-600 mb-1">
                   Employee Name
                 </label>
-                <input
+                <input data-field="employeeName"
                   value={employeeName}
                   onChange={(e) => setEmployeeName(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#FF2B5E] focus:border-transparent"
@@ -5659,7 +6032,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                 <label className="block text-xs font-semibold text-gray-600 mb-1">
                   Position
                 </label>
-                <input
+                <input data-field="position"
                   value={position}
                   onChange={(e) => setPosition(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#FF2B5E] focus:border-transparent"
@@ -5671,6 +6044,8 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                 </label>
                 <input
                   value="MARIAN TBI"
+                  data-field="department"
+                  name="department"
                   disabled
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-100 text-gray-500"
                 />
@@ -5679,7 +6054,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                 <label className="block text-xs font-semibold text-gray-600 mb-1">
                   Effectivity Date
                 </label>
-                <input
+                <input data-field="effectivityDate"
                   type="date"
                   value={effectivityDate}
                   onChange={(e) => setEffectivityDate(e.target.value)}
@@ -5725,7 +6100,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                           {row.category}
                         </td>
                         <td className="border border-gray-300 px-1 py-1">
-                          <input
+                          <input data-field="ktRows"
                             value={row.description}
                             onChange={(e) =>
                               updateKtRow(i, "description", e.target.value)
@@ -5743,7 +6118,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                           />
                         </td>
                         <td className="border border-gray-300 px-1 py-1">
-                          <input
+                          <input data-field="ktRows"
                             value={row.status}
                             onChange={(e) =>
                               updateKtRow(i, "status", e.target.value)
@@ -5761,7 +6136,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                           />
                         </td>
                         <td className="border border-gray-300 px-1 py-1">
-                          <input
+                          <input data-field="ktRows"
                             value={row.pending}
                             onChange={(e) =>
                               updateKtRow(i, "pending", e.target.value)
@@ -5779,7 +6154,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                           />
                         </td>
                         <td className="border border-gray-300 px-1 py-1">
-                          <input
+                          <input data-field="ktRows"
                             value={row.remarks}
                             onChange={(e) =>
                               updateKtRow(i, "remarks", e.target.value)
@@ -5796,7 +6171,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                 <label className="block text-xs font-semibold text-gray-600 mb-1">
                   Digital Repository Path
                 </label>
-                <input
+                <input data-field="digitalRepoPath"
                   value={digitalRepoPath}
                   onChange={(e) => setDigitalRepoPath(e.target.value)}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#FF2B5E] focus:border-transparent"
@@ -5825,7 +6200,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                 </h4>
                 <div className="space-y-3">
                   <label className="flex items-start gap-2 text-xs">
-                    <input
+                    <input data-field="sec1Files"
                       type="checkbox"
                       checked={sec1Files}
                       onChange={(e) => setSec1Files(e.target.checked)}
@@ -5837,7 +6212,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                     </span>
                   </label>
                   <label className="flex items-start gap-2 text-xs">
-                    <input
+                    <input data-field="sec1Credentials"
                       type="checkbox"
                       checked={sec1Credentials}
                       onChange={(e) => setSec1Credentials(e.target.checked)}
@@ -5849,7 +6224,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                     </span>
                   </label>
                   <label className="flex items-start gap-2 text-xs">
-                    <input
+                    <input data-field="sec1StatusReport"
                       type="checkbox"
                       checked={sec1StatusReport}
                       onChange={(e) => setSec1StatusReport(e.target.checked)}
@@ -5867,7 +6242,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                     <label className="block text-xs font-semibold text-gray-600 mb-1">
                       Verified by (Technical Asst.)
                     </label>
-                    <input
+                    <input data-field="sec1TechAsst"
                       value={sec1TechAsst}
                       onChange={(e) => setSec1TechAsst(e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#FF2B5E] focus:border-transparent"
@@ -5877,7 +6252,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                     <label className="block text-xs font-semibold text-gray-600 mb-1">
                       Verified by (TBI Manager)
                     </label>
-                    <input
+                    <input data-field="sec1TbiManager"
                       value={sec1TbiManager}
                       onChange={(e) => setSec1TbiManager(e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#FF2B5E] focus:border-transparent"
@@ -5894,7 +6269,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                 <div className="space-y-3">
                   {/* Laptop */}
                   <div className="flex items-start gap-2 text-xs">
-                    <input
+                    <input data-field="laptopChecked"
                       type="checkbox"
                       checked={laptopChecked}
                       onChange={(e) => setLaptopChecked(e.target.checked)}
@@ -5904,13 +6279,13 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                       <span>Laptop</span>
                       {laptopChecked && (
                         <div className="flex gap-3 mt-1">
-                          <input
+                          <input data-field="laptopSerial"
                             value={laptopSerial}
                             onChange={(e) => setLaptopSerial(e.target.value)}
                             className="border border-gray-300 rounded px-2 py-1 text-xs flex-1 focus:ring-1 focus:ring-[#FF2B5E]"
                             placeholder="Serial No."
                           />
-                          <select
+                          <select data-field="laptopCondition"
                             value={laptopCondition}
                             onChange={(e) =>
                               setLaptopCondition(e.target.value)
@@ -5927,7 +6302,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                   </div>
                   {/* Tablet */}
                   <div className="flex items-start gap-2 text-xs">
-                    <input
+                    <input data-field="tabletChecked"
                       type="checkbox"
                       checked={tabletChecked}
                       onChange={(e) => setTabletChecked(e.target.checked)}
@@ -5937,13 +6312,13 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                       <span>Tablet</span>
                       {tabletChecked && (
                         <div className="flex gap-3 mt-1">
-                          <input
+                          <input data-field="tabletSerial"
                             value={tabletSerial}
                             onChange={(e) => setTabletSerial(e.target.value)}
                             className="border border-gray-300 rounded px-2 py-1 text-xs flex-1 focus:ring-1 focus:ring-[#FF2B5E]"
                             placeholder="Serial No."
                           />
-                          <select
+                          <select data-field="tabletCondition"
                             value={tabletCondition}
                             onChange={(e) =>
                               setTabletCondition(e.target.value)
@@ -5960,7 +6335,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                   </div>
                   {/* Keys */}
                   <label className="flex items-start gap-2 text-xs">
-                    <input
+                    <input data-field="keysChecked"
                       type="checkbox"
                       checked={keysChecked}
                       onChange={(e) => setKeysChecked(e.target.checked)}
@@ -5970,7 +6345,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                   </label>
                   {/* Equipment */}
                   <div className="flex items-start gap-2 text-xs">
-                    <input
+                    <input data-field="equipChecked"
                       type="checkbox"
                       checked={equipChecked}
                       onChange={(e) => setEquipChecked(e.target.checked)}
@@ -5979,7 +6354,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                     <div className="flex-1">
                       <span>Specialized TBI Equipment</span>
                       {equipChecked && (
-                        <input
+                        <input data-field="equipSpecify"
                           value={equipSpecify}
                           onChange={(e) => setEquipSpecify(e.target.value)}
                           className="w-full border border-gray-300 rounded px-2 py-1 text-xs mt-1 focus:ring-1 focus:ring-[#FF2B5E]"
@@ -5994,7 +6369,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                     <label className="block text-xs font-semibold text-gray-600 mb-1">
                       Verified by (Liaison Staff)
                     </label>
-                    <input
+                    <input data-field="sec2Liaison"
                       value={sec2Liaison}
                       onChange={(e) => setSec2Liaison(e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#FF2B5E] focus:border-transparent"
@@ -6004,7 +6379,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                     <label className="block text-xs font-semibold text-gray-600 mb-1">
                       Verified by (Property Custodian)
                     </label>
-                    <input
+                    <input data-field="sec2Custodian"
                       value={sec2Custodian}
                       onChange={(e) => setSec2Custodian(e.target.value)}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#FF2B5E] focus:border-transparent"
@@ -6033,7 +6408,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                       <label className="block text-xs font-semibold text-gray-600 mb-1">
                         MARIAN TBI Manager
                       </label>
-                      <input
+                      <input data-field="mgrName"
                         value={mgrName}
                         onChange={(e) => setMgrName(e.target.value)}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#FF2B5E] focus:border-transparent"
@@ -6043,7 +6418,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                       <label className="block text-xs font-semibold text-gray-600 mb-1">
                         Date
                       </label>
-                      <input
+                      <input data-field="mgrDate"
                         type="date"
                         value={mgrDate}
                         onChange={(e) => setMgrDate(e.target.value)}
@@ -6056,7 +6431,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                       <label className="block text-xs font-semibold text-gray-600 mb-1">
                         HR/Admin Officer
                       </label>
-                      <input
+                      <input data-field="hrName"
                         value={hrName}
                         onChange={(e) => setHrName(e.target.value)}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#FF2B5E] focus:border-transparent"
@@ -6066,7 +6441,7 @@ function Form21Modal({ onClose }: { onClose: () => void }) {
                       <label className="block text-xs font-semibold text-gray-600 mb-1">
                         Date
                       </label>
-                      <input
+                      <input data-field="hrDate"
                         type="date"
                         value={hrDate}
                         onChange={(e) => setHrDate(e.target.value)}
