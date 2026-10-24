@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\Forms\ApprovalStatus;
 use App\Helpers\FormFormatHelper;
 use App\Jobs\SyncFormSubmissionToDriveJob;
+use App\Mail\FormSubmittedReceipt;
 use App\Models\FormSubmission;
 use App\Models\GoogleDriveConnection;
 use App\Models\Startup;
@@ -16,6 +17,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -40,9 +42,10 @@ class FormSubmissionTest extends TestCase
 
     public function test_attachment_only_form_submission_stores_a_required_pdf_and_metadata(): void
     {
+        Mail::fake();
         Storage::fake('local');
         Startup::ensureConfigured();
-        $user = User::factory()->create();
+        $user = User::factory()->create(['email' => 'founder@example.com']);
 
         $response = $this->actingAs($user)->post(route('form-submissions.store'), [
             'form_id' => 4,
@@ -67,6 +70,7 @@ class FormSubmissionTest extends TestCase
         $submission = FormSubmission::query()->firstOrFail();
         $this->assertStringStartsWith('form-prerequisites/agrisense-labs-form-4-', $submission->prerequisite_path);
         $this->assertTrue(Storage::disk('local')->exists($submission->prerequisite_path));
+        Mail::assertQueued(FormSubmittedReceipt::class);
     }
 
     public function test_attachment_only_form_rejects_missing_or_non_pdf_prerequisite(): void

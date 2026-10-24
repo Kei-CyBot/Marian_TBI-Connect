@@ -6,7 +6,9 @@ use App\Actions\Forms\ProcessFormPrerequisitesAction;
 use App\Actions\Forms\SubmitFormAction;
 use App\Http\Requests\Forms\SubmitFormRequest;
 use App\Jobs\SyncFormSubmissionToDriveJob;
+use App\Mail\FormSubmittedReceipt;
 use App\Models\FormSubmission;
+use Illuminate\Support\Facades\Mail;
 use App\Models\Startup;
 use App\Models\StartupDriveLink;
 use App\Models\User;
@@ -42,6 +44,10 @@ class FormSubmissionController extends Controller
             signerName: $validated['signer_name'],
             prerequisite: $request->file('prerequisite'),
         );
+
+        if ($user->email) {
+            Mail::to($user->email)->queue(new FormSubmittedReceipt($submission));
+        }
 
         $redirect = to_route('files', [
             'startup' => Str::slug($submission->startup_name),

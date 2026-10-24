@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SaveTechnicalNeedRequest;
+use App\Mail\TechnicalNeedUpdatedAlert;
 use App\Models\Startup;
 use App\Models\TechnicalNeed;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
@@ -146,6 +149,15 @@ class TechnicalNeedController extends Controller
 
         if ($newPath !== null && $oldPath) {
             Storage::disk('local')->delete($oldPath);
+        }
+
+        $managers = User::query()
+            ->whereIn('role', [User::ROLE_ADMIN, User::ROLE_SUPER_ADMIN])
+            ->pluck('email')
+            ->filter()
+            ->all();
+        if (! empty($managers)) {
+            Mail::to($managers)->queue(new TechnicalNeedUpdatedAlert($technicalNeed));
         }
 
         return to_route('technical-needs', ['startup_id' => $startup->id])

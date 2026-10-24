@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Mail\TechnicalNeedUpdatedAlert;
 use App\Models\Contact;
 use App\Models\Startup;
 use App\Models\TechnicalNeed;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -90,8 +92,10 @@ class TechnicalNeedTest extends TestCase
 
     public function test_updating_a_need_without_a_new_approval_keeps_the_existing_document(): void
     {
+        Mail::fake();
         Startup::ensureConfigured();
         Storage::fake('local');
+        User::factory()->create(['role' => User::ROLE_ADMIN]);
         $user = User::factory()->create();
         $payload = [
             'startup_id' => 1,
@@ -119,12 +123,15 @@ class TechnicalNeedTest extends TestCase
         $this->assertSame('Updated lab equipment', $need->requirement);
         $this->assertSame($oldApprovalPath, $need->approval_document_path);
         $this->assertTrue(Storage::disk('local')->exists($oldApprovalPath));
+        Mail::assertQueued(TechnicalNeedUpdatedAlert::class);
     }
 
     public function test_updating_a_need_with_a_new_approval_replaces_the_existing_document(): void
     {
+        Mail::fake();
         Startup::ensureConfigured();
         Storage::fake('local');
+        User::factory()->create(['role' => User::ROLE_ADMIN]);
         $user = User::factory()->create();
         $payload = [
             'startup_id' => 1,
@@ -157,6 +164,7 @@ class TechnicalNeedTest extends TestCase
         $this->assertSame('replacement-approval.pdf', $need->approval_document_original_name);
         $this->assertTrue(Storage::disk('local')->exists($need->approval_document_path));
         $this->assertFalse(Storage::disk('local')->exists($oldApprovalPath));
+        Mail::assertQueued(TechnicalNeedUpdatedAlert::class);
     }
 
     public function test_need_date_cannot_precede_its_entry_date(): void
