@@ -59,7 +59,12 @@
             <a href="{{ route('technical-needs') }}" class="text-sm font-semibold text-teal-900 underline decoration-teal-300 underline-offset-4 hover:text-teal-950">← Incubatee folders</a>
             <p class="mt-1 text-xs text-teal-800">Viewing the private technical-needs folder for {{ $selectedStartup->name }}.</p>
         </div>
-        <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-teal-900 ring-1 ring-inset ring-teal-200">{{ $selectedStartup->track === 'internal' ? 'Internal Academic' : 'External Industry' }}</span>
+        <div class="flex items-center gap-2">
+            @if (auth()->user()->canManageRecords())
+                <a href="{{ route('exports.technical-needs') }}" class="rounded-lg border border-teal-300 bg-white px-3 py-1.5 text-xs font-semibold text-teal-900 hover:bg-teal-50">Export to CSV</a>
+            @endif
+            <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-teal-900 ring-1 ring-inset ring-teal-200">{{ $selectedStartup->track === 'internal' ? 'Internal Academic' : 'External Industry' }}</span>
+        </div>
     </div>
 
     <div class="mb-5 flex flex-wrap items-end gap-3">

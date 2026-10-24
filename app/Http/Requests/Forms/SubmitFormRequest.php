@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Forms;
 
+use App\Models\FormSubmission;
 use App\Models\Startup;
 use App\Support\Forms\StartupFormCatalog;
 use Closure;
@@ -78,12 +79,16 @@ class SubmitFormRequest extends FormRequest
 
         if ($form?->prerequisite !== null) {
             $extensions = implode(',', $form->prerequisite->allowedExtensions);
-            $rules['prerequisite'] = [
-                'required',
+            $prerequisiteRules = [
                 'file',
                 'mimes:'.$extensions,
                 'max:'.$form->prerequisite->maxKilobytes,
             ];
+
+            // When editing an existing submission the attachment may be kept as-is.
+            $rules['prerequisite'] = $this->route('submission') instanceof FormSubmission
+                ? ['nullable', ...$prerequisiteRules]
+                : ['required', ...$prerequisiteRules];
         } else {
             $rules['prerequisite'] = ['prohibited'];
         }

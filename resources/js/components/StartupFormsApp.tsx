@@ -11,6 +11,16 @@ interface StartupFormsAppProps {
     submitUrl: string | undefined;
 }
 
+function fieldLabel(field: string): string {
+    const cleaned = field.replace(/\[[^\]]*\]/g, '').replace(/[_.]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (cleaned === '') {
+        return field;
+    }
+    return cleaned
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
 function StartupFormsAppInner({ submitUrl }: StartupFormsAppProps) {
     const [session, setSession] = useState<StartupFormsSession | null>(null);
     const [selectedFormId, setSelectedFormId] = useState<number | null>(null);
@@ -115,8 +125,22 @@ function StartupFormsAppInner({ submitUrl }: StartupFormsAppProps) {
             });
 
             if (!response.ok) {
-                const result = await response.json();
-                setError(result.message || 'The form could not be submitted. Check the fields and try again.');
+                const result = await response.json().catch(() => null);
+                const fieldErrors: string[] = result?.errors
+                    ? Object.entries(result.errors as Record<string, string[]>).flatMap(([field, messages]) =>
+                        messages.map((message: string) => `${fieldLabel(field)}: ${message}`),
+                    )
+                    : [];
+                if (fieldErrors.length > 0) {
+                    const summary = fieldErrors.slice(0, 5).join(' · ');
+                    setError(fieldErrors.length > 5 ? `${summary} (+${fieldErrors.length - 5} more)` : summary);
+                } else {
+                    setError(
+                        typeof result?.message === 'string' && result.message.trim() !== ''
+                            ? result.message
+                            : 'The form could not be submitted. Check the fields and try again.',
+                    );
+                }
                 return;
             }
 
@@ -214,6 +238,11 @@ function StartupFormsAppInner({ submitUrl }: StartupFormsAppProps) {
             </div>
             {selectedFormId !== null && (
                 <div className="fixed inset-x-0 bottom-0 z-[80] mx-auto flex w-full max-w-7xl flex-wrap items-center gap-4 border-t border-slate-200 bg-white/95 px-4 py-3 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur sm:px-6 lg:bottom-4 lg:rounded-2xl lg:border">
+                    {error && (
+                        <div role="alert" className="w-full rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium leading-5 text-red-700 sm:text-sm">
+                            {error}
+                        </div>
+                    )}
                     <div className="hidden min-w-0 flex-1 sm:block">
                         <p className="text-xs font-semibold text-slate-800">Save this form response</p>
                         <p className="mt-0.5 truncate text-xs text-slate-500">

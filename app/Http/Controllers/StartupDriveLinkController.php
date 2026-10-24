@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreStartupDriveLinkRequest;
 use App\Models\StartupDriveLink;
 use App\Models\Startup;
+use App\Support\GoogleDriveService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -21,6 +22,19 @@ class StartupDriveLinkController extends Controller
             'startup_name' => $startup->name,
             'user_id' => $request->user()->id,
         ]);
+
+        $folderId = GoogleDriveService::parseFolderId($validated['url']);
+        if ($folderId !== null) {
+            $startup->forceFill([
+                'google_drive_folder_id' => $folderId,
+                'google_drive_folder_url' => $validated['url'],
+            ])->save();
+
+            return to_route('incubatees')->with(
+                'drive_link_status',
+                'Google Drive link added to '.$startup->name.' and registered as its custom Drive folder.'
+            );
+        }
 
         return to_route('incubatees')->with('drive_link_status', 'Google Drive link added to '.$startup->name.'.');
     }

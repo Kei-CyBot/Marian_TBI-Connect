@@ -24,6 +24,7 @@ class FormSubmission extends Model
         'google_drive_response_url',
         'google_drive_attachment_file_id',
         'google_drive_attachment_url',
+        'google_drive_folder_id',
         'drive_synced_at',
     ];
 

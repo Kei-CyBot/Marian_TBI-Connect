@@ -2,14 +2,30 @@
 
 namespace Tests\Feature;
 
+use App\Models\Startup;
 use App\Models\StartupDriveLink;
 use App\Models\User;
+use App\Support\GoogleDriveService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class StartupDriveLinkTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_drive_folder_urls_are_parsed_into_folder_ids(): void
+    {
+        $this->assertSame(
+            'abc-123_XYZ',
+            GoogleDriveService::parseFolderId('https://drive.google.com/drive/folders/abc-123_XYZ?usp=sharing')
+        );
+        $this->assertSame(
+            'folderIdOnly',
+            GoogleDriveService::parseFolderId('https://drive.google.com/drive/folders/folderIdOnly')
+        );
+        $this->assertNull(GoogleDriveService::parseFolderId('https://drive.google.com/open?id=doc123'));
+        $this->assertNull(GoogleDriveService::parseFolderId('https://docs.google.com/document/d/abc/edit'));
+    }
 
     public function test_authenticated_user_can_add_a_google_drive_link_for_a_configured_startup(): void
     {
@@ -22,7 +38,7 @@ class StartupDriveLinkTest extends TestCase
                 'url' => 'https://drive.google.com/drive/folders/example',
             ])
             ->assertRedirect(route('incubatees'))
-            ->assertSessionHas('drive_link_status', 'Google Drive link added to AgriSense Labs.');
+            ->assertSessionHas('drive_link_status', 'Google Drive link added to AgriSense Labs and registered as its custom Drive folder.');
 
         $this->assertDatabaseHas('startup_drive_links', [
             'startup_id' => '1',
@@ -31,6 +47,10 @@ class StartupDriveLinkTest extends TestCase
             'url' => 'https://drive.google.com/drive/folders/example',
             'user_id' => $user->id,
         ]);
+
+        $startup = Startup::query()->findOrFail(1);
+        $this->assertSame('example', $startup->google_drive_folder_id);
+        $this->assertSame('https://drive.google.com/drive/folders/example', $startup->google_drive_folder_url);
 
         $this->actingAs($user)
             ->get(route('incubatees'))

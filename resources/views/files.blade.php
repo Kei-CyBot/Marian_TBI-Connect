@@ -48,6 +48,13 @@
         accessStartup:null,
         restrictedDraft:false,
         selectedUsers:[],
+        editModal:false,
+        editFile:null,
+        editSigner:'',
+        deleteModal:false,
+        deleteFile:null,
+        moveModal:false,
+        moveFile:null,
         get folders(){
             const grouped=new Map();
             this.startupFolders.filter(startup=>startup.track===this.tab).forEach(startup=>{
@@ -68,20 +75,31 @@
         get folderFiles(){
             const forms=this.submitted
                 .filter(form=>form.track===this.tab && form.startupSlug===this.currentFolder)
-                .map(form=>({
-                    id:form.id,
-                    name:form.attachmentName || form.title,
-                    type:form.attachmentName ? 'Form attachment' : 'Saved form response',
-                    owner:form.userName,
-                    updated:form.date,
-                    isForm:true,
-                    status:form.status,
-                    data:form.data,
-                    attachmentUrl:form.attachmentUrl,
-                    driveResponseUrl:form.driveResponseUrl,
-                    driveAttachmentUrl:form.driveAttachmentUrl,
-                    driveUrl:form.driveAttachmentUrl || form.driveResponseUrl
-                }));
+            .map(form=>({
+                id:form.id,
+                submissionId:form.submissionId,
+                formId:form.form,
+                name:form.attachmentName || form.title,
+                type:form.attachmentName ? 'Form attachment' : 'Saved form response',
+                owner:form.userName,
+                updated:form.date,
+                isForm:true,
+                status:form.status,
+                startup:form.startup,
+                track:form.track,
+                previewHtml:form.previewHtml,
+                editorFields:form.editorFields,
+                complexData:form.complexData,
+                originalData:form.originalData,
+                signerName:form.signerName,
+                driveFolders:form.driveFolders,
+                attachmentForm:form.attachmentForm,
+                attachmentName:form.attachmentName,
+                attachmentUrl:form.attachmentUrl,
+                driveResponseUrl:form.driveResponseUrl,
+                driveAttachmentUrl:form.driveAttachmentUrl,
+                driveUrl:form.driveAttachmentUrl || form.driveResponseUrl
+            }));
             const links=this.driveLinks
                 .filter(link=>link.startupSlug===this.currentFolder)
                 .map(link=>({
@@ -104,8 +122,32 @@
             this.selectedUsers=(folder.accessUserIds || []).map(String);
             this.accessModal=true;
         },
-        openFolder(slug){ this.currentFolder=slug; this.drawer=null },
-        goToRoot(){ this.currentFolder=null; this.drawer=null; this.accessModal=false }
+        openFolder(slug){ this.currentFolder=slug; this.drawer=null; this.editModal=false; this.deleteModal=false; this.moveModal=false },
+        goToRoot(){ this.currentFolder=null; this.drawer=null; this.accessModal=false; this.editModal=false; this.deleteModal=false; this.moveModal=false },
+        askEdit(submission){
+            this.editFile=JSON.parse(JSON.stringify(submission));
+            this.editSigner=submission?.signerName || '';
+            this.editModal=true;
+        },
+        closeEdit(){ this.editModal=false; this.editFile=null },
+        askDelete(submission){
+            this.deleteFile=submission;
+            this.deleteModal=true;
+        },
+        closeDelete(){ this.deleteModal=false; this.deleteFile=null },
+        askMove(submission){
+            this.moveFile=submission;
+            this.moveModal=true;
+        },
+        closeMove(){ this.moveModal=false; this.moveFile=null },
+        editorPayload(file){
+            const values={};
+            (file?.editorFields || []).forEach(field=>{
+                if(field.editable) values[field.key]=field.value;
+            });
+            values.signer_name=this.editSigner;
+            return values;
+        }
      }"
      @keydown.escape.window="drawer=null">
 
@@ -123,6 +165,8 @@
             <div class="flex items-center gap-3">
                 <span x-show="currentFolderRecord?.restricted" class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">Restricted folder</span>
                 @if (auth()->user()->canManageRecords())
+                    <a href="{{ route('exports.form-submissions') }}" class="rounded-lg border border-[#1a8a8e]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#146e72] hover:bg-[#eaf6f6]">Export to CSV</a>
+                    <a href="{{ route('activity-logs.index') }}" class="rounded-lg border border-[#1a8a8e]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#146e72] hover:bg-[#eaf6f6]">Activity Log</a>
                     <button x-show="currentFolderRecord?.canManageAccess" x-cloak type="button" @click="openAccess(currentFolderRecord)" class="rounded-lg border border-[#1a8a8e]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#146e72] hover:bg-[#eaf6f6]">Manage access</button>
                 @endif
                 <a href="{{ route('incubatees') }}" class="text-xs font-semibold text-[#146e72] hover:underline">Manage Drive links</a>
@@ -157,10 +201,15 @@
                             <td class="px-3 py-3 text-gray-700" x-text="file.type"></td>
                             <td class="px-3 py-3 text-gray-700" x-text="file.owner || '—'"></td>
                             <td class="px-3 py-3 text-gray-700" x-text="file.updated || '—'"></td>
-                            <td class="px-5 py-3 text-right">
+                            <td class="px-5 py-3 text-right whitespace-nowrap">
                                 <a x-show="file.isForm && file.attachmentUrl" x-cloak :href="file.attachmentUrl" class="inline-flex rounded-lg bg-[#146e72] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#10595c]">Download</a>
                                 <a x-show="file.isForm && file.driveUrl" x-cloak :href="file.driveUrl" target="_blank" rel="noopener noreferrer" class="inline-flex rounded-lg border border-[#1a8a8e]/30 bg-[#eaf6f6] px-3 py-1.5 text-xs font-semibold text-[#146e72] hover:bg-[#d8eeee]">Open synced copy</a>
                                 <a x-show="file.isDriveLink" x-cloak :href="file.url" target="_blank" rel="noopener noreferrer" class="inline-flex rounded-lg bg-[#146e72] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#10595c]">Open in Drive</a>
+                                @if (auth()->user()->canManageRecords())
+                                    <button type="button" x-show="file.isForm" x-cloak @click="askEdit(file)" class="inline-flex rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Edit</button>
+                                    <button type="button" x-show="file.isForm" x-cloak @click="askMove(file)" class="inline-flex rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Move to Drive Folder</button>
+                                    <button type="button" x-show="file.isForm" x-cloak @click="askDelete(file)" class="inline-flex rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50">Delete</button>
+                                @endif
                             </td>
                         </tr>
                     </template>
@@ -190,11 +239,7 @@
                                 <a x-show="drawer.driveResponseUrl" x-cloak :href="drawer.driveResponseUrl" target="_blank" rel="noopener noreferrer" class="rounded-lg bg-[#146e72] px-3 py-2 text-xs font-semibold text-white hover:bg-[#10595c]">Open response in Drive</a>
                                 <a x-show="drawer.driveAttachmentUrl" x-cloak :href="drawer.driveAttachmentUrl" target="_blank" rel="noopener noreferrer" class="rounded-lg border border-[#1a8a8e]/30 bg-[#eaf6f6] px-3 py-2 text-xs font-semibold text-[#146e72] hover:bg-[#d8eeee]">Open attachment in Drive</a>
                             </div>
-                            <dl class="space-y-3 rounded-xl border border-gray-200 p-4">
-                                <template x-for="[key,value] in Object.entries(drawer.data || {})" :key="key">
-                                    <div class="border-b border-gray-100 pb-2 last:border-0"><dt class="text-xs font-semibold capitalize text-gray-600" x-text="key.replaceAll('_',' ')"></dt><dd class="mt-1 whitespace-pre-wrap break-words text-sm text-gray-900" x-text="typeof value==='object' ? JSON.stringify(value) : value"></dd></div>
-                                </template>
-                            </dl>
+                            <div class="rounded-xl border border-gray-200 p-4" x-html="drawer.previewHtml"></div>
                         </div>
                     </template>
                     <template x-if="drawer.isDriveLink">
@@ -207,7 +252,6 @@
             </div>
         </template>
     </aside>
-</div>
 
 @if (auth()->user()->canManageRecords())
 <div x-show="accessModal" x-cloak x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="accessModal=false">
@@ -247,5 +291,140 @@
             </footer>
         </form>
     </section>
+</div>
+
+@if (auth()->user()->canManageRecords())
+<div x-show="editModal" x-cloak x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="closeEdit()">
+    <section role="dialog" aria-modal="true" aria-labelledby="edit-submission-title" class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <form method="POST" :action="'{{ url('/file-manager/submissions') }}/'+(editFile?.submissionId || '')" enctype="multipart/form-data">
+            @csrf
+            @method('PUT')
+            <header class="flex items-start justify-between gap-4 bg-[#146e72] px-6 py-5 text-white">
+                <div class="min-w-0">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-white/80">Edit saved response</p>
+                    <h2 id="edit-submission-title" class="mt-1 truncate text-lg font-bold" x-text="editFile?.name"></h2>
+                    <p class="mt-1 truncate text-xs text-white/80" x-text="(editFile?.startup || '')+' · '+(editFile?.track === 'internal' ? 'Internal Academic' : 'External Industry')"></p>
+                </div>
+                <button type="button" @click="closeEdit()" aria-label="Close edit form" class="rounded-lg p-1.5 text-white/90 hover:bg-white/15">✕</button>
+            </header>
+            <div class="space-y-4 p-6">
+                <input type="hidden" name="form_id" :value="editFile?.formId">
+                <input type="hidden" name="startup" :value="editFile?.startup">
+                <input type="hidden" name="track" :value="editFile?.track">
+                <input type="hidden" name="data" :value="JSON.stringify(editorPayload(editFile))">
+                <input type="hidden" name="data_complex" :value="JSON.stringify(editFile?.complexData || {})">
+                <label class="block text-xs font-semibold text-gray-600">
+                    Submitted by
+                    <input type="text" name="signer_name" required x-model="editSigner" class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900">
+                </label>
+                <template x-for="field in (editFile?.editorFields || [])" :key="field.key">
+                    <div class="block">
+                        <span class="block text-xs font-semibold text-gray-600" x-text="field.label"></span>
+                        <input x-show="!field.editable" type="text" :value="field.value" disabled
+                               class="mt-1 w-full rounded-xl border border-gray-200 bg-gray-100 px-3 py-2 text-sm font-normal text-gray-500">
+                        <input x-show="field.editable && ['text','email','date'].includes(field.type)" :type="field.type"
+                               x-model="field.value"
+                               class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900">
+                        <textarea x-show="field.editable && field.type==='textarea'" rows="3" x-model="field.value"
+                                  class="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900"></textarea>
+                        <select x-show="field.editable && field.type==='select'" x-model="field.value"
+                                class="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-900">
+                            <option value="">Choose an option…</option>
+                            <template x-for="option in field.options" :key="option.value">
+                                <option :value="option.value" x-text="option.label"></option>
+                            </template>
+                        </select>
+                        <div x-show="field.editable && field.type==='radio'" x-cloak class="mt-1 space-y-1.5">
+                            <template x-for="option in field.options" :key="option.value">
+                                <label class="flex items-start gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-normal text-gray-700">
+                                    <input type="radio" class="mt-0.5 accent-[#146e72]" :name="'editor_'+field.key" :value="option.value" x-model="field.value">
+                                    <span x-text="option.label"></span>
+                                </label>
+                            </template>
+                        </div>
+                        <div x-show="field.editable && field.type==='checkbox'" x-cloak class="mt-1 flex items-center gap-2">
+                            <input type="checkbox" class="rounded border-gray-300 accent-[#146e72]" x-model="field.value">
+                            <span class="text-xs font-normal text-gray-500" x-text="field.value ? 'Checked' : 'Not checked'"></span>
+                        </div>
+                    </div>
+                </template>
+                <p x-show="!(editFile?.editorFields || []).length" class="rounded-xl border border-dashed border-gray-300 px-4 py-4 text-center text-xs text-gray-600">
+                    This response contains only structured sections, which are preserved as-is.
+                </p>
+                <div x-show="editFile?.attachmentForm" x-cloak class="rounded-xl border border-[#1a8a8e]/20 bg-[#eaf6f6] p-4">
+                    <p class="text-xs font-semibold text-[#146e72]">Replace required PDF attachment</p>
+                    <p class="mt-1 text-xs leading-5 text-gray-700">Leave empty to keep the current attachment.</p>
+                    <input type="file" name="prerequisite" accept=".pdf,application/pdf"
+                           class="mt-2 block w-full rounded-xl border border-slate-line bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-[#eaf6f6] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#146e72]">
+                </div>
+            </div>
+            <footer class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
+                <button type="button" @click="closeEdit()" class="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100">Cancel</button>
+                <button type="submit" class="rounded-xl bg-[#146e72] px-5 py-2 text-sm font-semibold text-white hover:bg-[#10595c]">Save changes</button>
+            </footer>
+        </form>
+    </section>
+</div>
+
+<div x-show="deleteModal" x-cloak x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="closeDelete()">
+    <form method="POST" :action="'{{ url('/file-manager/submissions') }}/'+(deleteFile?.submissionId || '')" class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+        @csrf
+        @method('DELETE')
+        <header class="flex items-start justify-between gap-4 bg-red-600 px-6 py-5 text-white">
+            <div class="min-w-0">
+                <p class="text-xs font-semibold uppercase tracking-wider text-white/80">Delete saved response</p>
+                <h2 class="mt-1 truncate text-lg font-bold" x-text="deleteFile?.name"></h2>
+            </div>
+            <button type="button" @click="closeDelete()" aria-label="Close delete confirmation" class="rounded-lg p-1.5 text-white/90 hover:bg-white/15">✕</button>
+        </header>
+        <div class="space-y-2 p-6 text-sm leading-6 text-gray-700">
+            <p>Delete <strong class="font-semibold text-gray-900" x-text="deleteFile?.name"></strong> from the
+                <span x-text="deleteFile?.startup"></span> file folder?</p>
+            <p x-show="deleteFile?.attachmentName">Its uploaded attachment <span class="font-semibold" x-text="deleteFile?.attachmentName"></span> will also be removed from storage.</p>
+            <p class="text-xs text-gray-500">This action cannot be undone.</p>
+        </div>
+        <footer class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
+            <button type="button" @click="closeDelete()" class="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100">Cancel</button>
+            <button type="submit" class="rounded-xl bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700">Delete response</button>
+        </footer>
+        </form>
+    </div>
+
+<div x-show="moveModal" x-cloak x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="closeMove()" @keydown.escape.window="moveModal = false">
+    <form method="POST" :action="'/file-manager/submissions/' + (moveFile?.submissionId ?? '') + '/move'" class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+        @csrf
+        <header class="flex items-start justify-between gap-4 bg-[#146e72] px-6 py-5 text-white">
+            <div class="min-w-0">
+                <p class="text-xs font-semibold uppercase tracking-wider text-white/80">Move to custom Drive folder</p>
+                <h2 class="mt-1 truncate text-lg font-bold" x-text="moveFile?.name"></h2>
+            </div>
+            <button type="button" @click="closeMove()" aria-label="Close move dialog" class="rounded-lg p-1.5 text-white/90 hover:bg-white/15">✕</button>
+        </header>
+        <div class="space-y-4 p-6 text-sm leading-6 text-gray-700">
+            <p>Move <strong class="font-semibold text-gray-900" x-text="moveFile?.name"></strong> to a custom Google Drive folder configured for
+                <span class="font-semibold" x-text="moveFile?.startup"></span>.</p>
+            <label class="block text-xs font-semibold text-gray-600">
+                Destination custom Drive folder
+                <select name="target_folder_id" required x-show="(moveFile?.driveFolders || []).length"
+                        :disabled="!(moveFile?.driveFolders || []).length"
+                        class="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-900">
+                    <option value="">Choose a folder…</option>
+                    <template x-for="folder in (moveFile?.driveFolders || [])" :key="folder.id">
+                        <option :value="folder.id" x-text="folder.label + (folder.url ? ' — ' + folder.url : '')"></option>
+                    </template>
+                </select>
+            </label>
+            <p x-show="!(moveFile?.driveFolders || []).length" class="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-900">
+                No custom Google Drive folder is configured for this incubatee yet. Add a Drive link for this startup first, then try again.
+            </p>
+            <p x-show="(moveFile?.driveFolders || []).length" class="text-xs text-gray-500">The saved response and its uploaded attachment are relocated into the selected custom Drive folder. Google Drive copies move automatically when Drive is connected.</p>
+        </div>
+        <footer class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
+            <button type="button" @click="closeMove()" class="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100">Cancel</button>
+            <button type="submit" x-show="(moveFile?.driveFolders || []).length" class="rounded-xl bg-[#146e72] px-5 py-2 text-sm font-semibold text-white hover:bg-[#10595c]">Move to Drive Folder</button>
+        </footer>
+    </form>
+</div>
+@endif
 </div>
 @endsection

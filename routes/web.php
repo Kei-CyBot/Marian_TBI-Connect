@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ArchiveController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ContactRegistrationController;
+use App\Http\Controllers\ExportController;
 use App\Http\Controllers\EventEmailController;
 use App\Http\Controllers\EventsController;
 use App\Http\Controllers\FileManagerController;
@@ -105,6 +107,15 @@ Route::middleware('auth')->group(function (): void {
         ->name('form-submissions.store');
     Route::get('/form-submissions/{submission}/attachment', [FormSubmissionController::class, 'downloadAttachment'])
         ->name('form-submissions.attachment');
+    Route::put('/file-manager/submissions/{submission}', [FormSubmissionController::class, 'update'])
+        ->middleware('role:admin,super_admin')
+        ->name('form-submissions.update');
+    Route::delete('/file-manager/submissions/{submission}', [FormSubmissionController::class, 'destroy'])
+        ->middleware('role:admin,super_admin')
+        ->name('form-submissions.destroy');
+    Route::post('/file-manager/submissions/{submission}/move', [FormSubmissionController::class, 'move'])
+        ->middleware('role:admin,super_admin')
+        ->name('form-submissions.move');
 
     Route::post('/logout', function (Request $request) {
         Auth::logout();
@@ -148,6 +159,9 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('role:admin,super_admin')
         ->name('contact-intake.destroy');
     Route::get('/files', [FileManagerController::class, 'index'])->name('files');
+    Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
+    Route::get('/exports/form-submissions', [ExportController::class, 'exportSubmissions'])->middleware('role:admin,super_admin')->name('exports.form-submissions');
+    Route::get('/exports/technical-needs', [ExportController::class, 'exportTechnicalNeeds'])->middleware('role:admin,super_admin')->name('exports.technical-needs');
     Route::get('/google-drive/connect', [GoogleDriveController::class, 'connect'])->middleware('role:admin,super_admin')->name('google-drive.connect');
     Route::get('/google-drive/callback', [GoogleDriveController::class, 'callback'])->middleware('role:admin,super_admin')->name('google-drive.callback');
     Route::post('/google-drive/sync', [GoogleDriveController::class, 'synchronize'])->middleware('role:admin,super_admin')->name('google-drive.sync');

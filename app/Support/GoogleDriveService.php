@@ -22,6 +22,18 @@ class GoogleDriveService
         return GoogleDriveConnection::query()->where('singleton_key', 'marian-tbi')->exists();
     }
 
+    /**
+     * Extract a Google Drive folder ID from a user-provided folder URL.
+     */
+    public static function parseFolderId(string $url): ?string
+    {
+        if (preg_match('~drive\.google\.com/drive/folders/([A-Za-z0-9_-]+)~', $url, $matches) === 1) {
+            return $matches[1];
+        }
+
+        return null;
+    }
+
     public function connection(): ?GoogleDriveConnection
     {
         return GoogleDriveConnection::query()->where('singleton_key', 'marian-tbi')->first();
@@ -226,6 +238,40 @@ class GoogleDriveService
         }
 
         $submission->forceFill($updates)->save();
+    }
+
+    public function deleteFile(string $fileId): void
+    {
+        Http::withToken($this->accessToken())
+            ->delete(self::API_URL.'/files/'.rawurlencode($fileId).'?'.http_build_query(['supportsAllDrives' => 'true']))
+            ->throw();
+    }
+
+    public function moveFile(string $fileId, string $newFolderId, ?string $oldFolderId = null): void
+    {
+        if (! is_string($oldFolderId) || $oldFolderId === '') {
+            $metadata = Http::withToken($this->accessToken())
+                ->get(self::API_URL.'/files/'.rawurlencode($fileId), [
+                    'fields' => 'parents',
+                    'supportsAllDrives' => 'true',
+                ])
+                ->throw()
+                ->json();
+            $oldFolderId = collect($metadata['parents'] ?? [])->first();
+        }
+
+        $query = [
+            'addParents' => $newFolderId,
+            'fields' => 'id,parents',
+            'supportsAllDrives' => 'true',
+        ];
+        if (is_string($oldFolderId) && $oldFolderId !== '') {
+            $query['removeParents'] = $oldFolderId;
+        }
+
+        Http::withToken($this->accessToken())
+            ->patch(self::API_URL.'/files/'.rawurlencode($fileId).'?'.http_build_query($query))
+            ->throw();
     }
 
     private function uploadContent(
