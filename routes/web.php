@@ -58,6 +58,9 @@ Route::middleware('guest')->group(function (): void {
         return redirect()->intended(route('dashboard'));
     })->middleware('throttle:5,1')->name('login.store');
 
+    Route::get('/invites/accept/{token}', [TeamController::class, 'acceptInviteForm'])->name('invites.accept');
+    Route::post('/invites/accept/{token}', [TeamController::class, 'processAcceptInvite'])->name('invites.accept.process');
+
     Route::get('/auth/google/redirect', function () {
         abort_unless(
             class_exists(Socialite::class),
@@ -178,6 +181,8 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/event-emails', [EventEmailController::class, 'send'])->middleware('role:admin,super_admin')->name('event-emails.send');
     Route::get('/team', [TeamController::class, 'index'])->name('team');
     Route::put('/team/{user}/role', [TeamController::class, 'updateRole'])->middleware('role:super_admin')->name('team.roles.update');
+    Route::post('/team/invite', [TeamController::class, 'invite'])->middleware('role:admin,super_admin')->name('team.invite');
+    Route::delete('/team/invitations/{invitation}', [TeamController::class, 'revokeInvite'])->middleware('role:admin,super_admin')->name('team.invitations.revoke');
     Route::get('/archives', [ArchiveController::class, 'index'])->name('archives');
     Route::post('/archives/startups/{startup}/restore', [ArchiveController::class, 'restoreStartup'])->middleware('role:admin,super_admin')->name('archives.startups.restore');
     Route::delete('/archives/startups/{startup}', [ArchiveController::class, 'destroyStartup'])->middleware('role:admin,super_admin')->name('archives.startups.destroy');
