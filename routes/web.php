@@ -158,6 +158,9 @@ Route::middleware('auth')->group(function (): void {
     Route::patch('/contact-intake/{application}/verify', [ContactRegistrationController::class, 'verify'])
         ->middleware('role:admin,super_admin')
         ->name('contact-intake.verify');
+    Route::post('/contact-intake/{application}/provision', [ContactRegistrationController::class, 'approveAndProvision'])
+        ->middleware('role:admin,super_admin')
+        ->name('contact-intake.provision');
     Route::delete('/contact-intake/{application}', [ContactRegistrationController::class, 'destroy'])
         ->middleware('role:admin,super_admin')
         ->name('contact-intake.destroy');

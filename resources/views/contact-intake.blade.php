@@ -109,7 +109,11 @@
                                 @if (auth()->user()->canManageRecords())
                                     <form x-show="application.status === 'Pending'" method="POST" :action="'{{ url('/contact-intake') }}/'+application.id+'/verify'">
                                         @csrf @method('PATCH')
-                                        <button type="submit" class="whitespace-nowrap rounded-lg bg-[#1a8a8e] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#146e72]">Verify application</button>
+                                        <button type="submit" class="whitespace-nowrap rounded-lg bg-[#1a8a8e] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#146e72]">Verify &amp; Add to Contacts</button>
+                                    </form>
+                                    <form x-show="application.status === 'Pending'" method="POST" :action="'{{ url('/contact-intake') }}/'+application.id+'/provision'">
+                                        @csrf
+                                        <button type="submit" class="whitespace-nowrap rounded-lg bg-[#146e72] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#105a5d]">Approve &amp; Invite Account</button>
                                     </form>
                                     <form method="POST" :action="'{{ url('/contact-intake') }}/'+application.id"
                                           @submit="if (!confirm('Permanently delete this registration application?')) $event.preventDefault()">

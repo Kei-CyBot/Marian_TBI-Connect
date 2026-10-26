@@ -2,10 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\TeamInviteMail;
+use App\Models\Contact;
 use App\Models\ContactRegistrationApplication;
+use App\Models\TeamInvitation;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -116,6 +122,28 @@ class ContactRegistrationController extends Controller
             return to_route('contact-intake')->with('intake_status', 'This application has already been reviewed.');
         }
 
+        $data = $application->application_data ?? [];
+
+        Contact::create([
+            'side' => $data['stream'] ?? $application->stream,
+            'name' => $application->name,
+            'email' => $application->email,
+            'phone' => $data['phone'] ?? null,
+            'affiliation_type' => $data['affiliationType'] ?? $data['affiliation_type'] ?? 'Other',
+            'role' => $data['role'] ?? 'Other',
+            'organization' => $data['organization'] ?? null,
+            'academic_program' => $data['academicProgram'] ?? null,
+            'academic_year' => $data['academicYear'] ?? null,
+            'domains' => $data['domains'] ?? [],
+            'domain_other' => $data['domainOther'] ?? null,
+            'technical_skills' => $data['technicalSkills'] ?? [],
+            'technical_other' => $data['technicalOther'] ?? null,
+            'skill_details' => $data['skillDetails'] ?? null,
+            'verification_status' => 'Verified Contact',
+            'incubatees' => [],
+            'activity_log' => [],
+        ]);
+
         $application->forceFill([
             'status' => 'Verified',
             'reviewed_by' => $request->user()->id,
@@ -123,6 +151,57 @@ class ContactRegistrationController extends Controller
         ])->save();
 
         return to_route('contact-intake')->with('intake_status', $application->name.' was verified. No login account has been created.');
+    }
+
+    public function approveAndProvision(Request $request, ContactRegistrationApplication $application): RedirectResponse
+    {
+        if ($application->status !== 'Pending') {
+            return to_route('contact-intake')->with('intake_status', 'This application has already been reviewed.');
+        }
+
+        $data = $application->application_data ?? [];
+
+        if (! Contact::query()->where('email', $application->email)->exists()) {
+            Contact::create([
+                'side' => $data['stream'] ?? $application->stream,
+                'name' => $application->name,
+                'email' => $application->email,
+                'phone' => $data['phone'] ?? null,
+                'affiliation_type' => $data['affiliationType'] ?? $data['affiliation_type'] ?? 'Other',
+                'role' => $data['role'] ?? 'Other',
+                'organization' => $data['organization'] ?? null,
+                'academic_program' => $data['academicProgram'] ?? null,
+                'academic_year' => $data['academicYear'] ?? null,
+                'domains' => $data['domains'] ?? [],
+                'domain_other' => $data['domainOther'] ?? null,
+                'technical_skills' => $data['technicalSkills'] ?? [],
+                'technical_other' => $data['technicalOther'] ?? null,
+                'skill_details' => $data['skillDetails'] ?? null,
+                'verification_status' => 'Verified Contact',
+                'incubatees' => [],
+                'activity_log' => [],
+            ]);
+        }
+
+        if (! TeamInvitation::query()->where('email', $application->email)->whereNull('accepted_at')->where('expires_at', '>', now())->exists()) {
+            $invitation = TeamInvitation::create([
+                'email' => $application->email,
+                'role' => User::ROLE_MEMBER_INCUBATEE,
+                'token' => Str::random(64),
+                'expires_at' => now()->addDays(7),
+                'invited_by' => $request->user()->id,
+            ]);
+
+            Mail::to($invitation->email)->queue(new TeamInviteMail($invitation));
+        }
+
+        $application->forceFill([
+            'status' => 'Approved & Account Provisioned',
+            'reviewed_by' => $request->user()->id,
+            'reviewed_at' => now(),
+        ])->save();
+
+        return to_route('contact-intake')->with('intake_status', $application->name.' approved and invited.');
     }
 
     public function destroy(ContactRegistrationApplication $application): RedirectResponse
