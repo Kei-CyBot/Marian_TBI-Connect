@@ -234,6 +234,20 @@
                                 <p class="text-xs font-semibold uppercase tracking-wider text-[#146e72]">Filed in this incubatee folder</p>
                                 <p class="mt-1 text-sm text-gray-800">The form response is stored here with its uploaded attachment, if provided.</p>
                                 <p class="mt-2 text-xs text-gray-700">Review status: <span class="font-semibold" x-text="drawer.status"></span></p>
+                                @if (auth()->user()->canManageRecords())
+                                    <form method="POST" :action="'{{ url('/form-submissions') }}/'+(drawer.submissionId || '')+'/status'" class="mt-3 flex flex-wrap items-end gap-2 border-t border-[#1a8a8e]/20 pt-3">
+                                        @csrf
+                                        @method('PATCH')
+                                        <label class="text-xs font-semibold text-gray-700">Set review status
+                                            <select name="status" required class="mt-1 block rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs font-normal text-gray-900">
+                                                <option value="in_review">In review</option>
+                                                <option value="approved">Approved</option>
+                                                <option value="rejected">Rejected</option>
+                                            </select>
+                                        </label>
+                                        <button type="submit" class="rounded-lg bg-[#146e72] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#10595c]">Update status</button>
+                                    </form>
+                                @endif
                             </div>
                             <div x-show="drawer.driveResponseUrl || drawer.driveAttachmentUrl" class="flex flex-wrap gap-2">
                                 <a x-show="drawer.driveResponseUrl" x-cloak :href="drawer.driveResponseUrl" target="_blank" rel="noopener noreferrer" class="rounded-lg bg-[#146e72] px-3 py-2 text-xs font-semibold text-white hover:bg-[#10595c]">Open response in Drive</a>

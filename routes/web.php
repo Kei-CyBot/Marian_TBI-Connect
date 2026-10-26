@@ -4,13 +4,15 @@ use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ArchiveController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ContactRegistrationController;
-use App\Http\Controllers\ExportController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventEmailController;
 use App\Http\Controllers\EventsController;
+use App\Http\Controllers\ExportController;
 use App\Http\Controllers\FileManagerController;
 use App\Http\Controllers\FormSubmissionController;
 use App\Http\Controllers\GoogleDriveController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicIntakeController;
 use App\Http\Controllers\StartupAssessmentController;
 use App\Http\Controllers\StartupController;
 use App\Http\Controllers\StartupDriveLinkController;
@@ -24,7 +26,13 @@ use Illuminate\Support\Facades\Route;
 use Laravel\Socialite\Facades\Socialite;
 
 Route::view('/startup-form', 'public.startup-form')->name('startup-form');
+Route::post('/startup-form', [PublicIntakeController::class, 'storeStartup'])
+    ->middleware('throttle:10,1')
+    ->name('startup-form.store');
 Route::view('/alumni-form', 'public.alumni-form')->name('alumni-form');
+Route::post('/alumni-form', [PublicIntakeController::class, 'storeAlumni'])
+    ->middleware('throttle:10,1')
+    ->name('alumni-form.store');
 Route::get('/contact-registration', [ContactRegistrationController::class, 'create'])->name('contact-registration');
 Route::post('/contact-registration', [ContactRegistrationController::class, 'store'])
     ->middleware('throttle:10,1')
@@ -113,6 +121,9 @@ Route::middleware('auth')->group(function (): void {
     Route::put('/file-manager/submissions/{submission}', [FormSubmissionController::class, 'update'])
         ->middleware('role:admin,super_admin')
         ->name('form-submissions.update');
+    Route::patch('/form-submissions/{submission}/status', [FormSubmissionController::class, 'updateStatus'])
+        ->middleware('role:admin,super_admin')
+        ->name('form-submissions.status');
     Route::delete('/file-manager/submissions/{submission}', [FormSubmissionController::class, 'destroy'])
         ->middleware('role:admin,super_admin')
         ->name('form-submissions.destroy');
@@ -130,7 +141,7 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::view('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/incubatees', [StartupAssessmentController::class, 'index'])->name('incubatees');
     Route::post('/incubatees', [StartupController::class, 'store'])->middleware('role:admin,super_admin')->name('incubatees.store');
     Route::put('/incubatees/{startup}', [StartupController::class, 'update'])->middleware('role:admin,super_admin')->name('incubatees.update');

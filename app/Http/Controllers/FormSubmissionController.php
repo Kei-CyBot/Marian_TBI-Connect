@@ -4,11 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Actions\Forms\ProcessFormPrerequisitesAction;
 use App\Actions\Forms\SubmitFormAction;
+use App\Enums\Forms\ApprovalStatus;
 use App\Http\Requests\Forms\SubmitFormRequest;
 use App\Jobs\SyncFormSubmissionToDriveJob;
 use App\Mail\FormSubmittedReceipt;
+use App\Models\ActivityLog;
 use App\Models\FormSubmission;
-use Illuminate\Support\Facades\Mail;
 use App\Models\Startup;
 use App\Models\StartupDriveLink;
 use App\Models\User;
@@ -19,8 +20,10 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class FormSubmissionController extends Controller
 {
@@ -246,6 +249,47 @@ class FormSubmissionController extends Controller
         }
 
         return $redirect;
+    }
+
+    public function updateStatus(Request $request, FormSubmission $submission): RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($user instanceof User, 401);
+
+        $startup = Startup::withTrashed()->where('name', $submission->startup_name)->first();
+        abort_if($startup && ! $startup->userCanAccessFolder($user), 403);
+
+        $validated = $request->validate([
+            'status' => ['required', Rule::in([
+                ApprovalStatus::InReview->value,
+                ApprovalStatus::Approved->value,
+                ApprovalStatus::Rejected->value,
+            ])],
+        ]);
+
+        $oldStatus = $submission->approval_status;
+        $newStatus = ApprovalStatus::from($validated['status']);
+        $submission->forceFill(['approval_status' => $newStatus])->saveQuietly();
+
+        ActivityLog::query()->create([
+            'user_id' => $user->id,
+            'action' => 'status_updated',
+            'subject_type' => FormSubmission::class,
+            'subject_id' => $submission->getKey(),
+            'description' => $user->name.' changed '.$submission->form_name.' for '.$submission->startup_name.' from '.$oldStatus->value.' to '.$newStatus->value,
+            'changes' => [
+                'approval_status' => [
+                    'old' => $oldStatus->value,
+                    'new' => $newStatus->value,
+                ],
+            ],
+            'ip_address' => $request->ip(),
+        ]);
+
+        return to_route('files', [
+            'startup' => Str::slug($submission->startup_name),
+            'track' => $submission->track,
+        ])->with('status', 'Submission status updated to '.str_replace('_', ' ', $newStatus->value).'.');
     }
 
     public function downloadAttachment(FormSubmission $submission)

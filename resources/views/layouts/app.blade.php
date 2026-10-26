@@ -158,7 +158,6 @@
     </main>
 </div>
 
-@include('partials.incubatee-slideover')
 @include('partials.contact-slideover')
 @include('partials.event-slideover')
 @stack('scripts')

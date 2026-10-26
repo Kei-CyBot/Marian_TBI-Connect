@@ -7,28 +7,14 @@
 @section('content')
 @php
     $stats = [
-        ['label'=>'Active Incubatees','all'=>48,'internal'=>21,'external'=>27,'delta'=>'+6 this quarter'],
-        ['label'=>'Applicants in Pipeline','all'=>19,'internal'=>8,'external'=>11,'delta'=>'5 awaiting review'],
-        ['label'=>'Ecosystem Contacts','all'=>164,'internal'=>58,'external'=>106,'delta'=>'12 NDAs pending'],
-        ['label'=>'Graduates & Alumni','all'=>73,'internal'=>29,'external'=>44,'delta'=>'+9 this year'],
-    ];
-    $pipeline = [
-        ['Applicant',19,'internal'=>8,'external'=>11],
-        ['Incubatee',34,'internal'=>15,'external'=>19],
-        ['Incubatee Extended',14,'internal'=>6,'external'=>8],
-        ['Graduate',41,'internal'=>16,'external'=>25],
-        ['Alumni Network',32,'internal'=>13,'external'=>19],
-    ];
-    $activity = [
-        ['t'=>'internal','text'=>'TTO filed patent disclosure for AgriSense Labs','when'=>'2h ago'],
-        ['t'=>'external','text'=>'Term sheet uploaded — LedgerLoop (Seed)','when'=>'5h ago'],
-        ['t'=>'external','text'=>'Vetted Investor added: Meridian Angels','when'=>'Yesterday'],
-        ['t'=>'internal','text'=>'Quarterly Work Plan submitted — NanoCure Lab','when'=>'Yesterday'],
-        ['t'=>'external','text'=>'MOU signed with Regional Dev. Council','when'=>'2d ago'],
+        ['label'=>'Active Incubatees','all'=>$metrics['activeStartups']['all'],'internal'=>$metrics['activeStartups']['internal'],'external'=>$metrics['activeStartups']['external'],'delta'=>'Non-archived records'],
+        ['label'=>'Applicants in Pipeline','all'=>$metrics['pendingIntakeApplications']['all'],'internal'=>$metrics['pendingIntakeApplications']['internal'],'external'=>$metrics['pendingIntakeApplications']['external'],'delta'=>'Awaiting review'],
+        ['label'=>'Ecosystem Contacts','all'=>$metrics['verifiedContacts']['all'],'internal'=>$metrics['verifiedContacts']['internal'],'external'=>$metrics['verifiedContacts']['external'],'delta'=>'Verified contacts'],
+        ['label'=>'Graduates & Alumni','all'=>$metrics['graduates']['all'],'internal'=>$metrics['graduates']['internal'],'external'=>$metrics['graduates']['external'],'delta'=>'Graduate + alumni'],
     ];
 @endphp
 
-<div x-data="{ stats:@js($stats), pipeline:@js($pipeline) }" class="space-y-6">
+<div x-data="{ stats:@js($stats), pipeline:@js($pipeline), get pipelineMax(){ return Math.max(1, ...this.pipeline.map(p=>p.all)) } }" class="space-y-6">
 
     {{-- Metric cards --}}
     <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -57,12 +43,12 @@
                 </div>
             </div>
             <div class="mt-5 space-y-4">
-                <template x-for="p in pipeline" :key="p[0]">
+                <template x-for="p in pipeline" :key="p.status">
                     <div>
-                        <div class="mb-1 flex justify-between text-sm"><span class="font-medium" x-text="p[0]"></span><span class="text-gray-500" x-text="scope==='all' ? p[1] : p[scope]"></span></div>
+                        <div class="mb-1 flex justify-between text-sm"><span class="font-medium" x-text="p.status"></span><span class="text-gray-500" x-text="scope==='all' ? p.all : p[scope]"></span></div>
                         <div class="flex h-3 overflow-hidden rounded-full bg-gray-100">
-                            <div class="bg-[#b92369] transition-all duration-500" x-show="scope!=='external'" :style="`width:${p.internal/50*100}%`"></div>
-                            <div class="bg-[#1a8a8e] transition-all duration-500" x-show="scope!=='internal'" :style="`width:${p.external/50*100}%`"></div>
+                            <div class="bg-[#b92369] transition-all duration-500" x-show="scope!=='external'" :style="`width:${p.internal/pipelineMax*100}%`"></div>
+                            <div class="bg-[#1a8a8e] transition-all duration-500" x-show="scope!=='internal'" :style="`width:${p.external/pipelineMax*100}%`"></div>
                         </div>
                     </div>
                 </template>
@@ -73,12 +59,14 @@
         <section class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
             <h2 class="font-semibold">Recent Activity</h2>
             <ul class="mt-4 space-y-4">
-                @foreach($activity as $a)
-                    <li x-show="scope==='all' || scope==='{{ $a['t'] }}'" class="flex gap-3">
-                        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full {{ $a['t']==='internal' ? 'bg-[#b92369]' : 'bg-[#1a8a8e]' }}"></span>
-                        <div><p class="text-sm">{{ $a['text'] }}</p><p class="text-xs text-gray-400">{{ $a['when'] }}</p></div>
+                @forelse($metrics['recentActivity'] as $log)
+                    <li class="flex gap-3">
+                        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#1a8a8e]"></span>
+                        <div><p class="text-sm">{{ $log->description }}</p><p class="text-xs text-gray-400">{{ $log->created_at?->diffForHumans() }}</p></div>
                     </li>
-                @endforeach
+                @empty
+                    <li class="text-sm text-gray-500">No activity logged yet.</li>
+                @endforelse
             </ul>
         </section>
     </div>
