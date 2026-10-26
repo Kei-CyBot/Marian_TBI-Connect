@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class SaveStartupAssessmentRequest extends FormRequest
 {
@@ -41,7 +42,7 @@ class SaveStartupAssessmentRequest extends FormRequest
         }
 
         return [
-            'startup_id' => ['required', 'string', 'max:64'],
+            'startup_id' => ['required', 'string', 'max:64', Rule::exists('startups', 'id')],
             'startup_name' => ['required', 'string', 'max:255'],
             'data' => ['required', 'array:competencyRatings,otherCriticalSkills'],
             'data.competencyRatings' => ['required', 'array:'.implode(',', $keys)],

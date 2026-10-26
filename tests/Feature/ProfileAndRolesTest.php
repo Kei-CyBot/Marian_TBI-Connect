@@ -26,7 +26,7 @@ class ProfileAndRolesTest extends TestCase
         $member = User::factory()->create(['role' => User::ROLE_MEMBER_INCUBATEE]);
 
         $this->actingAs($member)
-            ->get(route('contacts'))
+            ->get(route('incubatees'))
             ->assertOk();
 
         $this->actingAs($member)

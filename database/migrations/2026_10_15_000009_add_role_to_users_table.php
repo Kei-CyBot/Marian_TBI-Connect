@@ -14,12 +14,9 @@ return new class extends Migration
         });
 
         $configuredSuperAdmin = config('auth.super_admin_email');
-        $superAdminId = $configuredSuperAdmin
-            ? DB::table('users')->where('email', $configuredSuperAdmin)->value('id')
-            : DB::table('users')->orderBy('id')->value('id');
 
-        if ($superAdminId) {
-            DB::table('users')->where('id', $superAdminId)->update(['role' => 'super_admin']);
+        if ($configuredSuperAdmin) {
+            DB::table('users')->where('email', $configuredSuperAdmin)->update(['role' => 'super_admin']);
         }
     }
 

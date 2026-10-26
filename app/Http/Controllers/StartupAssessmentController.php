@@ -15,7 +15,16 @@ class StartupAssessmentController extends Controller
     {
         Startup::ensureConfigured();
 
+        $accessibleStartups = Startup::query()
+            ->with('folderAccessUsers:id')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (Startup $startup): bool => $startup->userCanAccessFolder(request()->user()));
+
+        $accessibleStartupIds = $accessibleStartups->modelKeys();
+
         $assessments = StartupAssessment::query()
+            ->whereIn('startup_id', $accessibleStartupIds)
             ->get()
             ->keyBy('startup_id')
             ->map(static fn (StartupAssessment $assessment): array => [
@@ -32,12 +41,6 @@ class StartupAssessmentController extends Controller
                 3
             ))
             ->all();
-
-        $accessibleStartupIds = Startup::query()
-            ->with('folderAccessUsers:id')
-            ->get()
-            ->filter(fn (Startup $startup): bool => $startup->userCanAccessFolder(request()->user()))
-            ->modelKeys();
 
         $driveLinks = StartupDriveLink::query()
             ->whereIn('startup_id', $accessibleStartupIds)
@@ -62,7 +65,7 @@ class StartupAssessmentController extends Controller
             'campusDepartment' => $startup->campus_department,
             'legalEntityType' => $startup->legal_entity_type,
         ];
-        $startups = Startup::query()->orderBy('id')->get()->map($startupRecord)->all();
+        $startups = $accessibleStartups->map($startupRecord)->values()->all();
 
         return view('incubatees', [
             'startups' => $startups,
@@ -76,6 +79,9 @@ class StartupAssessmentController extends Controller
     public function store(SaveStartupAssessmentRequest $request): RedirectResponse
     {
         $validated = $request->validated();
+        $startup = Startup::query()->findOrFail($validated['startup_id']);
+        abort_unless($startup->userCanAccessFolder($request->user()), 403);
+
         $ratings = $validated['data']['competencyRatings'];
         $skills = array_values(array_filter(
             $validated['data']['otherCriticalSkills'],
@@ -85,7 +91,7 @@ class StartupAssessmentController extends Controller
         StartupAssessment::query()->updateOrCreate(
             ['startup_id' => $validated['startup_id']],
             [
-                'startup_name' => $validated['startup_name'],
+                'startup_name' => $startup->name,
                 'competency_ratings' => $ratings,
                 'other_critical_skills' => $skills,
                 'total_points' => array_sum($ratings),

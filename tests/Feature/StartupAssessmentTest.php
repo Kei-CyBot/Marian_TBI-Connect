@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Startup;
 use App\Models\StartupAssessment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,6 +24,7 @@ class StartupAssessmentTest extends TestCase
 
     public function test_authenticated_user_can_save_and_update_startup_assessment(): void
     {
+        Startup::ensureConfigured();
         $user = User::factory()->create();
         $keys = collect(config('startup_assessment'))
             ->flatMap(static fn (array $area): array => array_column($area['competencies'], 'key'));
@@ -63,6 +65,7 @@ class StartupAssessmentTest extends TestCase
 
     public function test_assessment_rejects_ratings_outside_the_source_scale(): void
     {
+        Startup::ensureConfigured();
         $keys = collect(config('startup_assessment'))
             ->flatMap(static fn (array $area): array => array_column($area['competencies'], 'key'));
         $ratings = $keys->mapWithKeys(static fn (string $key): array => [$key => 3])->all();

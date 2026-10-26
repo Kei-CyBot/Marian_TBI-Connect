@@ -144,7 +144,7 @@ Route::middleware('auth')->group(function (): void {
     Route::delete('/startup-drive-links/{driveLink}', [StartupDriveLinkController::class, 'destroy'])
         ->middleware('role:admin,super_admin')
         ->name('startup-drive-links.destroy');
-    Route::get('/contacts', [ContactController::class, 'index'])->name('contacts');
+    Route::get('/contacts', [ContactController::class, 'index'])->middleware('role:admin,super_admin')->name('contacts');
     Route::post('/contacts', [ContactController::class, 'store'])->middleware('role:admin,super_admin')->name('contacts.store');
     Route::put('/contacts/{contact}', [ContactController::class, 'update'])->middleware('role:admin,super_admin')->name('contacts.update');
     Route::delete('/contacts/{contact}', [ContactController::class, 'destroy'])->middleware('role:admin,super_admin')->name('contacts.destroy');
@@ -154,7 +154,7 @@ Route::middleware('auth')->group(function (): void {
     Route::delete('/contacts/{contact}/assignments/{startup}', [ContactController::class, 'removeStartupAssignment'])
         ->middleware('role:admin,super_admin')
         ->name('contacts.assignments.destroy');
-    Route::get('/contact-intake', [ContactRegistrationController::class, 'index'])->name('contact-intake');
+    Route::get('/contact-intake', [ContactRegistrationController::class, 'index'])->middleware('role:admin,super_admin')->name('contact-intake');
     Route::patch('/contact-intake/{application}/verify', [ContactRegistrationController::class, 'verify'])
         ->middleware('role:admin,super_admin')
         ->name('contact-intake.verify');
@@ -186,7 +186,7 @@ Route::middleware('auth')->group(function (): void {
     Route::put('/team/{user}/role', [TeamController::class, 'updateRole'])->middleware('role:super_admin')->name('team.roles.update');
     Route::post('/team/invite', [TeamController::class, 'invite'])->middleware('role:admin,super_admin')->name('team.invite');
     Route::delete('/team/invitations/{invitation}', [TeamController::class, 'revokeInvite'])->middleware('role:admin,super_admin')->name('team.invitations.revoke');
-    Route::get('/archives', [ArchiveController::class, 'index'])->name('archives');
+    Route::get('/archives', [ArchiveController::class, 'index'])->middleware('role:admin,super_admin')->name('archives');
     Route::post('/archives/startups/{startup}/restore', [ArchiveController::class, 'restoreStartup'])->middleware('role:admin,super_admin')->name('archives.startups.restore');
     Route::delete('/archives/startups/{startup}', [ArchiveController::class, 'destroyStartup'])->middleware('role:admin,super_admin')->name('archives.startups.destroy');
     Route::post('/archives/contacts/{contact}/restore', [ArchiveController::class, 'restoreContact'])->middleware('role:admin,super_admin')->name('archives.contacts.restore');
