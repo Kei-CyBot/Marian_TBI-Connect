@@ -33,6 +33,10 @@ class Startup extends Model
 
     public static function ensureConfigured(): void
     {
+        if (! app()->environment('local', 'testing')) {
+            return;
+        }
+
         foreach (config('startups', []) as $startup) {
             static::withTrashed()->firstOrCreate(
                 ['id' => $startup['id']],

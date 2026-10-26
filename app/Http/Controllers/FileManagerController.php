@@ -32,7 +32,7 @@ class FileManagerController extends Controller
             static fn (Startup $startup): bool => $startup->trashed()
         );
 
-        $startupsByName = $startups->keyBy('name');
+        $startupsByName = $activeAccessibleStartups->keyBy('name');
         $driveLinkRows = StartupDriveLink::query()
             ->with('user:id,name')
             ->latest()
@@ -43,10 +43,7 @@ class FileManagerController extends Controller
             ->with('user:id,name')
             ->latest()
             ->get()
-            ->filter(function (FormSubmission $submission) use ($accessibleStartups): bool {
-                return $accessibleStartups->has(Str::slug($submission->startup_name))
-                    || ! Startup::withTrashed()->where('name', $submission->startup_name)->exists();
-            })
+            ->filter(static fn (FormSubmission $submission): bool => $activeAccessibleStartups->has(Str::slug($submission->startup_name)))
             ->map(function (FormSubmission $submission) use ($startupsByName, $driveLinksByStartupName): array {
                 $data = is_array($submission->data) ? $submission->data : [];
                 $editorFields = FormEditorSchema::forSubmission($submission->form_id, $data);
@@ -122,7 +119,7 @@ class FileManagerController extends Controller
         }
 
         $driveLinks = $driveLinkRows
-            ->filter(static fn (StartupDriveLink $link): bool => $accessibleStartups->has(Str::slug($link->startup_name)))
+            ->filter(static fn (StartupDriveLink $link): bool => $activeAccessibleStartups->has(Str::slug($link->startup_name)))
             ->map(static fn (StartupDriveLink $link): array => [
                 'id' => $link->id,
                 'startupId' => (int) $link->startup_id,

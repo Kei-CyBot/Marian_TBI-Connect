@@ -185,6 +185,10 @@ class ContactController extends Controller
 
     private function ensureSampleContacts(): void
     {
+        if (! app()->environment('local', 'testing')) {
+            return;
+        }
+
         foreach (config('contacts', []) as $contact) {
             Contact::withTrashed()->firstOrCreate(
                 ['id' => $contact['id']],

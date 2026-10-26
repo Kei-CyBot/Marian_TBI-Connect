@@ -4,8 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\SaveStartupRequest;
 use App\Models\Contact;
+use App\Models\FormSubmission;
 use App\Models\Startup;
+use App\Models\StartupDriveLink;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class StartupController extends Controller
 {
@@ -23,18 +27,36 @@ class StartupController extends Controller
 
     public function update(SaveStartupRequest $request, Startup $startup): RedirectResponse
     {
+        $originalName = $startup->name;
         $attributes = $this->attributes($request);
         $founderContact = $this->registerFounderContact($attributes);
-        $startup->update($attributes + ['founder_contact_id' => $founderContact->id]);
+
+        DB::transaction(function () use ($startup, $attributes, $founderContact, $originalName): void {
+            $startup->update($attributes + ['founder_contact_id' => $founderContact->id]);
+
+            if ($startup->name !== $originalName) {
+                FormSubmission::query()
+                    ->where('startup_name', $originalName)
+                    ->update(['startup_name' => $startup->name]);
+
+                StartupDriveLink::query()
+                    ->where('startup_name', $originalName)
+                    ->update(['startup_name' => $startup->name]);
+            }
+        });
 
         return to_route('incubatees')->with('startup_status', $startup->name.' was updated.');
     }
 
-    public function destroy(Startup $startup): RedirectResponse
+    public function destroy(Request $request, Startup $startup): RedirectResponse
     {
+        $validated = $request->validate([
+            'archive_reason' => ['nullable', 'string', 'max:255'],
+        ]);
+
         $startup->forceFill([
-            'archived_by' => request()->user()->id,
-            'archive_reason' => null,
+            'archived_by' => $request->user()->id,
+            'archive_reason' => $validated['archive_reason'] ?? null,
         ])->save();
         $startup->delete();
 

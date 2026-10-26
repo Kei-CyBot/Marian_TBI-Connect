@@ -27,7 +27,7 @@ class SaveStartupRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255', Rule::unique('startups', 'name')->ignore($this->route('startup'))],
             'founder' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255'],
             'track' => ['required', Rule::in(['internal', 'external'])],
