@@ -22,7 +22,7 @@ class SaveStartupAssessmentRequest extends FormRequest
 
         if (is_array($data) && is_array($data['otherCriticalSkills'] ?? null)) {
             $data['otherCriticalSkills'] = array_map(
-                static fn ($value): string => is_string($value) ? trim(strip_tags($value)) : $value,
+                static fn ($value): ?string => is_string($value) ? trim(strip_tags($value)) : null,
                 $data['otherCriticalSkills']
             );
         }
