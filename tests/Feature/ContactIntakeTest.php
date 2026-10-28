@@ -50,6 +50,9 @@ class ContactIntakeTest extends TestCase
     public function test_public_application_submission_creates_a_pending_application(): void
     {
         Mail::fake();
+        $contactsBefore = Contact::count();
+        $applicationsBefore = ContactRegistrationApplication::count();
+
         $response = $this->post(route('contact-registration.store'), [
             'stream' => 'external',
             'name' => 'Jordan Kim',
@@ -57,6 +60,9 @@ class ContactIntakeTest extends TestCase
         ]);
 
         $response->assertRedirect(route('contact-registration'));
+
+        $this->assertSame($applicationsBefore + 1, ContactRegistrationApplication::count());
+        $this->assertSame($contactsBefore, Contact::count());
 
         $application = ContactRegistrationApplication::query()->where('email', 'jordan.kim@example.com')->sole();
         $this->assertSame('Pending', $application->status);
@@ -123,10 +129,15 @@ class ContactIntakeTest extends TestCase
         Mail::fake();
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
         $application = $this->application(['email' => 'provision@example.com']);
+        $contactsBefore = Contact::count();
+        $usersBefore = User::count();
 
         $this->actingAs($admin)
             ->post(route('contact-intake.provision', $application))
             ->assertRedirect(route('contact-intake'));
+
+        $this->assertSame($contactsBefore + 1, Contact::count());
+        $this->assertSame($usersBefore + 1, User::count());
 
         $this->assertDatabaseHas('contacts', [
             'email' => 'provision@example.com',
