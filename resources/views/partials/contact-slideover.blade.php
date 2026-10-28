@@ -80,10 +80,11 @@
                 <button @click="setSide('external')" class="rounded-lg px-3 py-1" :class="side==='external' ? 'bg-white text-[#1a8a8e]' : 'text-white'">External</button>
             </div>
         </div>
-        <form x-ref="contactForm" method="POST" :action="editing ? '{{ url('/contacts') }}/'+contactId : '{{ route('contacts.store') }}'" @submit.prevent="submit()" class="flex min-h-0 flex-1 flex-col" style="display:flex;flex:1 1 0%;flex-direction:column;min-height:0">
+        <form x-ref="contactForm" method="POST" :action="editing ? '{{ url('/contacts') }}/'+contactId : '{{ route('contact-registration.store') }}'" @submit.prevent="submit()" class="flex min-h-0 flex-1 flex-col" style="display:flex;flex:1 1 0%;flex-direction:column;min-height:0">
         @csrf
         <input type="hidden" name="_method" value="PUT" :disabled="!editing">
         <input type="hidden" name="side" x-model="side">
+        <input type="hidden" name="stream" :value="side === 'internal' ? 'internal' : 'external'">
         <div class="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-6 py-6" style="min-height:0;flex:1 1 0%;overflow-y:auto;overscroll-behavior:contain">
             <div>
                 <label for="contact-name" class="mb-1 block text-xs font-semibold text-slate-600">Full name</label>
