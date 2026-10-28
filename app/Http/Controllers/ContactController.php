@@ -3,11 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SaveContactRequest;
+use App\Mail\UserCredentialInviteMail;
 use App\Models\Contact;
 use App\Models\ContactStartupAssignment;
 use App\Models\Startup;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -93,6 +97,7 @@ class ContactController extends Controller
     {
         Contact::query()->create($this->attributes($request) + [
             'verification_status' => 'Pending Verification',
+            'nda_status' => 'Pending',
             'incubatees' => [],
             'activity_log' => [],
         ]);
@@ -102,7 +107,12 @@ class ContactController extends Controller
 
     public function update(SaveContactRequest $request, Contact $contact): RedirectResponse
     {
-        $contact->update($this->attributes($request));
+        $validated = $request->validated();
+        $data = $this->attributes($request);
+        if (array_key_exists('nda_status', $validated)) {
+            $data['nda_status'] = $validated['nda_status'];
+        }
+        $contact->update($data);
 
         return to_route('contacts')->with('contact_status', $contact->name.' was updated.');
     }
@@ -153,6 +163,70 @@ class ContactController extends Controller
         return to_route('contacts')->with('contact_status', $contact->name.' was assigned to '.$startup->name.' and the relationship was confirmed.');
     }
 
+    public function updateCredentials(Request $request, Contact $contact): RedirectResponse
+    {
+        $user = $request->user();
+        if (! $user || ! $user->isSuperAdmin()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'email' => ['required', 'string', 'email', 'max:255'],
+            'password' => ['nullable', 'string', 'min:8'],
+        ]);
+
+        $linkedUser = User::query()->where('email', $contact->email)->first();
+
+        if (! $linkedUser) {
+            $linkedUser = User::firstOrCreate(
+                ['email' => $validated['email']],
+                [
+                    'name' => $contact->name,
+                    'password' => Hash::make($validated['password'] ?? (string) random_int(10000000, 99999999)),
+                    'role' => 'member_incubatee',
+                ]
+            );
+        }
+
+        $linkedUser->email = $validated['email'];
+        if (! empty($validated['password'])) {
+            $linkedUser->password = Hash::make($validated['password']);
+        }
+        $linkedUser->save();
+
+        $contact->email = $validated['email'];
+        $contact->save();
+
+        return to_route('contacts')->with('contact_status', 'Account credentials updated.');
+    }
+
+    public function sendOneTimeEmail(Contact $contact): RedirectResponse
+    {
+        $user = request()->user();
+        if (! $user || ! $user->isSuperAdmin()) {
+            abort(403);
+        }
+
+        $linkedUser = User::query()->where('email', $contact->email)->first();
+
+        if (! $linkedUser) {
+            $linkedUser = User::create([
+                'name' => $contact->name,
+                'email' => $contact->email,
+                'password' => Hash::make((string) random_int(10000000, 99999999)),
+                'role' => 'member_incubatee',
+            ]);
+        }
+
+        $tempPassword = (string) random_int(10000000, 99999999);
+        $linkedUser->password = Hash::make($tempPassword);
+        $linkedUser->save();
+
+        Mail::to($contact->email)->queue(new UserCredentialInviteMail($contact->email, $tempPassword, route('login')));
+
+        return to_route('contacts')->with('contact_status', 'One-time login email sent.');
+    }
+
     public function removeStartupAssignment(Contact $contact, Startup $startup): RedirectResponse
     {
         $contact->startupAssignments()->where('startup_id', $startup->id)->delete();
@@ -164,10 +238,22 @@ class ContactController extends Controller
     {
         $validated = $request->validated();
 
+        $toolsMethods = $validated['tools_methods'] ?? [];
+        if (is_array($toolsMethods)) {
+            $toolsMethods = array_values(array_filter($toolsMethods));
+        } else {
+            $toolsMethods = [];
+        }
+
+        $skillDetails = $validated['skill_details'] ?? null;
+        if (empty($skillDetails) && !empty($toolsMethods)) {
+            $skillDetails = implode(', ', $toolsMethods);
+        }
+
         return [
             'side' => $validated['side'],
             'name' => $validated['name'],
-            'email' => $validated['email'],
+            'email' => $validated['email'] ?? null,
             'phone' => $validated['phone'] ?? null,
             'affiliation_type' => $validated['affiliation_type'],
             'role' => $validated['role'],
@@ -178,8 +264,10 @@ class ContactController extends Controller
             'domain_other' => $request->boolean('domains_other_selected') ? $request->input('domain_other') : null,
             'technical_skills' => $validated['technical_skills'] ?? [],
             'technical_other' => $request->boolean('technical_other_selected') ? $request->input('technical_other') : null,
-            'skill_details' => $validated['skill_details'] ?? null,
-            'nda_status' => $validated['nda_status'],
+            'skill_details' => $skillDetails,
+            'nda_status' => $validated['nda_status'] ?? 'Pending',
+            'incubatees' => [],
+            'activity_log' => [],
         ];
     }
 

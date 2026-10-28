@@ -81,10 +81,15 @@
                                 @if (auth()->user()->canManageRecords())
                                     <button type="button" @click="editSelected()" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Edit Contact</button>
                                     <button type="button" @click="manageAssignments()" class="rounded-lg border border-[#1a8a8e]/30 bg-[#eaf6f6] px-3 py-2 text-xs font-semibold text-[#146e72] hover:bg-[#d9eeee]">Manage incubatee assignments</button>
-                                    <form method="POST" :action="'{{ url('/contacts') }}/'+sel.id" @submit="if (!confirm('Archive '+sel.name+'? You can view or restore it from Archives.')) $event.preventDefault()">
-                                        @csrf @method('DELETE')
-                                        <button type="submit" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100">Archive Contact</button>
-                                    </form>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        @if (auth()->user()?->isSuperAdmin())
+                                            <form method="POST" :action="'{{ url('/contacts') }}/'+sel.id+'/send-credentials'" class="inline">
+                                                @csrf
+                                                <button type="submit" class="rounded-lg border border-[#b92369]/40 px-3 py-2 text-xs font-semibold text-[#b92369] hover:bg-[#fcf0f5]">Send Credentials / Invite Account</button>
+                                            </form>
+                                        @endif
+                                        <button type="button" @click="$dispatch('confirm-action-contact', {title: 'Archive Contact', message: 'Archive '+sel.name+'? You can view or restore it from Archives.', confirmText: 'Yes, Archive', confirmClass: 'bg-red-600 hover:bg-red-700', action: 'archive:'+sel.id})" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100">Archive Contact</button>
+                                    </div>
                                 @endif
                                 @if (auth()->user()->canManageRecords())
                                     <button type="button" x-show="sel.email" @click="$dispatch('open-broadcast',{contactId:sel.id})" class="rounded-lg border border-[#1a8a8e]/30 bg-[#eaf6f6] px-3 py-2 text-xs font-semibold text-[#146e72] hover:bg-[#d9eeee]">Send email</button>
@@ -128,10 +133,7 @@
                                         <li class="rounded-xl border border-gray-100 p-3">
                                             <div class="flex items-start justify-between gap-2">
                                                 <div><p class="font-medium text-slate-800" x-text="assignment.startup"></p><p class="text-xs text-gray-500" x-text="'Founder: '+assignment.founder+' · '+assignment.email"></p></div>
-                                                <form method="POST" :action="'{{ url('/contacts') }}/'+sel.id+'/assignments/'+assignment.startupId" @submit="if (!confirm('Remove this incubatee assignment?')) $event.preventDefault()">
-                                                    @csrf @method('DELETE')
-                                                    <button type="submit" class="text-xs font-semibold text-red-700 hover:underline">Remove</button>
-                                                </form>
+                                                <button type="button" @click="$dispatch('confirm-unlink-incubatee', {action: '{{ url('/contacts') }}/'+sel.id+'/assignments/'+assignment.startupId, name: assignment.startupName || 'this incubatee'})" class="text-xs font-semibold text-red-700 hover:underline">Remove</button>
                                             </div>
                                             <p class="mt-2 text-xs text-[#146e72]" x-text="'Confirmed by '+assignment.confirmedBy+' on '+assignment.confirmedAt"></p>
                                             <p class="mt-1 text-xs text-gray-500" x-text="assignment.notes"></p>
@@ -192,6 +194,47 @@
                 </template>
             </div>
         </aside>
+    </div>
+    <div x-data="{confirmOpen:false, confirmData:{title:'', message:'', confirmText:'Confirm', confirmClass:'bg-red-600 hover:bg-red-700', action:''}, unlinkOpen:false, unlink:{action:'', name:''}}" @confirm-action-contact.window="confirmData = $event.detail; confirmOpen = true" @confirm-unlink-incubatee.window="unlink = $event.detail; unlinkOpen = true" x-show="confirmOpen || unlinkOpen" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/50 backdrop-blur-sm">
+        <div x-show="confirmOpen" class="w-full max-w-md rounded-xl bg-white shadow-2xl">
+            <div class="px-6 py-4">
+                <h3 class="text-lg font-semibold text-slate-900" x-text="confirmData.title"></h3>
+                <p class="mt-2 text-sm text-gray-600" x-text="confirmData.message"></p>
+            </div>
+            <div class="flex justify-end gap-2 border-t border-gray-100 px-6 py-4">
+                <button type="button" @click="confirmOpen=false" class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+                <button type="button" @click="
+                    const action = confirmData.action || '';
+                    if (action.startsWith('archive:')) {
+                        const id = action.split(':')[1];
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = '{{ url('/contacts') }}/' + id;
+                        const csrf = document.createElement('input');
+                        csrf.type = 'hidden'; csrf.name = '_token'; csrf.value = '{{ csrf_token() }}';
+                        const method = document.createElement('input');
+                        method.type = 'hidden'; method.name = '_method'; method.value = 'DELETE';
+                        form.appendChild(csrf);
+                        form.appendChild(method);
+                        document.body.appendChild(form);
+                        form.submit();
+                    }
+                    confirmOpen=false;
+                " class="px-4 py-2 text-white rounded-lg" :class="confirmData.confirmClass" x-text="confirmData.confirmText"></button>
+            </div>
+        </div>
+        <div x-show="unlinkOpen" class="w-full max-w-lg bg-white rounded-xl shadow-2xl p-6 border border-gray-100">
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Remove Incubatee Link</h3>
+            <p class="text-sm text-gray-600 mb-6">Are you sure you want to remove this incubatee from this contact? This will update their directory mapping.</p>
+            <form :action="unlink.action" method="POST">
+                @csrf
+                @method('DELETE')
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                    <button type="button" @click="unlinkOpen=false" class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+                    <button type="submit" class="px-5 py-2.5 text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-lg">Yes, Unlink Incubatee</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 @include('partials.broadcast-modal')

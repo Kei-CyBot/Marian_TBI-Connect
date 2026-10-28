@@ -6,7 +6,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 
-class AccountProvisionedMail extends Mailable
+class UserCredentialInviteMail extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -20,7 +20,7 @@ class AccountProvisionedMail extends Mailable
     public function build(): self
     {
         return $this
-            ->subject('Your Marian TBI Connect account has been provisioned')
-            ->view('emails.account-provisioned');
+            ->subject('Your Marian TBI Connect account credentials')
+            ->view('emails.user-credential-invite');
     }
 }

@@ -5,7 +5,7 @@
             name:'',role:'Industry Mentor',roleOther:'',organizationType:'Company / Corporation',
             organizationTypeOther:'',organizationName:'',academicProgram:'',academicYear:'',
             email:'',phone:'',nda:'Pending',domains:[],domainOther:'',technicalSkills:[],
-            technicalOther:'',skillDetails:''
+            technicalOther:'',skillDetails:'',department:''
         },
         roles:{
             internal:['University Faculty Advisor','Campus Researcher','Student Lead','Department Chair','TTO Officer','Other'],
@@ -17,10 +17,22 @@
         },
         domainOptions:['Health / Life Sciences','Information Technology','Agriculture / Food Systems','Education','Finance / Fintech','Clean Energy / Environment','Engineering / Manufacturing','Business / Entrepreneurship','Legal / Compliance','Other'],
         technicalOptions:['Programming / Software Development','Web Development','Mobile App Development','Data Analytics / Data Science','Artificial Intelligence / Machine Learning','Cybersecurity','Cloud / DevOps','UI / UX Design','Hardware / Electronics / IoT','Research Methods','Product / Project Management','Other'],
+        selectedTools: [],
+        toolsOther: '',
+        addTool(value) {
+            if (value && value.trim() !== '' && !this.selectedTools.includes(value)) {
+                this.selectedTools.push(value);
+            }
+        },
+        removeTool(index) {
+            this.selectedTools.splice(index, 1);
+        },
         get isStudent(){ return this.side==='internal' && this.f.role==='Student Lead' },
         get isIndependent(){ return this.f.organizationType==='Freelancer / Self-employed' },
         resetForm(){
-            this.f={name:'',role:this.roles[this.side][0],roleOther:'',organizationType:this.organizationTypes[this.side][0],organizationTypeOther:'',organizationName:'',academicProgram:'',academicYear:'',email:'',phone:'',nda:'Pending',domains:[],domainOther:'',technicalSkills:[],technicalOther:'',skillDetails:''};
+            this.f={name:'',role:this.roles[this.side][0],roleOther:'',organizationType:this.organizationTypes[this.side][0],organizationTypeOther:'',organizationName:'',academicProgram:'',academicYear:'',email:'',phone:'',nda:'Pending',domains:[],domainOther:'',technicalSkills:[],technicalOther:'',skillDetails:'',department:''};
+            this.selectedTools = [];
+            this.toolsOther = '';
         },
         setSide(s){
             this.side=s;
@@ -39,16 +51,30 @@
             this.f.academicYear=contact.academicYear || '';
             this.f.skillDetails=contact.skillDetails || '';
             this.f.nda=contact.nda || 'Pending';
+            this.f.department = contact.department || '';
             this.f.role=this.roles[this.side].includes(contact.role) ? contact.role : 'Other';
             this.f.roleOther=this.f.role==='Other' ? contact.role : '';
             this.f.organizationType=this.organizationTypes[this.side].includes(contact.affiliationType) ? contact.affiliationType : 'Other';
             this.f.organizationTypeOther=this.f.organizationType==='Other' ? contact.affiliationType : '';
             this.f.domains=contact.domains || [];
             this.f.domainOther=contact.domainOther || '';
-            if(this.f.domainOther) this.f.domains.push('Other');
+            if(this.f.domainOther && !this.f.domains.includes('Other')) this.f.domains.push('Other');
             this.f.technicalSkills=contact.technicalSkills || [];
             this.f.technicalOther=contact.technicalOther || '';
-            if(this.f.technicalOther) this.f.technicalSkills.push('Other');
+            if(this.f.technicalOther && !this.f.technicalSkills.includes('Other')) this.f.technicalSkills.push('Other');
+            const tools = contact.tools_methods || contact.toolsMethods || contact.skill_details || [];
+            if (Array.isArray(tools)) {
+                this.selectedTools = tools.filter(t => t && String(t).trim() !== '');
+            } else if (typeof tools === 'string' && tools.trim() !== '') {
+                this.selectedTools = tools.split(',').map(t => t.trim()).filter(t => t !== '');
+            } else {
+                this.selectedTools = [];
+            }
+            if (this.selectedTools.includes('Other')) {
+                this.toolsOther = contact.tools_methods_other || '';
+            } else {
+                this.toolsOther = '';
+            }
             this.open=true;
         },
         submit(){
@@ -99,13 +125,17 @@
                     <label for="contact-organization-type-other" class="mb-1 block text-xs font-semibold text-slate-600">Specify affiliation type</label>
                     <input id="contact-organization-type-other" name="affiliation_type_other" x-model="f.organizationTypeOther" x-bind:required="f.organizationType==='Other'" maxlength="100" placeholder="e.g. Cooperative, professional association" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm">
                 </div>
-                <div x-show="!isIndependent" x-cloak class="mt-3">
-                    <label for="contact-organization-name" class="mb-1 block text-xs font-semibold text-slate-600" x-text="side==='internal' ? 'University / Department / Office' : 'Organization / Company / Fund'"></label>
-                    <input id="contact-organization-name" name="organization" x-model="f.organizationName" x-bind:required="!isIndependent" :disabled="isIndependent" maxlength="160" :placeholder="side==='internal' ? 'e.g. College of Engineering' : 'e.g. Meridian Ventures'" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm">
+                <div x-show="side === 'internal'" x-cloak class="mt-3">
+                    <label for="contact-department" class="mb-1 block text-xs font-semibold text-slate-600">University / Department / Office (Optional)</label>
+                    <input id="contact-department" name="department" x-model="f.department" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm">
+                </div>
+                <div x-show="side === 'external' && !isIndependent" x-cloak class="mt-3">
+                    <label for="contact-organization-name" class="mb-1 block text-xs font-semibold text-slate-600">Organization / Company / Fund (Optional)</label>
+                    <input id="contact-organization-name" name="organization" x-model="f.organizationName" maxlength="160" placeholder="e.g. Meridian Ventures" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm">
                 </div>
                 <div x-show="isIndependent" x-cloak x-transition class="mt-3">
                     <label for="contact-independent-name" class="mb-1 block text-xs font-semibold text-slate-600">Business / professional name <span class="font-normal text-slate-400">(optional)</span></label>
-                    <input id="contact-independent-name" name="organization" x-model="f.organizationName" :disabled="!isIndependent" maxlength="160" placeholder="Leave blank if you work under your own name" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm">
+                    <input id="contact-independent-name" name="organization" x-model="f.organizationName" maxlength="160" placeholder="Leave blank if you work under your own name" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm">
                 </div>
             </div>
             <div>
@@ -162,8 +192,71 @@
                     <input id="contact-technical-other" name="technical_other" x-model="f.technicalOther" x-bind:required="f.technicalSkills.includes('Other')" :disabled="!f.technicalSkills.includes('Other')" maxlength="160" placeholder="Add another specific skill" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm">
                 </div>
                 <div>
-                    <label for="contact-skill-details" class="mb-1 block text-xs font-semibold text-slate-600">Tools, languages or methods <span class="font-normal text-slate-400">(optional)</span></label>
-                    <input id="contact-skill-details" name="skill_details" x-model="f.skillDetails" maxlength="200" placeholder="e.g. Python, JavaScript, React, Laravel, SQL" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm">
+                    <label class="mb-1 block text-xs font-semibold text-slate-600">Tools, Languages, or Methods <span class="font-normal text-slate-400">(Optional)</span></label>
+                    <div class="rounded-xl border border-slate-200 bg-white p-3">
+                        <div class="mb-2">
+                            <select @change="if($event.target.value) { addTool($event.target.value); $event.target.value=''; }" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                                <option value="">Select tools, languages, or methods...</option>
+                                <optgroup label="Coding Languages">
+                                    <option value="Python">Python</option>
+                                    <option value="JavaScript">JavaScript</option>
+                                    <option value="TypeScript">TypeScript</option>
+                                    <option value="PHP">PHP</option>
+                                    <option value="Java">Java</option>
+                                    <option value="C++">C++</option>
+                                    <option value="C#">C#</option>
+                                    <option value="Ruby">Ruby</option>
+                                    <option value="Go">Go</option>
+                                    <option value="Rust">Rust</option>
+                                    <option value="SQL">SQL</option>
+                                    <option value="HTML/CSS">HTML/CSS</option>
+                                </optgroup>
+                                <optgroup label="Frameworks & Tools">
+                                    <option value="Laravel">Laravel</option>
+                                    <option value="React">React</option>
+                                    <option value="Vue.js">Vue.js</option>
+                                    <option value="Node.js">Node.js</option>
+                                    <option value="Docker">Docker</option>
+                                    <option value="Kubernetes">Kubernetes</option>
+                                    <option value="AWS">AWS</option>
+                                    <option value="Git">Git</option>
+                                    <option value="Figma">Figma</option>
+                                    <option value="PyTorch">PyTorch</option>
+                                    <option value="TensorFlow">TensorFlow</option>
+                                    <option value="Tableau / PowerBI">Tableau / PowerBI</option>
+                                    <option value="CAD / 3D Software">CAD / 3D Software</option>
+                                </optgroup>
+                                <optgroup label="Methods & Practices">
+                                    <option value="Agile / Scrum">Agile / Scrum</option>
+                                    <option value="CI/CD">CI/CD</option>
+                                    <option value="Financial Modeling">Financial Modeling</option>
+                                    <option value="UI/UX Research">UI/UX Research</option>
+                                    <option value="Data Analytics">Data Analytics</option>
+                                    <option value="Project Management">Project Management</option>
+                                    <option value="Design Thinking">Design Thinking</option>
+                                </optgroup>
+                                <optgroup label="Special Option">
+                                    <option value="Other">Other</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <template x-for="(tool, idx) in selectedTools" :key="idx">
+                                <span class="inline-flex items-center gap-1 rounded-full bg-[#eaf6f6] px-2 py-1 text-xs text-[#1a686b]">
+                                    <span x-text="tool"></span>
+                                    <button type="button" @click="removeTool(idx)" class="text-[#1a686b] hover:text-red-600">×</button>
+                                </span>
+                            </template>
+                        </div>
+                        <template x-for="tool in selectedTools" :key="'hidden-'+tool">
+                            <input type="hidden" name="tools_methods[]" :value="tool">
+                        </template>
+                    </div>
+                    <div x-show="selectedTools.includes('Other')" x-cloak class="mt-2">
+                        <label for="contact-tools-methods-other-internal" class="mb-1 block text-xs font-semibold text-slate-600">Specify Other Tools, Languages, or Methods</label>
+                        <input id="contact-tools-methods-other-internal" name="tools_methods_other" x-model="toolsOther" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm">
+                    </div>
+                    <input type="hidden" name="skill_details" :value="selectedTools.join(', ')">
                 </div>
             </fieldset>
             <div>
@@ -174,8 +267,13 @@
                 <label for="contact-phone" class="mb-1 block text-xs font-semibold text-slate-600">Phone number <span class="font-normal text-slate-400">(optional)</span></label>
                 <input id="contact-phone" name="phone" x-model="f.phone" type="tel" autocomplete="tel" maxlength="40" placeholder="e.g. +63 917 123 4567" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm">
             </div>
-            <div><label class="block mb-1 text-xs font-semibold text-slate-600">NDA / MOU status</label>
-                <select name="nda_status" x-model="f.nda" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"><option>Pending</option><option>NDA Signed</option><option>MOU Signed</option><option>Both Signed</option></select></div>
+            <div x-show="editing" x-cloak><label class="block mb-1 text-xs font-semibold text-slate-600">NDA / MOU Status</label>
+                <select name="nda_status" x-model="f.nda" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm">
+                    <option value="Pending">Pending</option>
+                    <option value="NDA Signed">NDA Signed</option>
+                    <option value="MOU Signed">MOU Signed</option>
+                    <option value="Both Signed">Both Signed</option>
+                </select></div>
         </div>
         <div class="flex shrink-0 justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
             <button type="button" @click="open=false" class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700">Cancel</button>

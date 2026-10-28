@@ -38,10 +38,12 @@
 
 <div x-data="{
         tab:@js($openTrack),
-        submitted:@js($savedSubmissions),
-        driveLinks:@js($driveLinks),
-        startupFolders:@js($startupFolders),
-        teamUsers:@js($teamUsers),
+        submitted:@js($savedSubmissions ?? []),
+        submittedFolders:@js($folders ?? []),
+        foldersList:@js($folders ?? $startupFolders ?? []),
+        driveLinks:@js($driveLinks ?? []),
+        startupFolders:@js($startupFolders ?? []),
+        teamUsers:@js($teamUsers ?? []),
         currentFolder:@js($openStartupSlug),
         drawer:null,
         accessModal:false,
@@ -55,26 +57,52 @@
         deleteFile:null,
         moveModal:false,
         moveFile:null,
+        search: '',
         get folders(){
+            const sourceList = Array.isArray(this.submittedFolders)
+                ? this.submittedFolders
+                : (Array.isArray(this.foldersList)
+                    ? this.foldersList
+                    : (Array.isArray(this.submitted) && typeof this.submitted !== 'boolean' ? this.submitted : []));
+            if (Array.isArray(sourceList) && sourceList.length > 0 && sourceList.every(f => f && (f.slug !== undefined || f.path !== undefined || f.file_count !== undefined))) {
+                if (!this.search || this.search.trim() === '') {
+                    return sourceList;
+                }
+                const query = this.search.toLowerCase();
+                return sourceList.filter(folder =>
+                    (folder.name && folder.name.toLowerCase().includes(query)) ||
+                    (folder.company_name && folder.company_name.toLowerCase().includes(query)) ||
+                    (folder.slug && folder.slug.toLowerCase().includes(query))
+                );
+            }
             const grouped=new Map();
-            this.startupFolders.filter(startup=>startup.track===this.tab).forEach(startup=>{
+            (Array.isArray(this.startupFolders) ? this.startupFolders : []).filter(startup=>startup.track===this.tab).forEach(startup=>{
                 grouped.set(startup.slug,{...startup,count:0});
             });
-            this.submitted.filter(form=>form.track===this.tab).forEach(form=>{
+            (Array.isArray(this.submitted) ? this.submitted : []).filter(form=>form && form.track===this.tab).forEach(form=>{
                 if(!grouped.has(form.startupSlug)){
                     grouped.set(form.startupSlug,{id:null,slug:form.startupSlug,name:form.startup,track:form.track,count:0});
                 }
                 grouped.get(form.startupSlug).count++;
             });
-            this.driveLinks.forEach(link=>{
-                const folder=this.startupFolders.find(startup=>String(startup.id)===String(link.startupId));
+            (Array.isArray(this.driveLinks) ? this.driveLinks : []).forEach(link=>{
+                const folder=(Array.isArray(this.startupFolders) ? this.startupFolders : []).find(startup=>String(startup.id)===String(link.startupId));
                 if(folder && folder.track===this.tab && grouped.has(folder.slug)) grouped.get(folder.slug).count++;
             });
-            return Array.from(grouped.values()).sort((a,b)=>a.name.localeCompare(b.name));
+            const result = Array.from(grouped.values()).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+            if (!this.search || this.search.trim() === '') {
+                return result;
+            }
+            const query = this.search.toLowerCase();
+            return result.filter(folder =>
+                (folder.name && folder.name.toLowerCase().includes(query)) ||
+                (folder.slug && folder.slug.toLowerCase().includes(query))
+            );
         },
         get folderFiles(){
-            const forms=this.submitted
-                .filter(form=>form.track===this.tab && form.startupSlug===this.currentFolder)
+            const submittedList = Array.isArray(this.submitted) ? this.submitted : [];
+            const forms=submittedList
+                .filter(form=>form && form.track===this.tab && form.startupSlug===this.currentFolder)
             .map(form=>({
                 id:form.id,
                 submissionId:form.submissionId,

@@ -74,11 +74,7 @@
                         <td class="px-3 py-3 text-gray-600">{{ $invitation->expires_at->format('M d, Y') }}</td>
                         <td class="px-3 py-3">
                             @if (auth()->user()->canManageRecords() || auth()->user()->isSuperAdmin())
-                                <form method="POST" action="{{ route('team.invitations.revoke', $invitation) }}" onsubmit="return confirm('Revoke this invitation?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-gray-50">Revoke</button>
-                                </form>
+                                <button type="button" @click="$dispatch('confirm-revoke-invite', {id: {{ $invitation->id }}, action: '{{ route('team.invitations.revoke', $invitation) }}'})" class="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50">Revoke</button>
                             @else
                                 <span class="text-xs text-gray-500">-</span>
                             @endif
@@ -121,4 +117,30 @@
         </div>
     </div>
 @endif
+
+    <div x-data="{confirmOpen:false, revoke:{id:null, action:''}}" @confirm-revoke-invite.window="revoke = $event.detail; confirmOpen = true" x-show="confirmOpen" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/50 backdrop-blur-sm">
+        <div class="w-full max-w-md rounded-xl bg-white shadow-2xl">
+            <div class="px-6 py-4">
+                <h3 class="text-lg font-semibold text-slate-900">Revoke Invitation</h3>
+                <p class="mt-2 text-sm text-gray-600">Revoke this invitation?</p>
+            </div>
+            <div class="flex justify-end gap-2 border-t border-gray-100 px-6 py-4">
+                <button type="button" @click="confirmOpen=false" class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+                <button type="button" @click="
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = revoke.action;
+                    const csrf = document.createElement('input');
+                    csrf.type = 'hidden'; csrf.name = '_token'; csrf.value = '{{ csrf_token() }}';
+                    const method = document.createElement('input');
+                    method.type = 'hidden'; method.name = '_method'; method.value = 'DELETE';
+                    form.appendChild(csrf);
+                    form.appendChild(method);
+                    document.body.appendChild(form);
+                    form.submit();
+                    confirmOpen=false;
+                " class="px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700">Yes, Revoke Invite</button>
+            </div>
+        </div>
+    </div>
 @endsection

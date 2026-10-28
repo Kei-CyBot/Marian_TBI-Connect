@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Mail\AccountProvisionedMail;
 use App\Mail\ContactRegistrationNotificationMail;
 use App\Mail\ContactRegistrationReceiptMail;
+use App\Mail\UserCredentialInviteMail;
 use App\Models\Contact;
 use App\Models\ContactRegistrationApplication;
 use App\Models\User;
@@ -57,6 +57,9 @@ class ContactIntakeTest extends TestCase
             'stream' => 'external',
             'name' => 'Jordan Kim',
             'email' => 'jordan.kim@example.com',
+            'domain_expertise' => ['Health / Life Sciences'],
+            'technical_skills' => ['Data Analytics / Data Science'],
+            'tools_methods' => ['Python', 'Laravel'],
         ]);
 
         $response->assertRedirect(route('contact-registration'));
@@ -66,6 +69,9 @@ class ContactIntakeTest extends TestCase
 
         $application = ContactRegistrationApplication::query()->where('email', 'jordan.kim@example.com')->sole();
         $this->assertSame('Pending', $application->status);
+        $this->assertIsArray($application->domain_expertise);
+        $this->assertIsArray($application->technical_skills);
+        $this->assertIsArray($application->tools_methods);
     }
 
     public function test_submitting_with_uic_email_assigns_uic_internal_affiliation_and_queues_receipt(): void
@@ -109,7 +115,7 @@ class ContactIntakeTest extends TestCase
         $application = $this->application();
 
         $this->actingAs($admin)
-            ->patch(route('contact-intake.verify', $application))
+            ->post(route('contact-intake.approve', $application))
             ->assertRedirect(route('contact-intake'));
 
         $this->assertDatabaseHas('contacts', [
@@ -119,7 +125,7 @@ class ContactIntakeTest extends TestCase
         ]);
 
         $application->refresh();
-        $this->assertSame('Verified', $application->status);
+        $this->assertSame('Approved', $application->status);
         $this->assertSame($admin->id, $application->reviewed_by);
         $this->assertNotNull($application->reviewed_at);
     }
@@ -132,20 +138,25 @@ class ContactIntakeTest extends TestCase
         $contactsBefore = Contact::count();
         $usersBefore = User::count();
 
+        $pending = ContactRegistrationApplication::where('status', 'Pending')->get();
+        $this->assertTrue($pending->contains(fn ($app) => $app->email === $application->email));
+
         $this->actingAs($admin)
             ->post(route('contact-intake.provision', $application))
             ->assertRedirect(route('contact-intake'));
 
         $this->assertSame($contactsBefore + 1, Contact::count());
-        $this->assertSame($usersBefore + 1, User::count());
+        $this->assertSame($usersBefore, User::count());
+        Mail::assertNothingQueued();
 
         $this->assertDatabaseHas('contacts', [
             'email' => 'provision@example.com',
             'verification_status' => 'Verified Contact',
+            'name' => $application->name,
         ]);
 
         $application->refresh();
-        $this->assertSame('Approved & Account Provisioned', $application->status);
+        $this->assertSame('Approved', $application->status);
         $this->assertSame($admin->id, $application->reviewed_by);
         $this->assertNotNull($application->reviewed_at);
     }
@@ -160,18 +171,8 @@ class ContactIntakeTest extends TestCase
             ->post(route('contact-intake.provision', $application))
             ->assertRedirect(route('contact-intake'));
 
-        $user = User::query()->where('email', 'provisioned@example.com')->sole();
-        $this->assertSame('member_incubatee', $user->role);
-        $this->assertNotSame('', $user->password);
-        $this->assertTrue(strlen((string) $user->password) > 20);
-
-        Mail::assertQueued(AccountProvisionedMail::class, function (AccountProvisionedMail $mail) use ($user): bool {
-            $this->assertSame('provisioned@example.com', $mail->email);
-            $this->assertMatchesRegularExpression('/^\d{8}$/', $mail->tempPassword);
-            $this->assertTrue(Hash::check($mail->tempPassword, $user->password));
-
-            return $mail->hasTo('provisioned@example.com');
-        });
+        $this->assertDatabaseHas('contacts', ['email' => 'provisioned@example.com']);
+        Mail::assertNothingQueued();
     }
 
     public function test_provisioned_user_can_log_in_with_eight_digit_temporary_password_and_access_profile(): void
@@ -182,27 +183,7 @@ class ContactIntakeTest extends TestCase
 
         $this->actingAs($admin)->post(route('contact-intake.provision', $application));
 
-        $tempPassword = null;
-        Mail::assertQueued(AccountProvisionedMail::class, function (AccountProvisionedMail $mail) use (&$tempPassword) {
-            if ($mail->hasTo('loginable@example.com')) {
-                $tempPassword = $mail->tempPassword;
-
-                return true;
-            }
-
-            return false;
-        });
-
-        $this->assertNotNull($tempPassword);
-        $this->assertMatchesRegularExpression('/^\d{8}$/', $tempPassword);
-
-        $this->post(route('login.store'), [
-            'email' => 'loginable@example.com',
-            'password' => $tempPassword,
-        ])->assertRedirect(route('dashboard'));
-
-        $this->actingAs(User::query()->where('email', 'loginable@example.com')->sole())
-            ->get(route('profile.edit'))
-            ->assertOk();
+        Mail::assertNothingQueued();
+        $this->assertDatabaseHas('contacts', ['email' => 'loginable@example.com', 'name' => $application->name]);
     }
 }

@@ -159,6 +159,8 @@ Route::middleware('auth')->group(function (): void {
     Route::post('/contacts', [ContactController::class, 'store'])->middleware('role:admin,super_admin')->name('contacts.store');
     Route::put('/contacts/{contact}', [ContactController::class, 'update'])->middleware('role:admin,super_admin')->name('contacts.update');
     Route::delete('/contacts/{contact}', [ContactController::class, 'destroy'])->middleware('role:admin,super_admin')->name('contacts.destroy');
+    Route::patch('/contacts/{contact}/credentials', [ContactController::class, 'updateCredentials'])->middleware('role:super_admin')->name('contacts.credentials.update');
+    Route::post('/contacts/{contact}/send-credentials', [ContactController::class, 'sendOneTimeEmail'])->middleware('role:super_admin')->name('contacts.credentials.send');
     Route::post('/contacts/{contact}/assignments', [ContactController::class, 'assignStartup'])
         ->middleware('role:admin,super_admin')
         ->name('contacts.assignments.store');
@@ -166,9 +168,9 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('role:admin,super_admin')
         ->name('contacts.assignments.destroy');
     Route::get('/contact-intake', [ContactRegistrationController::class, 'index'])->middleware('role:admin,super_admin')->name('contact-intake');
-    Route::patch('/contact-intake/{application}/verify', [ContactRegistrationController::class, 'verify'])
+    Route::post('/contact-intake/{application}/approve', [ContactRegistrationController::class, 'approveAndProvision'])
         ->middleware('role:admin,super_admin')
-        ->name('contact-intake.verify');
+        ->name('contact-intake.approve');
     Route::post('/contact-intake/{application}/provision', [ContactRegistrationController::class, 'approveAndProvision'])
         ->middleware('role:admin,super_admin')
         ->name('contact-intake.provision');

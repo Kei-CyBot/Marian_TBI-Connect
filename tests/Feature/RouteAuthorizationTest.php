@@ -15,6 +15,7 @@ use App\Support\GoogleDriveService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Contracts\Factory as SocialiteFactory;
@@ -181,7 +182,7 @@ class RouteAuthorizationTest extends TestCase
             'contact assignments store' => ['contacts.assignments.store', 'post', ['contact' => 'contact'], [], 'redirect'],
             'contact assignments destroy' => ['contacts.assignments.destroy', 'delete', ['contact' => 'contact', 'startup' => 'startup'], [], 'redirect'],
             'contact intake index' => ['contact-intake', 'get', [], [], 'ok'],
-            'contact intake verify' => ['contact-intake.verify', 'patch', ['application' => 'application'], [], 'redirect'],
+            'contact intake approve' => ['contact-intake.approve', 'post', ['application' => 'application'], [], 'redirect'],
             'contact intake provision' => ['contact-intake.provision', 'post', ['application' => 'application'], [], 'redirect'],
             'contact intake destroy' => ['contact-intake.destroy', 'delete', ['application' => 'application'], [], 'redirect'],
             'form submissions export' => ['exports.form-submissions', 'get', [], [], 'ok'],
@@ -256,6 +257,35 @@ class RouteAuthorizationTest extends TestCase
         $this->assertAuthorizedResponse($response, $expectedStatus, $routeName);
     }
 
+    public function test_credential_routes_are_super_admin_only(): void
+    {
+        $this->prepareRouteScenario('contacts');
+        $contact = $this->contact;
+
+        $this->actingAs($this->member)
+            ->patch($this->routeUrl('contacts.credentials.update', ['contact' => 'contact']), [])
+            ->assertForbidden();
+        $this->actingAs($this->admin)
+            ->patch($this->routeUrl('contacts.credentials.update', ['contact' => 'contact']), [])
+            ->assertForbidden();
+
+        $response = $this->actingAs($this->superAdmin)
+            ->patch($this->routeUrl('contacts.credentials.update', ['contact' => 'contact']), ['email' => $contact->email, 'password' => 'password123']);
+        $this->assertTrue(in_array($response->status(), [200, 302], true));
+
+        $this->actingAs($this->member)
+            ->post($this->routeUrl('contacts.credentials.send', ['contact' => 'contact']), [])
+            ->assertForbidden();
+        $this->actingAs($this->admin)
+            ->post($this->routeUrl('contacts.credentials.send', ['contact' => 'contact']), [])
+            ->assertForbidden();
+
+        Mail::fake();
+        $response = $this->actingAs($this->superAdmin)
+            ->post($this->routeUrl('contacts.credentials.send', ['contact' => 'contact']), []);
+        $this->assertTrue(in_array($response->status(), [200, 302], true));
+    }
+
     #[DataProvider('authenticatedRouteProvider')]
     public function test_authenticated_routes_allow_members_and_reject_guests(string $routeName, string $method, array $params, array $payload, string $expectedStatus): void
     {
@@ -314,7 +344,7 @@ class RouteAuthorizationTest extends TestCase
         $this->from(route('contact-registration'))
             ->post(route('contact-registration.store'), ['stream' => 'internal'])
             ->assertRedirect(route('contact-registration'))
-            ->assertSessionHasErrors(['name', 'email', 'affiliation_type', 'role', 'domains']);
+            ->assertSessionHasErrors(['name', 'email']);
 
         $this->from(route('login'))
             ->post(route('login.store'), ['email' => 'missing@example.test', 'password' => 'wrong-password'])
@@ -339,6 +369,7 @@ class RouteAuthorizationTest extends TestCase
         $routes = collect(app('router')->getRoutes()->getRoutes())
             ->filter(fn ($route): bool => $route->getName() !== null && ! str_starts_with($route->uri(), 'storage/'))
             ->map(fn ($route): string => (string) $route->getName())
+            ->filter(fn ($name): bool => ! in_array($name, ['contacts.credentials.update', 'contacts.credentials.send'], true))
             ->sort()
             ->values();
 

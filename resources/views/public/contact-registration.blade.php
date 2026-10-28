@@ -14,12 +14,35 @@
 <body class="min-h-screen bg-[#F8FAFC] text-[#0F172A] antialiased"
       x-data="{
           stream: '',
-          submitted: @js(session()->has('registration_status')),
+          submitted: @js(session()->has('registration_status') || session()->has('submitted')),
           error: '',
           form: {
               name: '', email: '', phone: '', affiliationType: '', affiliationOther: '',
               organization: '', role: '', roleOther: '', academicProgram: '', academicYear: '',
-              domains: [], domainOther: '', technicalSkills: [], technicalOther: '', skillDetails: ''
+              department: '', domains: [], domainOther: '', domainExpertise: [], technicalSkills: [], technicalOther: '', skillDetails: '', tools_methods: [], tools_methods_other: '', toolsMethods: [], toolsMethodsOther: ''
+          },
+          selectedTools: [],
+          toolsOther: '',
+          toolsMethodOptions: ['Python', 'JavaScript', 'TypeScript', 'PHP', 'Java', 'C++', 'C#', 'Ruby', 'Go', 'Rust', 'SQL', 'HTML/CSS', 'Laravel', 'React', 'Vue.js', 'Node.js', 'Docker', 'Kubernetes', 'AWS', 'Git', 'Figma', 'PyTorch', 'TensorFlow', 'Tableau / PowerBI', 'CAD / 3D Software', 'Agile / Scrum', 'CI/CD', 'Financial Modeling', 'UI/UX Research', 'Data Analytics', 'Project Management', 'Design Thinking', 'JavaScript / TypeScript', 'PHP / Laravel', 'React / Vue / Next.js', 'SQL / Database Admin', 'Docker / Kubernetes', 'AWS / Cloud Infrastructure', 'Git / Version Control', 'Data Analytics / BI', 'AI / ML (PyTorch, TensorFlow)', 'Figma / UI/UX Design', 'CAD / 3D Modeling', 'Financial Modeling / Valuation', 'Agile / Scrum / Project Management', 'Other'],
+          toolGroups: {
+              'Coding Languages': ['Python', 'JavaScript', 'TypeScript', 'PHP', 'Java', 'C++', 'C#', 'Ruby', 'Go', 'Rust', 'SQL', 'HTML/CSS'],
+              'Frameworks & Tools': ['Laravel', 'React', 'Vue.js', 'Node.js', 'Docker', 'Kubernetes', 'AWS', 'Git', 'Figma', 'PyTorch', 'TensorFlow', 'Tableau / PowerBI', 'CAD / 3D Software', 'JavaScript / TypeScript', 'PHP / Laravel', 'React / Vue / Next.js', 'SQL / Database Admin', 'Docker / Kubernetes', 'AWS / Cloud Infrastructure', 'Git / Version Control', 'Data Analytics / BI', 'AI / ML (PyTorch, TensorFlow)', 'Figma / UI/UX Design', 'CAD / 3D Modeling'],
+              'Methods & Practices': ['Agile / Scrum', 'CI/CD', 'Financial Modeling', 'UI/UX Research', 'Data Analytics', 'Project Management', 'Design Thinking', 'Financial Modeling / Valuation', 'Agile / Scrum / Project Management'],
+              'Special Option': ['Other']
+          },
+          addTool(value) {
+              if (value && value.trim() !== '' && !this.selectedTools.includes(value)) {
+                  this.selectedTools.push(value);
+                  this.form.tools_methods.push(value);
+              }
+          },
+          removeTool(index) {
+              const removed = this.selectedTools[index];
+              this.selectedTools.splice(index, 1);
+              const idx = this.form.tools_methods.indexOf(removed);
+              if (idx > -1) {
+                  this.form.tools_methods.splice(idx, 1);
+              }
           },
           affiliations: {
               internal: ['University department / office', 'Research lab / center', 'Student organization / academic unit', 'Other'],
@@ -49,11 +72,12 @@
                   this.error = 'Select a stream before submitting your application.';
                   return;
               }
-              if (!this.form.domains.length) {
+              const domains = this.form.domainExpertise && this.form.domainExpertise.length ? this.form.domainExpertise : this.form.domains;
+              if (!domains.length) {
                   this.error = 'Select at least one domain expertise area.';
                   return;
               }
-              if (this.form.domains.includes('Other') && !this.form.domainOther.trim()) {
+              if (domains.includes('Other') && !this.form.domainOther.trim()) {
                   this.error = 'Specify your other domain expertise.';
                   return;
               }
@@ -148,14 +172,19 @@
                             <input id="contact-affiliation-other" name="affiliation_other" x-model="form.affiliationOther" :required="form.affiliationType === 'Other'" :disabled="form.affiliationType !== 'Other'" maxlength="100"
                                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
                         </div>
-                        <div x-show="!isIndependent" x-cloak>
-                            <label for="contact-organization" class="mb-1 block text-xs font-semibold text-slate-600" x-text="stream === 'internal' ? 'University / Department / Office' : 'Organization / Company / Fund'"></label>
-                            <input id="contact-organization" name="organization" x-model="form.organization" :required="!isIndependent" :disabled="isIndependent" maxlength="160"
+                        <div x-show="stream === 'internal'" x-cloak>
+                            <label for="contact-department" class="mb-1 block text-xs font-semibold text-slate-600">University / Department / Office (Optional)</label>
+                            <input id="contact-department" name="department" x-model="form.department" maxlength="255"
+                                   class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                        </div>
+                        <div x-show="stream === 'external' && !isIndependent" x-cloak>
+                            <label for="contact-organization" class="mb-1 block text-xs font-semibold text-slate-600">Organization / Company / Fund (Optional)</label>
+                            <input id="contact-organization" name="organization" x-model="form.organization" maxlength="160"
                                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
                         </div>
                         <div x-show="isIndependent" x-cloak>
                             <label for="contact-independent-organization" class="mb-1 block text-xs font-semibold text-slate-600">Business / professional name <span class="font-normal text-slate-400">(optional)</span></label>
-                            <input id="contact-independent-organization" name="organization" x-model="form.organization" :disabled="!isIndependent" maxlength="160" placeholder="Leave blank if you work under your own name"
+                            <input id="contact-independent-organization" name="organization" x-model="form.organization" maxlength="160" placeholder="Leave blank if you work under your own name"
                                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
                         </div>
                         <div x-show="form.role === 'Other'" x-cloak>
@@ -185,14 +214,15 @@
                     <div class="grid gap-2 sm:grid-cols-2">
                         <template x-for="domain in domainOptions" :key="domain">
                             <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 hover:border-[#1a8a8e]/40 hover:bg-[#eaf6f6]/50">
-                                <input type="checkbox" name="domains[]" :value="domain" x-model="form.domains" class="rounded border-slate-300 text-[#1a8a8e] focus:ring-[#1a8a8e]">
+                                <input type="checkbox" name="domain_expertise[]" :value="domain" x-model="form.domainExpertise" class="rounded border-slate-300 text-[#1a8a8e] focus:ring-[#1a8a8e]">
                                 <span x-text="domain"></span>
                             </label>
                         </template>
                     </div>
-                    <div x-show="form.domains.includes('Other')" x-cloak>
+                    <input type="hidden" name="domains[]" :value="form.domainExpertise.length ? form.domainExpertise : ''" x-show="false">
+                    <div x-show="form.domainExpertise.includes('Other')" x-cloak>
                         <label for="contact-domain-other" class="mb-1 block text-xs font-semibold text-slate-600">Specify domain</label>
-                        <input id="contact-domain-other" name="domain_other" x-model="form.domainOther" :required="form.domains.includes('Other')" :disabled="!form.domains.includes('Other')" maxlength="120"
+                        <input id="contact-domain-other" name="domain_other" x-model="form.domainOther" :required="form.domainExpertise.includes('Other')" :disabled="!form.domainExpertise.includes('Other')" maxlength="120"
                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
                     </div>
                 </fieldset>
@@ -213,9 +243,71 @@
                                class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
                     </div>
                     <div>
-                        <label for="contact-skill-details" class="mb-1 block text-xs font-semibold text-slate-600">Tools, languages or methods <span class="font-normal text-slate-400">(optional)</span></label>
-                        <input id="contact-skill-details" name="skill_details" x-model="form.skillDetails" maxlength="200" placeholder="e.g. Python, JavaScript, React, Laravel, SQL"
-                               class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                        <label class="mb-1 block text-xs font-semibold text-slate-600">Tools, Languages, or Methods <span class="font-normal text-slate-400">(Optional)</span></label>
+                        <div class="rounded-xl border border-slate-200 bg-white p-3">
+                            <div class="mb-2">
+                                <select @change="if($event.target.value) { addTool($event.target.value); $event.target.value=''; }" class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                                    <option value="">Select tools, languages, or methods...</option>
+                                    <optgroup label="Coding Languages">
+                                        <option value="Python">Python</option>
+                                        <option value="JavaScript">JavaScript</option>
+                                        <option value="TypeScript">TypeScript</option>
+                                        <option value="PHP">PHP</option>
+                                        <option value="Java">Java</option>
+                                        <option value="C++">C++</option>
+                                        <option value="C#">C#</option>
+                                        <option value="Ruby">Ruby</option>
+                                        <option value="Go">Go</option>
+                                        <option value="Rust">Rust</option>
+                                        <option value="SQL">SQL</option>
+                                        <option value="HTML/CSS">HTML/CSS</option>
+                                    </optgroup>
+                                    <optgroup label="Frameworks & Tools">
+                                        <option value="Laravel">Laravel</option>
+                                        <option value="React">React</option>
+                                        <option value="Vue.js">Vue.js</option>
+                                        <option value="Node.js">Node.js</option>
+                                        <option value="Docker">Docker</option>
+                                        <option value="Kubernetes">Kubernetes</option>
+                                        <option value="AWS">AWS</option>
+                                        <option value="Git">Git</option>
+                                        <option value="Figma">Figma</option>
+                                        <option value="PyTorch">PyTorch</option>
+                                        <option value="TensorFlow">TensorFlow</option>
+                                        <option value="Tableau / PowerBI">Tableau / PowerBI</option>
+                                        <option value="CAD / 3D Software">CAD / 3D Software</option>
+                                    </optgroup>
+                                    <optgroup label="Methods & Practices">
+                                        <option value="Agile / Scrum">Agile / Scrum</option>
+                                        <option value="CI/CD">CI/CD</option>
+                                        <option value="Financial Modeling">Financial Modeling</option>
+                                        <option value="UI/UX Research">UI/UX Research</option>
+                                        <option value="Data Analytics">Data Analytics</option>
+                                        <option value="Project Management">Project Management</option>
+                                        <option value="Design Thinking">Design Thinking</option>
+                                    </optgroup>
+                                    <optgroup label="Special Option">
+                                        <option value="Other">Other</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <template x-for="(tool, idx) in selectedTools" :key="idx">
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-[#eaf6f6] px-2 py-1 text-xs text-[#1a686b]">
+                                        <span x-text="tool"></span>
+                                        <button type="button" @click="removeTool(idx)" class="text-[#1a686b] hover:text-red-600">×</button>
+                                    </span>
+                                </template>
+                            </div>
+                            <template x-for="tool in selectedTools" :key="'hidden-'+tool">
+                                <input type="hidden" name="tools_methods[]" :value="tool">
+                            </template>
+                        </div>
+                        <div x-show="selectedTools.includes('Other')" x-cloak class="mt-2">
+                            <label for="contact-tools-methods-other" class="mb-1 block text-xs font-semibold text-slate-600">Specify Other Tools, Languages, or Methods</label>
+                            <input id="contact-tools-methods-other" name="tools_methods_other" x-model="form.tools_methods_other" maxlength="255"
+                                   class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                        </div>
                     </div>
                 </fieldset>
             </div>
@@ -228,9 +320,13 @@
 
         <section x-show="submitted" x-cloak class="mt-6 rounded-2xl border border-gray-100 bg-white p-10 text-center shadow-sm" role="status" aria-live="polite">
             <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-2xl text-white" aria-hidden="true">✓</div>
-            <h2 class="mt-4 text-lg font-bold">Registration submitted</h2>
-            <p class="mt-1 text-sm text-gray-500">{{ session('registration_status', 'Your application is ready for administrator review.') }}</p>
-        </fieldset>
+            <h2 class="mt-4 text-lg font-bold">Registration Submitted!</h2>
+            <p class="mt-1 text-sm text-gray-500">{{ session('registration_status', 'Your application has been received and is currently under review by our admin team.') }}</p>
+            <div class="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <a href="{{ route('login') }}" class="px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 font-medium inline-block">Return to Login Page</a>
+                <button type="button" @click="submitted=false; window.location.reload()" class="rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50">Submit Another Registration</button>
+            </div>
+        </section>
     </main>
 </body>
 </html>

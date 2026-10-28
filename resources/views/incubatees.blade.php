@@ -239,15 +239,26 @@
                     <button type="button" @click="startAssessment(row)" class="inline-flex h-10 min-w-0 items-center justify-center whitespace-nowrap rounded-xl border border-[#b92369]/25 bg-[#fcf0f5]/60 px-2 text-xs font-semibold text-[#b92369] transition hover:bg-[#fcf0f5] focus:outline-none focus:ring-2 focus:ring-[#b92369]/20 focus:ring-offset-2">Assessment</button>
                     <button type="button" @click="openEdit(row)" class="inline-flex h-10 min-w-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2">Edit</button>
                     <button type="button" @click="openDriveLinks(row)" class="inline-flex h-10 min-w-0 items-center justify-center whitespace-nowrap rounded-xl border border-[#1a8a8e]/25 bg-[#eaf6f6] px-2 text-xs font-semibold text-[#146e72] transition hover:bg-[#d9eeee] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/20 focus:ring-offset-2">Drive links</button>
-                    <form method="POST" :action="'{{ url('/incubatees') }}/'+row.id" class="col-span-2" @submit="if (!confirm('Archive '+row.name+'? Its assessments, submissions, and Drive links will be retained.')) $event.preventDefault()">
-                        @csrf
-                        @method('DELETE')
-                        <button type="submit" class="w-full rounded-xl border border-amber-200 bg-amber-50 px-2 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100">Archive Incubatee</button>
-                    </form>
+                    <button type="button" @click="$dispatch('confirm-archive-incubatee', {action: '{{ url('/incubatees') }}/'+row.id, name: row.name})" class="col-span-2 w-full rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">Archive</button>
                 </div>
                 @endif
             </article>
         </template>
+    </div>
+
+    <div x-data="{archiveOpen:false, archive:{action:'', name:''}}" @confirm-archive-incubatee.window="archive = $event.detail; archiveOpen = true" x-show="archiveOpen" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="relative w-full max-w-lg bg-white rounded-xl shadow-2xl p-6 border border-gray-100">
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Archive Incubatee Record</h3>
+            <p class="text-sm text-gray-600 mb-6">Are you sure you want to archive this incubatee record?</p>
+            <form :action="archive.action" method="POST">
+                @csrf
+                @method('DELETE')
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                    <button type="button" @click="archiveOpen=false" class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Cancel</button>
+                    <button type="submit" class="px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg">Yes, Archive Incubatee</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <div x-show="view==='table'" x-cloak class="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">

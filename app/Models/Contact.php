@@ -32,6 +32,7 @@ class Contact extends Model
         'activity_log',
         'archived_by',
         'archive_reason',
+        'user_id',
     ];
 
     protected function casts(): array
