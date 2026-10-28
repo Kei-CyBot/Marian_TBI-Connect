@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\TeamInviteMail;
+use App\Mail\AccountProvisionedMail;
+use App\Mail\ContactRegistrationNotificationMail;
+use App\Mail\ContactRegistrationReceiptMail;
 use App\Models\Contact;
 use App\Models\ContactRegistrationApplication;
-use App\Models\TeamInvitation;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -24,78 +26,63 @@ class ContactRegistrationController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $stream = $request->input('stream');
-        $roles = $stream === 'internal'
-            ? ['University Faculty Advisor', 'Campus Researcher', 'Student Lead', 'Department Chair', 'TTO Officer', 'Other']
-            : ['Industry Mentor', 'Venture Capitalist', 'Angel Investor', 'Corporate Partner', 'Government Grant Officer', 'Legal/Compliance Advisor', 'Other'];
-        $affiliations = $stream === 'internal'
-            ? ['University department / office', 'Research lab / center', 'Student organization / academic unit', 'Other']
-            : ['Company / Corporation', 'Startup / Small business', 'Freelancer / Self-employed', 'Government agency', 'Investor / VC fund', 'Nonprofit / NGO', 'Professional firm / Consultancy', 'Other'];
-        $domains = ['Health / Life Sciences', 'Information Technology', 'Agriculture / Food Systems', 'Education', 'Finance / Fintech', 'Clean Energy / Environment', 'Engineering / Manufacturing', 'Business / Entrepreneurship', 'Legal / Compliance', 'Other'];
-        $technicalSkills = ['Programming / Software Development', 'Web Development', 'Mobile App Development', 'Data Analytics / Data Science', 'Artificial Intelligence / Machine Learning', 'Cybersecurity', 'Cloud / DevOps', 'UI / UX Design', 'Hardware / Electronics / IoT', 'Research Methods', 'Product / Project Management', 'Other'];
-
-        $validator = Validator::make($request->all(), [
-            'stream' => ['required', Rule::in(['internal', 'external'])],
-            'name' => ['required', 'string', 'max:160'],
-            'email' => ['required', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:40'],
-            'affiliation_type' => ['required', Rule::in($affiliations)],
-            'affiliation_other' => ['nullable', 'string', 'max:100'],
-            'organization' => ['nullable', 'required_unless:affiliation_type,Freelancer / Self-employed', 'string', 'max:160'],
-            'role' => ['required', Rule::in($roles)],
-            'role_other' => ['nullable', 'string', 'max:120'],
-            'academic_program' => ['nullable', 'required_if:role,Student Lead', 'string', 'max:120'],
-            'academic_year' => ['nullable', 'required_if:role,Student Lead', Rule::in(['1st year', '2nd year', '3rd year', '4th year', '5th year or higher', 'Graduate student'])],
-            'domains' => ['required', 'array', 'min:1', 'max:20'],
-            'domains.*' => ['required', Rule::in($domains)],
-            'domain_other' => ['nullable', 'string', 'max:120'],
-            'technical_skills' => ['nullable', 'array', 'max:20'],
-            'technical_skills.*' => ['required', Rule::in($technicalSkills)],
-            'technical_other' => ['nullable', 'string', 'max:160'],
-            'skill_details' => ['nullable', 'string', 'max:200'],
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email:rfc', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'organization' => ['nullable', 'string', 'max:255'],
+            'role' => ['nullable', 'string', 'max:255'],
+            'stream' => ['nullable', Rule::in(['internal', 'external'])],
+            'affiliation_type' => ['nullable', 'string', 'max:255'],
         ]);
-        $validator->after(function ($validator) use ($request): void {
-            if ($request->input('affiliation_type') === 'Other' && ! filled($request->input('affiliation_other'))) {
-                $validator->errors()->add('affiliation_other', 'Specify your affiliation type.');
-            }
-            if ($request->input('role') === 'Other' && ! filled($request->input('role_other'))) {
-                $validator->errors()->add('role_other', 'Specify your role.');
-            }
-            if (in_array('Other', (array) $request->input('domains', []), true) && ! filled($request->input('domain_other'))) {
-                $validator->errors()->add('domain_other', 'Specify your other domain expertise.');
-            }
-            if (in_array('Other', (array) $request->input('technical_skills', []), true) && ! filled($request->input('technical_other'))) {
-                $validator->errors()->add('technical_other', 'Specify your other technical skill.');
-            }
-        });
-        $validated = $validator->validate();
 
-        $streamLabel = $validated['stream'] === 'internal' ? 'Internal Academic' : 'External Industry';
+        $email = (string) $validated['email'];
+        $isUic = Str::endsWith(Str::lower($email), '@uic.edu.ph');
+        $isGmail = Str::endsWith(Str::lower($email), '@gmail.com');
+
+        $affiliationType = $validated['affiliation_type'] ?? null;
+        if (! $affiliationType) {
+            if ($isUic) {
+                $affiliationType = 'UIC Internal / Institutional';
+            } elseif ($isGmail) {
+                $affiliationType = 'External / General';
+            } else {
+                $affiliationType = 'External / General';
+            }
+        }
+
+        $streamLabel = ($validated['stream'] ?? ($isUic ? 'internal' : 'external')) === 'internal' ? 'Internal Academic' : 'External Industry';
+        $streamValue = $validated['stream'] ?? ($isUic ? 'internal' : 'external');
+
         $data = [
             'name' => $validated['name'],
-            'email' => $validated['email'],
+            'email' => $email,
             'phone' => $validated['phone'] ?? '',
             'stream' => $streamLabel,
-            'affiliationType' => $validated['affiliation_type'],
-            'affiliationOther' => $validated['affiliation_other'] ?? '',
+            'affiliationType' => $affiliationType,
+            'affiliation_type' => $affiliationType,
+            'affiliationOther' => '',
             'organization' => $validated['organization'] ?? '',
-            'role' => $validated['role'],
-            'roleOther' => $validated['role_other'] ?? '',
-            'academicProgram' => $validated['academic_program'] ?? '',
-            'academicYear' => $validated['academic_year'] ?? '',
-            'domains' => array_values(array_diff($validated['domains'], ['Other'])),
-            'domainOther' => in_array('Other', $validated['domains'], true) ? ($validated['domain_other'] ?? '') : '',
-            'technicalSkills' => array_values(array_diff($validated['technical_skills'] ?? [], ['Other'])),
-            'technicalOther' => in_array('Other', $validated['technical_skills'] ?? [], true) ? ($validated['technical_other'] ?? '') : '',
-            'skillDetails' => $validated['skill_details'] ?? '',
+            'role' => $validated['role'] ?? '',
+            'roleOther' => '',
+            'academicProgram' => '',
+            'academicYear' => '',
+            'domains' => [],
+            'domainOther' => '',
+            'technicalSkills' => [],
+            'technicalOther' => '',
+            'skillDetails' => '',
         ];
 
-        ContactRegistrationApplication::query()->create([
+        $application = ContactRegistrationApplication::query()->create([
             'name' => $data['name'],
             'email' => $data['email'],
-            'stream' => $validated['stream'],
+            'stream' => $streamValue,
             'application_data' => $data,
         ]);
+
+        Mail::to($application->email)->queue(new ContactRegistrationReceiptMail($application->name, $application->email, $isUic));
+        Mail::to(config('mail.admin_address', config('mail.from.address')))->queue(new ContactRegistrationNotificationMail($application));
 
         return to_route('contact-registration')->with('registration_status', 'Your application was submitted for administrator review.');
     }
@@ -160,6 +147,20 @@ class ContactRegistrationController extends Controller
         }
 
         $data = $application->application_data ?? [];
+        $tempPassword = (string) random_int(10000000, 99999999);
+
+        $user = User::firstOrCreate(
+            ['email' => $application->email],
+            [
+                'name' => $application->name,
+                'password' => Hash::make($tempPassword),
+                'role' => 'member_incubatee',
+            ]
+        );
+
+        if (! $user->wasRecentlyCreated) {
+            $user->update(['password' => Hash::make($tempPassword)]);
+        }
 
         if (! Contact::query()->where('email', $application->email)->exists()) {
             Contact::create([
@@ -181,19 +182,11 @@ class ContactRegistrationController extends Controller
                 'incubatees' => [],
                 'activity_log' => [],
             ]);
+        } else {
+            Contact::query()->where('email', $application->email)->update(['verification_status' => 'Verified Contact']);
         }
 
-        if (! TeamInvitation::query()->where('email', $application->email)->whereNull('accepted_at')->where('expires_at', '>', now())->exists()) {
-            $invitation = TeamInvitation::create([
-                'email' => $application->email,
-                'role' => User::ROLE_MEMBER_INCUBATEE,
-                'token' => Str::random(64),
-                'expires_at' => now()->addDays(7),
-                'invited_by' => $request->user()->id,
-            ]);
-
-            Mail::to($invitation->email)->queue(new TeamInviteMail($invitation));
-        }
+        Mail::to($application->email)->queue(new AccountProvisionedMail($application->email, $tempPassword, route('login')));
 
         $application->forceFill([
             'status' => 'Approved & Account Provisioned',
