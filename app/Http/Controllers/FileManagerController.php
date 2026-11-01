@@ -13,6 +13,8 @@ use App\Support\Forms\StartupFormCatalog;
 use App\Support\GoogleDriveService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -39,11 +41,29 @@ class FileManagerController extends Controller
             ->get();
         $driveLinksByStartupName = $driveLinkRows->groupBy('startup_name');
 
+        $user = $request->user();
+
         $submissions = FormSubmission::query()
             ->with('user:id,name')
             ->latest()
             ->get()
-            ->filter(static fn (FormSubmission $submission): bool => $activeAccessibleStartups->has(Str::slug($submission->startup_name)))
+            ->filter(function (FormSubmission $submission) use ($activeAccessibleStartups, $user): bool {
+                if (! $user) {
+                    return false;
+                }
+
+                if (method_exists($user, 'isAdmin') && $user->isAdmin()) {
+                    return true;
+                }
+
+                if ($submission->user_id && (int) $submission->user_id === (int) $user->id) {
+                    return true;
+                }
+
+                return $submission->startup_name
+                    ? $activeAccessibleStartups->has(Str::slug($submission->startup_name))
+                    : false;
+            })
             ->map(function (FormSubmission $submission) use ($startupsByName, $driveLinksByStartupName): array {
                 $data = is_array($submission->data) ? $submission->data : [];
                 $editorFields = FormEditorSchema::forSubmission($submission->form_id, $data);
@@ -129,6 +149,7 @@ class FileManagerController extends Controller
                 'userName' => $link->user?->name ?? 'Marian TBI team',
                 'date' => $link->updated_at?->format('M j'),
             ])
+            ->values()
             ->all();
         $googleDriveFolders = $activeAccessibleStartups
             ->filter(static fn (Startup $startup): bool => filled($startup->google_drive_folder_url))
@@ -141,8 +162,9 @@ class FileManagerController extends Controller
                 'userName' => 'Marian TBI Connect',
                 'date' => $startup->updated_at?->format('M j'),
             ])
+            ->values()
             ->all();
-        $driveLinks = [...$driveLinks, ...$googleDriveFolders];
+        $driveLinks = array_values(array_merge($driveLinks, $googleDriveFolders));
         $driveConnection = GoogleDriveConnection::query()->where('singleton_key', 'marian-tbi')->first();
 
         return view('files', [

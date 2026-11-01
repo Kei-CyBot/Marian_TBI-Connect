@@ -624,6 +624,71 @@ class FormSubmissionTest extends TestCase
         }
     }
 
+    public function test_moving_a_submission_uploads_local_files_when_none_exist_on_drive(): void
+    {
+        Storage::fake('local');
+        Startup::ensureConfigured();
+        $user = User::factory()->create(['email' => 'staff@example.test']);
+        GoogleDriveConnection::query()->create([
+            'singleton_key' => 'marian-tbi',
+            'google_email' => 'drive@example.test',
+            'access_token' => 'access-token',
+            'refresh_token' => 'refresh-token',
+            'expires_at' => now()->addHour(),
+            'connected_by' => $user->id,
+        ]);
+        Startup::query()->findOrFail(1)->forceFill([
+            'google_drive_folder_id' => 'agrisense-folder',
+            'google_drive_folder_url' => 'https://drive.google.com/drive/folders/agrisense-folder',
+        ])->save();
+        StartupDriveLink::query()->create([
+            'startup_id' => 1,
+            'startup_name' => 'AgriSense Labs',
+            'label' => 'AgriSense R&D Drive',
+            'url' => 'https://drive.google.com/drive/folders/custom-agri-folder',
+            'user_id' => $user->id,
+        ]);
+        Storage::disk('local')->put('form-submissions/signed.pdf', 'pdf-bytes');
+        $submission = FormSubmission::query()->create([
+            'user_id' => $user->id,
+            'form_id' => 4,
+            'form_name' => 'Signed agreement',
+            'startup_name' => 'AgriSense Labs',
+            'track' => 'internal',
+            'data' => ['business_name' => 'AgriSense Labs'],
+            'prerequisite_path' => 'form-submissions/signed.pdf',
+            'prerequisite_original_name' => 'signed.pdf',
+            'prerequisite_mime_type' => 'application/pdf',
+            'local_path' => 'form-submissions/signed.pdf',
+        ]);
+
+        $uploads = [];
+        Http::fake(function (ClientRequest $request) use (&$uploads) {
+            if ($request->method() === 'POST' && str_contains($request->url(), '/upload/drive/v3/files')) {
+                $uploads[] = $request->url();
+
+                return Http::response([
+                    'id' => 'uploaded-'.count($uploads),
+                    'webViewLink' => 'https://drive.example/uploaded-'.count($uploads),
+                ]);
+            }
+
+            return Http::response(['error' => 'Unexpected request: '.$request->method().' '.$request->url()], 500);
+        });
+
+        $this->actingAs($user)
+            ->post(route('form-submissions.move', $submission), ['target_folder_id' => 'custom-agri-folder'])
+            ->assertRedirect(route('files', ['startup' => 'agrisense-labs', 'track' => 'internal']))
+            ->assertSessionHas('status', 'File moved to custom Drive folder successfully.');
+
+        $submission->refresh();
+        $this->assertCount(2, $uploads);
+        $this->assertSame('uploaded-1', $submission->google_drive_response_file_id);
+        $this->assertSame('uploaded-2', $submission->google_drive_attachment_file_id);
+        $this->assertSame('custom-agri-folder', $submission->google_drive_folder_id);
+        $this->assertNotNull($submission->drive_synced_at);
+    }
+
     public function test_moving_a_submission_validates_the_target_custom_drive_folder(): void
     {
         Storage::fake('local');
@@ -864,5 +929,22 @@ class FormSubmissionTest extends TestCase
     public function test_guest_cannot_submit_a_form(): void
     {
         $this->post(route('form-submissions.store'), [])->assertRedirect(route('login'));
+    }
+
+    public function test_google_drive_file_id_normalizes_empty_and_array_values(): void
+    {
+        $submission = new FormSubmission;
+
+        $submission->google_drive_file_id = [];
+        $this->assertNull($submission->google_drive_file_id);
+
+        $submission->google_drive_file_id = '[]';
+        $this->assertNull($submission->google_drive_file_id);
+
+        $submission->google_drive_file_id = '  drive-123  ';
+        $this->assertSame('drive-123', $submission->google_drive_file_id);
+
+        $submission->google_drive_file_id = ['drive-456'];
+        $this->assertSame('drive-456', $submission->google_drive_file_id);
     }
 }

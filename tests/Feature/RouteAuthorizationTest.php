@@ -219,6 +219,8 @@ class RouteAuthorizationTest extends TestCase
             'technical need approval' => ['technical-needs.approval', 'get', ['technicalNeed' => 'technicalNeed'], [], 'ok'],
             'events' => ['events', 'get', [], [], 'ok'],
             'team' => ['team', 'get', [], [], 'ok'],
+            'google connect' => ['google.redirect', 'get', [], [], 'redirect'],
+            'google callback' => ['google.callback', 'get', [], [], 'redirect'],
             'logout' => ['logout', 'post', [], [], 'redirect'],
         ];
     }
@@ -237,8 +239,6 @@ class RouteAuthorizationTest extends TestCase
             'login store' => ['login.store', 'post', [], [], 'redirect'],
             'invite form' => ['invites.accept', 'get', ['token' => 'invitationToken'], [], 'ok'],
             'invite accept' => ['invites.accept.process', 'post', ['token' => 'invitationToken'], [], 'redirect'],
-            'google login redirect' => ['auth.google.redirect', 'get', [], [], 'redirect'],
-            'google login callback' => ['auth.google.callback', 'get', [], [], 'redirect'],
         ];
     }
 
@@ -294,6 +294,10 @@ class RouteAuthorizationTest extends TestCase
 
         $this->{$method}($url, $payload)->assertRedirect(route('login'));
 
+        if (in_array($routeName, ['google.redirect', 'google.callback'], true)) {
+            $this->fakeGoogleLogin();
+        }
+
         $response = $this->actingAs($this->member)->{$method}($url, $payload);
         $this->assertAuthorizedResponse($response, $expectedStatus, $routeName);
     }
@@ -301,10 +305,6 @@ class RouteAuthorizationTest extends TestCase
     #[DataProvider('publicRouteProvider')]
     public function test_public_routes_are_reachable_without_authentication(string $routeName, string $method, array $params, array $payload, string $expectedStatus): void
     {
-        if (in_array($routeName, ['auth.google.redirect', 'auth.google.callback'], true)) {
-            $this->fakeGoogleLogin();
-        }
-
         $url = $this->routeUrl($routeName, $params);
         $payload = $this->payloadFor($routeName, $payload);
 
@@ -318,8 +318,6 @@ class RouteAuthorizationTest extends TestCase
             route('home'),
             route('login'),
             route('invites.accept', $this->invitation->token),
-            route('auth.google.redirect'),
-            route('auth.google.callback'),
         ] as $url) {
             $this->actingAs($this->member)->get($url)->assertRedirect(route('dashboard'));
         }
@@ -550,6 +548,7 @@ class RouteAuthorizationTest extends TestCase
     {
         if (in_array($routeName, ['google-drive.connect', 'google-drive.callback'], true)) {
             $provider = Mockery::mock(GoogleProvider::class);
+            $provider->shouldReceive('stateless')->andReturnSelf();
             $provider->shouldReceive('scopes')->andReturnSelf();
             $provider->shouldReceive('with')->andReturnSelf();
             $provider->shouldReceive('redirect')->andReturn(redirect('https://accounts.google.com/o/oauth2/auth'));
@@ -571,6 +570,9 @@ class RouteAuthorizationTest extends TestCase
     private function fakeGoogleLogin(): void
     {
         $provider = Mockery::mock(GoogleProvider::class);
+        $provider->shouldReceive('stateless')->andReturnSelf();
+        $provider->shouldReceive('scopes')->andReturnSelf();
+        $provider->shouldReceive('with')->andReturnSelf();
         $provider->shouldReceive('redirect')->andReturn(redirect('https://accounts.google.com/o/oauth2/auth'));
         $provider->shouldReceive('user')->andReturn($this->googleUser($this->member->email));
 
@@ -592,6 +594,11 @@ class RouteAuthorizationTest extends TestCase
             public int $expiresIn = 3600;
 
             public function __construct(private string $email) {}
+
+            public function getId(): string
+            {
+                return 'route-google-id';
+            }
 
             public function getEmail(): string
             {

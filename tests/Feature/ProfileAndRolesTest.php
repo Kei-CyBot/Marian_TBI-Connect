@@ -18,7 +18,7 @@ class ProfileAndRolesTest extends TestCase
 
         $this->get(route('home'))
             ->assertOk()
-            ->assertSee('Sign in with Google');
+            ->assertSee('Welcome back');
     }
 
     public function test_member_can_view_workspace_but_cannot_change_records(): void

@@ -10,6 +10,7 @@ use App\Http\Controllers\EventsController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\FileManagerController;
 use App\Http\Controllers\FormSubmissionController;
+use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\GoogleDriveController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicIntakeController;
@@ -19,11 +20,9 @@ use App\Http\Controllers\StartupDriveLinkController;
 use App\Http\Controllers\StartupFolderAccessController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TechnicalNeedController;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
-use Laravel\Socialite\Facades\Socialite;
 
 Route::view('/startup-form', 'public.startup-form')->name('startup-form');
 Route::post('/startup-form', [PublicIntakeController::class, 'storeStartup'])
@@ -68,51 +67,12 @@ Route::middleware('guest')->group(function (): void {
 
     Route::get('/invites/accept/{token}', [TeamController::class, 'acceptInviteForm'])->name('invites.accept');
     Route::post('/invites/accept/{token}', [TeamController::class, 'processAcceptInvite'])->name('invites.accept.process');
-
-    Route::get('/auth/google/redirect', function () {
-        abort_unless(
-            class_exists(Socialite::class),
-            503,
-            'Google sign-in requires the laravel/socialite package and Google OAuth credentials.'
-        );
-        abort_unless(
-            config('services.google.client_id') && config('services.google.client_secret'),
-            503,
-            'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET before enabling Google sign-in.'
-        );
-
-        return Socialite::driver('google')->redirect();
-    })->name('auth.google.redirect');
-
-    Route::get('/auth/google/callback', function (Request $request) {
-        abort_unless(
-            class_exists(Socialite::class),
-            503,
-            'Google sign-in requires the laravel/socialite package and Google OAuth credentials.'
-        );
-        abort_unless(
-            config('services.google.client_id') && config('services.google.client_secret'),
-            503,
-            'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET before enabling Google sign-in.'
-        );
-
-        $googleUser = Socialite::driver('google')->user();
-        $email = $googleUser->getEmail();
-        $isVerified = filter_var($googleUser->user['verified_email'] ?? false, FILTER_VALIDATE_BOOLEAN);
-
-        abort_unless($email && $isVerified, 403, 'Google could not verify this account.');
-
-        $user = User::query()->where('email', $email)->first();
-        abort_unless($user, 403, 'This Google account is not authorized for Marian TBI Connect.');
-
-        Auth::login($user);
-        $request->session()->regenerate();
-
-        return redirect()->intended(route('dashboard'));
-    })->name('auth.google.callback');
 });
 
 Route::middleware('auth')->group(function (): void {
+    Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('google.redirect');
+    Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('google.callback');
+
     Route::post('/form-submissions', [FormSubmissionController::class, 'store'])
         ->middleware('role:admin,super_admin')
         ->name('form-submissions.store');

@@ -40,35 +40,6 @@ class SaveContactRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
-            'side' => ['required', Rule::in(['internal', 'external'])],
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:40'],
-            'affiliation_type' => ['required', 'string', 'max:160'],
-            'role' => ['required', 'string', 'max:160'],
-            'organization' => ['nullable', 'string', 'max:160'],
-            'department' => ['nullable', 'string', 'max:255'],
-            'academic_program' => ['nullable', 'required_if:role,Student Lead', 'string', 'max:120'],
-            'academic_year' => ['nullable', 'required_if:role,Student Lead', Rule::in(['1st year', '2nd year', '3rd year', '4th year', '5th year or higher', 'Graduate student'])],
-            'domains' => ['nullable', 'array', 'max:20'],
-            'domains.*' => ['required', 'string', 'max:120'],
-            'domains_other_selected' => ['boolean'],
-            'domain_other' => ['nullable', 'string', 'max:120'],
-            'technical_skills' => ['nullable', 'array', 'max:20'],
-            'technical_skills.*' => ['required', 'string', 'max:160'],
-            'technical_other_selected' => ['boolean'],
-            'technical_other' => ['nullable', 'string', 'max:160'],
-            'skill_details' => ['nullable', 'string', 'max:200'],
-            'tools_methods' => ['nullable', 'array'],
-            'tools_methods.*' => ['nullable', 'string', 'max:255'],
-            'tools_methods_other' => ['nullable', 'string', 'max:255'],
-            'nda_status' => ['nullable', Rule::in(['Pending', 'NDA Signed', 'MOU Signed', 'Both Signed'])],
-        ];
-    }
-
-    public function rules(): array
-    {
         $rules = [
             'side' => ['required', Rule::in(['internal', 'external'])],
             'name' => ['required', 'string', 'max:255'],
@@ -100,7 +71,6 @@ class SaveContactRequest extends FormRequest
         }
 
         return $rules;
-    }
     }
 
     public function after(): array

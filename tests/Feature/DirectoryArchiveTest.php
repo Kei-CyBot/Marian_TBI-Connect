@@ -98,8 +98,8 @@ class DirectoryArchiveTest extends TestCase
         $this->actingAs(User::factory()->create())
             ->get(route('contact-intake'))
             ->assertOk()
-            ->assertSee('Preview application')
-            ->assertSee('Delete application')
+            ->assertSee('Preview Application')
+            ->assertSee('Delete Application')
             ->assertSee('aria-modal="true"', false)
             ->assertSee('Tools, languages or methods')
             ->assertSee('does not create a login')
@@ -140,13 +140,13 @@ class DirectoryArchiveTest extends TestCase
             ->assertSee('Mika Santos');
 
         $this->actingAs($user)
-            ->patch(route('contact-intake.verify', $application))
+            ->post(route('contact-intake.approve', $application))
             ->assertRedirect(route('contact-intake'))
-            ->assertSessionHas('intake_status');
+            ->assertSessionHas('success');
 
         $this->assertDatabaseHas('contact_registration_applications', [
             'id' => $application->id,
-            'status' => 'Verified',
+            'status' => 'Approved',
             'reviewed_by' => $user->id,
         ]);
         $this->assertDatabaseMissing('users', ['email' => 'mika.santos@example.edu']);

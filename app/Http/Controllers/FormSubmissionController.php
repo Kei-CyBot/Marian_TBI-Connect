@@ -38,34 +38,68 @@ class FormSubmissionController extends Controller
         $validated = $request->validated();
         $startup = Startup::withTrashed()->where('name', $validated['startup'])->first();
         abort_if($startup && ! $startup->userCanAccessFolder($user), 403);
-        $submission = $action->execute(
-            user: $user,
-            formId: (int) $validated['form_id'],
-            startup: $validated['startup'],
-            track: $validated['track'],
-            data: $validated['data'],
-            signerName: $validated['signer_name'],
-            prerequisite: $request->file('prerequisite'),
-        );
+        try {
+            $submission = $action->execute(
+                user: $user,
+                formId: (int) $validated['form_id'],
+                startup: $validated['startup'],
+                track: $validated['track'],
+                data: $validated['data'],
+                signerName: $validated['signer_name'],
+                prerequisite: $request->file('prerequisite'),
+            );
 
-        if ($user->email) {
-            Mail::to($user->email)->queue(new FormSubmittedReceipt($submission));
+            // Ensure local storage saved if there's a prerequisite
+            if ($submission->prerequisite_path) {
+                try {
+                    if (! Storage::disk('local')->exists($submission->prerequisite_path)) {
+                        Log::error('Form submission prerequisite missing after save', ['submission_id' => $submission->id]);
+                    } else {
+                        $submission->forceFill(['local_path' => $submission->prerequisite_path])->save();
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('Failed to update local_path for submission', ['error' => $e->getMessage(), 'submission_id' => $submission->id]);
+                }
+            }
+
+            // Try to save to public disk as well if possible
+            try {
+                if ($submission->prerequisite_path && Storage::disk('local')->exists($submission->prerequisite_path)) {
+                    $contents = Storage::disk('local')->get($submission->prerequisite_path);
+                    $publicName = 'form-submissions/' . basename($submission->prerequisite_path);
+                    Storage::disk('public')->put($publicName, $contents);
+                }
+            } catch (\Throwable $e) {
+                Log::error('Failed to save file to public disk', ['error' => $e->getMessage()]);
+            }
+
+            if ($user->email) {
+                Mail::to($user->email)->queue(new FormSubmittedReceipt($submission));
+            }
+
+            $redirect = to_route('files', [
+                'startup' => Str::slug($submission->startup_name),
+                'track' => $submission->track,
+            ]);
+
+            $redirect->with('status', 'Form submitted and saved to '.$submission->startup_name.' file folder.');
+
+            // Attempt Drive sync if connected or user has refresh token - make it async/safe
+            if ($drive->isConnected() || ($user->google_refresh_token)) {
+                try {
+                    SyncFormSubmissionToDriveJob::dispatch($submission);
+                    $redirect->with('drive_sync_status', 'The form response was queued for Google Drive synchronization.');
+                } catch (\Throwable $e) {
+                    Log::error('Failed to queue Drive sync', ['error' => $e->getMessage(), 'submission_id' => $submission->id]);
+                    // Don't fail the request if Drive sync fails
+                }
+            }
+
+            return $redirect;
+        } catch (\Throwable $e) {
+            Log::error('Form submission failed', ['error' => $e->getMessage(), 'user_id' => $user->id]);
+            return back()->withInput()->with('error', 'Form submission failed: ' . $e->getMessage());
         }
-
-        $redirect = to_route('files', [
-            'startup' => Str::slug($submission->startup_name),
-            'track' => $submission->track,
-        ]);
-
-        $redirect->with('status', 'Form submitted and saved to '.$submission->startup_name.' file folder.');
-
-        if ($drive->isConnected()) {
-            SyncFormSubmissionToDriveJob::dispatch($submission);
-
-            $redirect->with('drive_sync_status', 'The form response was queued for Google Drive synchronization.');
-        }
-
-        return $redirect;
     }
 
     public function update(
@@ -117,18 +151,38 @@ class FormSubmissionController extends Controller
                     'prerequisite_original_name' => $uploaded->originalName,
                     'prerequisite_mime_type' => $uploaded->mimeType,
                     'prerequisite_size_bytes' => $uploaded->sizeBytes,
+                    'local_path' => $uploaded->path,
                 ] : []),
             ])->save();
         } catch (\Throwable $exception) {
             if ($uploaded !== null) {
-                Storage::disk('local')->delete($uploaded->path);
+                try {
+                    Storage::disk('local')->delete($uploaded->path);
+                } catch (\Throwable $e) {
+                    Log::error('Failed to cleanup uploaded file after update error', ['error' => $e->getMessage()]);
+                }
             }
-
+            Log::error('Form submission update failed', ['error' => $exception->getMessage(), 'submission_id' => $submission->id]);
             throw $exception;
         }
 
         if ($uploaded !== null && $oldPath) {
-            Storage::disk('local')->delete($oldPath);
+            try {
+                Storage::disk('local')->delete($oldPath);
+            } catch (\Throwable $e) {
+                Log::error('Failed to delete old file during update', ['error' => $e->getMessage()]);
+            }
+        }
+
+        // Save to public disk
+        try {
+            if ($submission->prerequisite_path && Storage::disk('local')->exists($submission->prerequisite_path)) {
+                $contents = Storage::disk('local')->get($submission->prerequisite_path);
+                $publicName = 'form-submissions/' . basename($submission->prerequisite_path);
+                Storage::disk('public')->put($publicName, $contents);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Failed to save updated file to public disk', ['error' => $e->getMessage()]);
         }
 
         $redirect = to_route('files', [
@@ -138,10 +192,13 @@ class FormSubmissionController extends Controller
 
         $redirect->with('status', 'Form response updated for '.$submission->startup_name.'.');
 
-        if ($drive->isConnected()) {
-            SyncFormSubmissionToDriveJob::dispatch($submission);
-
-            $redirect->with('drive_sync_status', 'The updated form response was queued for Google Drive synchronization.');
+        if ($drive->isConnected() || ($user->google_refresh_token)) {
+            try {
+                SyncFormSubmissionToDriveJob::dispatch($submission);
+                $redirect->with('drive_sync_status', 'The updated form response was queued for Google Drive synchronization.');
+            } catch (\Throwable $e) {
+                Log::error('Failed to queue Drive sync on update', ['error' => $e->getMessage(), 'submission_id' => $submission->id]);
+            }
         }
 
         return $redirect;
@@ -228,27 +285,49 @@ class FormSubmissionController extends Controller
         }
 
         $previousFolderId = $submission->google_drive_folder_id ?? $sourceStartup?->google_drive_folder_id;
-        $submission->forceFill([
-            'google_drive_folder_id' => $targetFolderId,
-        ])->save();
-
-        $driveWarning = null;
         $driveFileIds = array_values(array_filter([
             $submission->google_drive_response_file_id,
             $submission->google_drive_attachment_file_id,
         ]));
-        if ($drive->isConnected() && $driveFileIds !== []) {
-            SyncFormSubmissionToDriveJob::dispatch($submission, $targetFolderId, $previousFolderId);
-        } elseif (! $drive->isConnected() && $driveFileIds !== []) {
-            $driveWarning = 'Google Drive is not connected, so the Google Drive copies were not relocated. Connect Drive and retry.';
+
+        Log::info('Move initiated', [
+            'submission_id' => $submission->getKey(),
+            'drive_file_id' => $driveFileIds,
+            'target' => $targetFolderId,
+        ]);
+
+        if (! $drive->isConnected($user)) {
+            $submission->forceFill(['google_drive_folder_id' => $targetFolderId])->save();
+
+            return $sourceRedirect
+                ->with('status', 'File moved to custom Drive folder successfully.')
+                ->with('drive_sync_warning', 'Google Drive is not connected, so the Google Drive copies were not relocated. Connect Drive and retry.');
         }
 
-        $redirect = $sourceRedirect->with('status', 'File moved to custom Drive folder successfully.');
-        if ($driveWarning !== null) {
-            $redirect->with('drive_sync_warning', $driveWarning);
+        try {
+            if ($driveFileIds !== []) {
+                foreach ($driveFileIds as $fileId) {
+                    $drive->moveFile($fileId, $targetFolderId, $previousFolderId);
+                }
+            } else {
+                $drive->syncSubmissionFiles($submission, $targetFolderId);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Google Drive move failed', [
+                'submission_id' => $submission->getKey(),
+                'target' => $targetFolderId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $sourceRedirect->with('error', 'Google Drive Move Failed: '.$e->getMessage());
         }
 
-        return $redirect;
+        $submission->forceFill([
+            'google_drive_folder_id' => $targetFolderId,
+            'drive_synced_at' => now(),
+        ])->save();
+
+        return $sourceRedirect->with('status', 'File moved to custom Drive folder successfully.');
     }
 
     public function updateStatus(Request $request, FormSubmission $submission): RedirectResponse

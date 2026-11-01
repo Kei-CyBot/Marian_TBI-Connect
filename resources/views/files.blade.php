@@ -128,8 +128,11 @@
                 driveAttachmentUrl:form.driveAttachmentUrl,
                 driveUrl:form.driveAttachmentUrl || form.driveResponseUrl
             }));
-            const links=this.driveLinks
-                .filter(link=>link.startupSlug===this.currentFolder)
+            const links = Array.isArray(this.driveLinks)
+                ? this.driveLinks
+                : Object.values(this.driveLinks || {});
+            return [...forms, ...links
+                .filter(link=>link && link.startupSlug===this.currentFolder)
                 .map(link=>({
                     id:'drive-'+link.id,
                     name:link.label,
@@ -138,7 +141,7 @@
                     updated:link.date,
                     isDriveLink:true,
                     url:link.url
-                }));
+                }))];
             return [...forms,...links];
         },
         get currentFolderName(){ return this.folders.find(folder=>folder.slug===this.currentFolder)?.name || this.currentFolder },

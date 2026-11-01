@@ -154,6 +154,43 @@
                 <div class="flex gap-2">@yield('banner-actions')</div>
             </div>
         </section>
+
+        @if (session('success'))
+            <div class="mb-4 rounded-lg border border-green-300 bg-green-50 p-4 text-sm text-green-800" role="alert">
+                <span class="font-medium">Success:</span> {{ session('success') }}
+            </div>
+        @endif
+        @if (session('status'))
+            <div class="mb-4 rounded-lg border border-green-300 bg-green-50 p-4 text-sm text-green-800" role="alert">
+                <span class="font-medium">Status:</span> {{ session('status') }}
+            </div>
+        @endif
+        @if (session('warning'))
+            <div class="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800" role="alert">
+                <span class="font-medium">Warning:</span> {{ session('warning') }}
+            </div>
+        @endif
+        @if (session('drive_sync_warning'))
+            <div class="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800" role="alert">
+                <span class="font-medium">Warning:</span> {{ session('drive_sync_warning') }}
+            </div>
+        @endif
+        @if (session('error'))
+            <div class="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800" role="alert">
+                <span class="font-medium">Error:</span> {{ session('error') }}
+            </div>
+        @endif
+        @if ($errors->any())
+            <div class="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800" role="alert">
+                <span class="font-medium">There were errors with your submission:</span>
+                <ul class="mt-2 list-disc space-y-1 pl-5">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         @yield('content')
     </main>
 </div>

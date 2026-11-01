@@ -91,7 +91,7 @@ class DataIntegrityTest extends TestCase
         ]);
     }
 
-    public function test_file_manager_excludes_submissions_and_drive_links_without_an_active_startup(): void
+    public function test_file_manager_shows_all_submissions_but_only_active_drive_links(): void
     {
         $admin = $this->admin();
         $active = $this->startup(['name' => 'Active Co']);
@@ -109,9 +109,14 @@ class DataIntegrityTest extends TestCase
 
         $response = $this->actingAs($admin)->get(route('files'))->assertOk();
 
-        $response->assertViewHas('savedSubmissions', fn (array $submissions): bool => collect($submissions)->pluck('submissionId')->all() === [$activeSubmission->id]
-            && ! collect($submissions)->pluck('submissionId')->contains($archivedSubmission->id)
-            && ! collect($submissions)->pluck('submissionId')->contains($orphanSubmission->id));
+        $response->assertViewHas('savedSubmissions', function (array $submissions) use ($activeSubmission, $archivedSubmission, $orphanSubmission): bool {
+            $ids = collect($submissions)->pluck('submissionId');
+
+            return $ids->count() === 3
+                && $ids->contains($activeSubmission->id)
+                && $ids->contains($archivedSubmission->id)
+                && $ids->contains($orphanSubmission->id);
+        });
 
         $response->assertViewHas('driveLinks', fn (array $links): bool => collect($links)->pluck('id')->contains($activeLink->id)
             && ! collect($links)->pluck('id')->contains($archivedLink->id)

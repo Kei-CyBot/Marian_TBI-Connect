@@ -6,8 +6,14 @@ use App\Models\FormSubmission;
 use App\Models\GoogleDriveConnection;
 use App\Models\Startup;
 use App\Models\User;
+use Google\Client;
+use Google\Service\Drive;
+use Illuminate\Http\Client\Response;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
@@ -17,8 +23,18 @@ class GoogleDriveService
 
     private const UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files';
 
-    public function isConnected(): bool
+    private const SYSTEM_TOKEN_CACHE_KEY = 'google_drive_system_access_token';
+
+    public function isConnected(?User $user = null): bool
     {
+        if ($user && (filled($user->google_access_token) || filled($user->google_refresh_token))) {
+            return true;
+        }
+
+        if (filled(config('services.google.refresh_token')) || filled(config('services.google.client_id'))) {
+            return true;
+        }
+
         return GoogleDriveConnection::query()->where('singleton_key', 'marian-tbi')->exists();
     }
 
@@ -39,47 +55,152 @@ class GoogleDriveService
         return GoogleDriveConnection::query()->where('singleton_key', 'marian-tbi')->first();
     }
 
-    public function ensureStartupFolder(Startup $startup): array
+    public function ensureStartupFolder($startup): array|string
     {
-        if ($startup->google_drive_folder_id && $startup->google_drive_folder_url) {
-            return [
-                'id' => $startup->google_drive_folder_id,
-                'url' => $startup->google_drive_folder_url,
+        if (is_string($startup)) {
+            $startupName = $startup;
+            $folderName = 'Marian TBI - '.$startupName;
+            $escapedName = str_replace("'", "\\'", $folderName);
+
+            try {
+                // Try to use API client if any user connected
+                $user = User::query()->whereNotNull('google_refresh_token')->first();
+                if ($user) {
+                    $rootId = $this->ensureRootFolder($user);
+                    $service = new \Google\Service\Drive($this->getClient($user));
+                    $query = "mimeType='application/vnd.google-apps.folder' and name='{$escapedName}' and '{$rootId}' in parents and trashed=false";
+                    $results = $service->files->listFiles(['q' => $query, 'fields' => 'files(id,name)']);
+                    if (count($results->getFiles()) > 0) {
+                        return $results->getFiles()[0]->getId();
+                    }
+                    $fileMetadata = new \Google\Service\Drive\DriveFile([
+                        'name' => $folderName,
+                        'mimeType' => 'application/vnd.google-apps.folder',
+                        'parents' => [$rootId],
+                    ]);
+                    $folder = $service->files->create($fileMetadata, ['fields' => 'id']);
+                    return $folder->getId();
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Google Drive startup folder lookup via SDK failed; falling back to HTTP.', [
+                    'startup' => $startupName,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            try {
+                $rootId = $this->ensureRootFolderLegacy()['id'];
+            } catch (\Throwable $e) {
+                $rootId = null;
+            }
+
+            $query = "mimeType='application/vnd.google-apps.folder' and name='{$escapedName}' and trashed=false";
+            if ($rootId) {
+                $query .= " and '{$rootId}' in parents";
+            }
+
+            $existing = $this->send(fn ($http) => $http->get(self::API_URL.'/files', ['q' => $query, 'fields' => 'files(id,name)']))
+                ->throw()
+                ->json('files', []);
+            if (is_string($existing[0]['id'] ?? null)) {
+                return $existing[0]['id'];
+            }
+
+            $metadata = [
+                'name' => $folderName,
+                'mimeType' => 'application/vnd.google-apps.folder',
             ];
+            if ($rootId) {
+                $metadata['parents'] = [$rootId];
+            }
+
+            $result = $this->send(fn ($http) => $http->post(self::API_URL.'/files?fields=id,name,webViewLink', $metadata))
+                ->throw()
+                ->json();
+            $folderId = $result['id'] ?? null;
+            if (! is_string($folderId) || $folderId === '') {
+                throw new RuntimeException('Google Drive did not return an ID for the startup folder.');
+            }
+            return $folderId;
         }
 
-        $metadata = [
-            'name' => 'Marian TBI - '.$startup->name,
-            'mimeType' => 'application/vnd.google-apps.folder',
-            'parents' => [$this->ensureRootFolder()['id']],
-        ];
+        if ($startup instanceof Startup) {
+            if ($startup->google_drive_folder_id && $startup->google_drive_folder_url) {
+                return [
+                    'id' => $startup->google_drive_folder_id,
+                    'url' => $startup->google_drive_folder_url,
+                ];
+            }
 
-        $result = Http::withToken($this->accessToken())
-            ->post(self::API_URL.'/files?fields=id,name,webViewLink', $metadata)
-            ->throw()
-            ->json();
-        $folderId = $result['id'] ?? null;
-        if (! is_string($folderId) || $folderId === '') {
-            throw new RuntimeException('Google Drive did not return an ID for the startup folder.');
+            try {
+                $user = \App\Models\User::query()->whereNotNull('google_refresh_token')->first();
+                if ($user) {
+                    $rootId = $this->ensureRootFolder($user);
+                    $serviceClient = $this->getClient($user);
+                    $service = new \Google\Service\Drive($serviceClient);
+                    $escapedName = str_replace("'", "\\'", 'Marian TBI - '.$startup->name);
+                    $query = "mimeType='application/vnd.google-apps.folder' and name='{$escapedName}' and trashed=false";
+                    $results = $service->files->listFiles(['q' => $query, 'fields' => 'files(id,name)']);
+                    if (count($results->getFiles()) > 0) {
+                        $folderId = $results->getFiles()[0]->getId();
+                        $folderUrl = 'https://drive.google.com/drive/folders/'.$folderId;
+                        $startup->forceFill([
+                            'google_drive_folder_id' => $folderId,
+                            'google_drive_folder_url' => $folderUrl,
+                        ])->save();
+                        return ['id' => $folderId, 'url' => $folderUrl];
+                    }
+                    $fileMetadata = new \Google\Service\Drive\DriveFile([
+                        'name' => 'Marian TBI - '.$startup->name,
+                        'mimeType' => 'application/vnd.google-apps.folder',
+                        'parents' => [$rootId],
+                    ]);
+                    $folder = $service->files->create($fileMetadata, ['fields' => 'id']);
+                    $folderId = $folder->getId();
+                    $folderUrl = 'https://drive.google.com/drive/folders/'.$folderId;
+                    $startup->forceFill([
+                        'google_drive_folder_id' => $folderId,
+                        'google_drive_folder_url' => $folderUrl,
+                    ])->save();
+                    return ['id' => $folderId, 'url' => $folderUrl];
+                }
+            } catch (\Throwable $e) {
+                // fall through
+            }
+
+            $metadata = [
+                'name' => 'Marian TBI - '.$startup->name,
+                'mimeType' => 'application/vnd.google-apps.folder',
+                'parents' => [$this->ensureRootFolderLegacy()['id']],
+            ];
+
+            $result = $this->send(fn ($http) => $http->post(self::API_URL.'/files?fields=id,name,webViewLink', $metadata))
+                ->throw()
+                ->json();
+            $folderId = $result['id'] ?? null;
+            if (! is_string($folderId) || $folderId === '') {
+                throw new RuntimeException('Google Drive did not return an ID for the startup folder.');
+            }
+
+            $folderUrl = $result['webViewLink'] ?? 'https://drive.google.com/drive/folders/'.$folderId;
+            $startup->forceFill([
+                'google_drive_folder_id' => $folderId,
+                'google_drive_folder_url' => $folderUrl,
+            ])->save();
+
+            return ['id' => $folderId, 'url' => $folderUrl];
         }
 
-        $folderUrl = $result['webViewLink'] ?? 'https://drive.google.com/drive/folders/'.$folderId;
-        $startup->forceFill([
-            'google_drive_folder_id' => $folderId,
-            'google_drive_folder_url' => $folderUrl,
-        ])->save();
-
-        return ['id' => $folderId, 'url' => $folderUrl];
+        throw new \InvalidArgumentException('Invalid argument passed to ensureStartupFolder');
     }
 
     public function syncPermissions(Startup $startup): void
     {
         $folder = $this->ensureStartupFolder($startup);
-        $permissions = Http::withToken($this->accessToken())
-            ->get(self::API_URL.'/files/'.rawurlencode($folder['id']).'/permissions', [
-                'fields' => 'permissions(id,emailAddress,role,type)',
-                'supportsAllDrives' => 'true',
-            ])
+        $permissions = $this->send(fn ($http) => $http->get(self::API_URL.'/files/'.rawurlencode($folder['id']).'/permissions', [
+            'fields' => 'permissions(id,emailAddress,role,type)',
+            'supportsAllDrives' => 'true',
+        ]))
             ->throw()
             ->json('permissions', []);
         $drivePermissions = collect($permissions)
@@ -109,8 +230,7 @@ class GoogleDriveService
                 continue;
             }
 
-            Http::withToken($this->accessToken())
-                ->delete(self::API_URL.'/files/'.rawurlencode($folder['id']).'/permissions/'.rawurlencode($managedPermission->google_permission_id).'?supportsAllDrives=true')
+            $this->send(fn ($http) => $http->delete(self::API_URL.'/files/'.rawurlencode($folder['id']).'/permissions/'.rawurlencode($managedPermission->google_permission_id).'?supportsAllDrives=true'))
                 ->throw();
             DB::table('startup_folder_drive_permissions')
                 ->where('startup_id', $startup->id)
@@ -134,12 +254,11 @@ class GoogleDriveService
 
             $permissionId = $existingPermission['id'] ?? null;
             if (! is_string($permissionId) || $permissionId === '') {
-                $created = Http::withToken($this->accessToken())
-                    ->post(self::API_URL.'/files/'.rawurlencode($folder['id']).'/permissions?sendNotificationEmail=false&fields=id', [
-                        'type' => 'user',
-                        'role' => 'reader',
-                        'emailAddress' => $user->email,
-                    ])
+                $created = $this->send(fn ($http) => $http->post(self::API_URL.'/files/'.rawurlencode($folder['id']).'/permissions?sendNotificationEmail=false&fields=id', [
+                    'type' => 'user',
+                    'role' => 'reader',
+                    'emailAddress' => $user->email,
+                ]))
                     ->throw()
                     ->json();
                 $permissionId = $created['id'] ?? null;
@@ -172,28 +291,7 @@ class GoogleDriveService
         $this->syncSubmissionFiles($submission, $folder['id']);
     }
 
-    public function syncAll(): array
-    {
-        $startups = Startup::query()->orderBy('id')->get();
-        foreach ($startups as $startup) {
-            $this->ensureStartupFolder($startup);
-            $this->syncPermissions($startup);
-        }
-
-        $syncedSubmissions = 0;
-        foreach (FormSubmission::query()->latest('id')->get() as $submission) {
-            $startup = $startups->firstWhere('name', $submission->startup_name);
-            if (! $startup) {
-                continue;
-            }
-            $this->syncSubmissionFiles($submission, $startup->google_drive_folder_id);
-            $syncedSubmissions++;
-        }
-
-        return ['folders' => $startups->count(), 'forms' => $syncedSubmissions];
-    }
-
-    private function syncSubmissionFiles(FormSubmission $submission, string $folderId): void
+    public function syncSubmissionFiles(FormSubmission $submission, string $folderId): void
     {
         $responseData = json_encode([
             'form' => $submission->form_name,
@@ -240,37 +338,172 @@ class GoogleDriveService
         $submission->forceFill($updates)->save();
     }
 
+    public function syncAll(): array
+    {
+        $startups = Startup::query()->orderBy('id')->get();
+        foreach ($startups as $startup) {
+            $this->ensureStartupFolder($startup);
+            $this->syncPermissions($startup);
+        }
+
+        $syncedSubmissions = 0;
+        foreach (FormSubmission::query()->latest('id')->get() as $submission) {
+            $startup = $startups->firstWhere('name', $submission->startup_name);
+            if (! $startup) {
+                continue;
+            }
+            $this->syncSubmissionFiles($submission, $startup->google_drive_folder_id);
+            $syncedSubmissions++;
+        }
+
+        return ['folders' => $startups->count(), 'forms' => $syncedSubmissions];
+    }
+
+    public function getClient(User $user): \Google\Client
+    {
+        if (! $user->google_refresh_token && ! $user->google_access_token) {
+            throw new \Exception("Google Drive has not been connected for user {$user->email}.");
+        }
+
+        $client = new \Google\Client();
+        $client->setClientId(config('services.google.client_id'));
+        $client->setClientSecret(config('services.google.client_secret'));
+        $client->setRedirectUri(config('services.google.redirect'));
+        $client->setScopes([
+            \Google\Service\Drive::DRIVE_FILE,
+        ]);
+
+        if ($user->google_access_token) {
+            $client->setAccessToken($user->google_access_token);
+        }
+
+        if ($client->isAccessTokenExpired()) {
+            if ($user->google_refresh_token) {
+                $newToken = $client->fetchAccessTokenWithRefreshToken($user->google_refresh_token);
+                if (isset($newToken['access_token'])) {
+                    $user->forceFill([
+                        'google_access_token' => $newToken['access_token'],
+                        'google_token_expires_at' => now()->addSeconds((int) ($newToken['expires_in'] ?? 3600)),
+                    ])->save();
+                    $client->setAccessToken($newToken);
+                } else {
+                    throw new \Exception('Failed to refresh Google access token.');
+                }
+            } else {
+                throw new \Exception('Google Drive access token expired and no refresh token available.');
+            }
+        }
+
+        return $client;
+    }
+
+    public function ensureRootFolder(User $user = null)
+    {
+        if ($user instanceof User) {
+            $client = $this->getClient($user);
+            $service = new \Google\Service\Drive($client);
+
+            $folderName = 'Marian TBI Documents';
+            $query = "mimeType='application/vnd.google-apps.folder' and name='{$folderName}' and trashed=false";
+            $results = $service->files->listFiles(['q' => $query, 'fields' => 'files(id,name)']);
+
+            if (count($results->getFiles()) > 0) {
+                return $results->getFiles()[0]->getId();
+            }
+
+            $fileMetadata = new \Google\Service\Drive\DriveFile([
+                'name' => $folderName,
+                'mimeType' => 'application/vnd.google-apps.folder',
+            ]);
+
+            $folder = $service->files->create($fileMetadata, ['fields' => 'id']);
+            return $folder->getId();
+        }
+
+        // Legacy method behavior
+        $connection = $this->connection();
+        if (! $connection) {
+            throw new RuntimeException('Google Drive has not been connected.');
+        }
+        if ($connection->root_folder_id && $connection->root_folder_url) {
+            return ['id' => $connection->root_folder_id, 'url' => $connection->root_folder_url];
+        }
+
+        $result = $this->send(fn ($http) => $http->post(self::API_URL.'/files?fields=id,name,webViewLink', [
+            'name' => 'Marian TBI Connect',
+            'mimeType' => 'application/vnd.google-apps.folder',
+        ]))
+            ->throw()
+            ->json();
+        $folderId = $result['id'] ?? null;
+        if (! is_string($folderId) || $folderId === '') {
+            throw new RuntimeException('Google Drive did not return an ID for the Marian TBI root folder.');
+        }
+
+        $folderUrl = $result['webViewLink'] ?? 'https://drive.google.com/drive/folders/'.$folderId;
+        $connection->forceFill([
+            'root_folder_id' => $folderId,
+            'root_folder_url' => $folderUrl,
+        ])->save();
+
+        return ['id' => $folderId, 'url' => $folderUrl];
+    }
+
+    public function ensureSubFolder(User $user, string $folderName): string
+    {
+        $rootId = $this->ensureRootFolder($user);
+        $client = $this->getClient($user);
+        $service = new \Google\Service\Drive($client);
+
+        $escapedName = str_replace("'", "\\'", $folderName);
+        $query = "mimeType='application/vnd.google-apps.folder' and name='{$escapedName}' and '{$rootId}' in parents and trashed=false";
+        $results = $service->files->listFiles(['q' => $query, 'fields' => 'files(id,name)']);
+
+        if (count($results->getFiles()) > 0) {
+            return $results->getFiles()[0]->getId();
+        }
+
+        $fileMetadata = new \Google\Service\Drive\DriveFile([
+            'name' => $folderName,
+            'mimeType' => 'application/vnd.google-apps.folder',
+            'parents' => [$rootId],
+        ]);
+
+        $folder = $service->files->create($fileMetadata, ['fields' => 'id']);
+        return $folder->getId();
+    }
+
     public function deleteFile(string $fileId): void
     {
-        Http::withToken($this->accessToken())
-            ->delete(self::API_URL.'/files/'.rawurlencode($fileId).'?'.http_build_query(['supportsAllDrives' => 'true']))
+        $this->send(fn ($http) => $http->delete(self::API_URL.'/files/'.rawurlencode($fileId).'?'.http_build_query(['supportsAllDrives' => 'true'])))
             ->throw();
     }
 
     public function moveFile(string $fileId, string $newFolderId, ?string $oldFolderId = null): void
     {
         if (! is_string($oldFolderId) || $oldFolderId === '') {
-            $metadata = Http::withToken($this->accessToken())
-                ->get(self::API_URL.'/files/'.rawurlencode($fileId), [
+            try {
+                $metadata = $this->send(fn ($http) => $http->get(self::API_URL.'/files/'.rawurlencode($fileId), [
                     'fields' => 'parents',
                     'supportsAllDrives' => 'true',
-                ])
-                ->throw()
-                ->json();
-            $oldFolderId = collect($metadata['parents'] ?? [])->first();
+                ]))
+                    ->throw()
+                    ->json();
+                $oldFolderId = collect($metadata['parents'] ?? [])->first();
+            } catch (\Throwable $e) {
+                $oldFolderId = null;
+            }
         }
 
         $query = [
             'addParents' => $newFolderId,
-            'fields' => 'id,parents',
             'supportsAllDrives' => 'true',
         ];
         if (is_string($oldFolderId) && $oldFolderId !== '') {
             $query['removeParents'] = $oldFolderId;
         }
 
-        Http::withToken($this->accessToken())
-            ->patch(self::API_URL.'/files/'.rawurlencode($fileId).'?'.http_build_query($query))
+        $this->send(fn ($http) => $http->patch(self::API_URL.'/files/'.rawurlencode($fileId).'?'.http_build_query($query), (object) []))
             ->throw();
     }
 
@@ -289,10 +522,13 @@ class GoogleDriveService
             ? '/'.rawurlencode($existingFileId).'?uploadType=multipart&fields=id,name,webViewLink&supportsAllDrives=true'
             : '?uploadType=multipart&fields=id,name,webViewLink&supportsAllDrives=true');
 
-        $request = Http::withToken($this->accessToken())
-            ->attach('metadata', json_encode($metadata, JSON_THROW_ON_ERROR), 'metadata.json', ['Content-Type' => 'application/json'])
-            ->attach('file', $contents, $name, ['Content-Type' => $mimeType]);
-        $result = ($existingFileId ? $request->patch($url) : $request->post($url))
+        $result = $this->send(function ($http) use ($metadata, $contents, $name, $mimeType, $url, $existingFileId) {
+            $request = $http
+                ->attach('metadata', json_encode($metadata, JSON_THROW_ON_ERROR), 'metadata.json', ['Content-Type' => 'application/json'])
+                ->attach('file', $contents, $name, ['Content-Type' => $mimeType]);
+
+            return $existingFileId ? $request->patch($url) : $request->post($url);
+        })
             ->throw()
             ->json();
 
@@ -307,7 +543,7 @@ class GoogleDriveService
         ];
     }
 
-    private function ensureRootFolder(): array
+    private function ensureRootFolderLegacy(): array
     {
         $connection = $this->connection();
         if (! $connection) {
@@ -317,11 +553,10 @@ class GoogleDriveService
             return ['id' => $connection->root_folder_id, 'url' => $connection->root_folder_url];
         }
 
-        $result = Http::withToken($this->accessToken())
-            ->post(self::API_URL.'/files?fields=id,name,webViewLink', [
-                'name' => 'Marian TBI Connect',
-                'mimeType' => 'application/vnd.google-apps.folder',
-            ])
+        $result = $this->send(fn ($http) => $http->post(self::API_URL.'/files?fields=id,name,webViewLink', [
+            'name' => 'Marian TBI Connect',
+            'mimeType' => 'application/vnd.google-apps.folder',
+        ]))
             ->throw()
             ->json();
         $folderId = $result['id'] ?? null;
@@ -338,31 +573,146 @@ class GoogleDriveService
         return ['id' => $folderId, 'url' => $folderUrl];
     }
 
-    private function accessToken(): string
+    public function accessToken(): string
     {
-        $connection = $this->connection();
-        if (! $connection) {
-            throw new RuntimeException('Google Drive has not been connected.');
+        $user = auth()->user();
+        if ($user instanceof User && $this->hasFreshToken($user->google_access_token, $user->google_token_expires_at)) {
+            return $user->google_access_token;
         }
 
-        if ($connection->expires_at && $connection->expires_at->lessThanOrEqualTo(now()->addMinute())) {
-            $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
-                'client_id' => config('services.google.client_id'),
-                'client_secret' => config('services.google.client_secret'),
-                'refresh_token' => $connection->refresh_token,
-                'grant_type' => 'refresh_token',
-            ])->throw()->json();
-            $token = $response['access_token'] ?? null;
-            if (! is_string($token) || $token === '') {
-                throw new RuntimeException('Google did not return a refreshed Drive access token.');
+        if ($user instanceof User && filled($user->google_refresh_token)) {
+            try {
+                return $this->refreshUserAccessToken($user);
+            } catch (\Throwable $e) {
+                Log::warning('User Google token refresh failed; falling back to system credentials.', [
+                    'user_id' => $user->id,
+                    'error' => $e->getMessage(),
+                ]);
+                $user->update([
+                    'google_access_token' => null,
+                    'google_refresh_token' => null,
+                    'google_token_expires_at' => null,
+                ]);
+
+                return $this->systemAccessToken();
+            }
+        }
+
+        $connection = $this->connection();
+        if ($connection) {
+            if ($this->hasFreshToken($connection->access_token, $connection->expires_at)) {
+                return $connection->access_token;
             }
 
-            $connection->forceFill([
-                'access_token' => $token,
-                'expires_at' => now()->addSeconds((int) ($response['expires_in'] ?? 3600)),
-            ])->save();
+            if (filled($connection->refresh_token)) {
+                return $this->refreshConnectionAccessToken($connection);
+            }
         }
 
-        return $connection->access_token;
+        return $this->systemAccessToken();
+    }
+
+    private function systemAccessToken(): string
+    {
+        $refreshToken = config('services.google.refresh_token');
+        $clientId = config('services.google.client_id');
+        $clientSecret = config('services.google.client_secret');
+
+        if (empty($refreshToken) || empty($clientId) || empty($clientSecret)) {
+            throw new RuntimeException('Google Drive system credentials (CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN) are missing in .env or config.');
+        }
+
+        return Cache::remember(
+            self::SYSTEM_TOKEN_CACHE_KEY,
+            3300,
+            fn (): string => $this->exchangeRefreshToken((string) $refreshToken)['access_token']
+        );
+    }
+
+    public function forgetAccessToken(): void
+    {
+        Cache::forget(self::SYSTEM_TOKEN_CACHE_KEY);
+
+        $user = auth()->user();
+        if ($user instanceof User && filled($user->google_access_token)) {
+            $user->forceFill(['google_token_expires_at' => now()->subMinute()])->save();
+        }
+
+        $connection = $this->connection();
+        if ($connection) {
+            $connection->forceFill(['expires_at' => now()->subMinute()])->save();
+        }
+    }
+
+    private function hasFreshToken(?string $accessToken, $expiresAt): bool
+    {
+        return filled($accessToken)
+            && (! $expiresAt || $expiresAt->isFuture());
+    }
+
+    private function refreshUserAccessToken(User $user): string
+    {
+        $tokens = $this->exchangeRefreshToken((string) $user->google_refresh_token);
+        $user->forceFill([
+            'google_access_token' => $tokens['access_token'],
+            'google_token_expires_at' => now()->addSeconds($tokens['expires_in']),
+        ])->save();
+
+        return $tokens['access_token'];
+    }
+
+    private function refreshConnectionAccessToken(GoogleDriveConnection $connection): string
+    {
+        $tokens = $this->exchangeRefreshToken((string) $connection->refresh_token);
+        $connection->forceFill([
+            'access_token' => $tokens['access_token'],
+            'expires_at' => now()->addSeconds($tokens['expires_in']),
+        ])->save();
+
+        return $tokens['access_token'];
+    }
+
+    /**
+     * @return array{access_token: string, expires_in: int}
+     */
+    private function exchangeRefreshToken(string $refreshToken): array
+    {
+        $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
+            'client_id' => config('services.google.client_id'),
+            'client_secret' => config('services.google.client_secret'),
+            'refresh_token' => $refreshToken,
+            'grant_type' => 'refresh_token',
+        ]);
+
+        if ($response->failed()) {
+            Log::error('Google OAuth Token Exchange Failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            throw new RuntimeException('Failed to obtain Google Drive access token: '.($response->json('error_description') ?? $response->body()));
+        }
+
+        $token = $response->json('access_token');
+        if (! is_string($token) || $token === '') {
+            throw new RuntimeException('Google did not return a refreshed Drive access token.');
+        }
+
+        return [
+            'access_token' => $token,
+            'expires_in' => (int) ($response->json('expires_in') ?? 3600),
+        ];
+    }
+
+    private function send(\Closure $build): Response
+    {
+        $response = $build(Http::withToken($this->accessToken()));
+
+        if ($response->status() === 401) {
+            $this->forgetAccessToken();
+            $response = $build(Http::withToken($this->accessToken()));
+        }
+
+        return $response;
     }
 }
