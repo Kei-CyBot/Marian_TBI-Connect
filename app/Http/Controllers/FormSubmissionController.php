@@ -98,6 +98,7 @@ class FormSubmissionController extends Controller
             return $redirect;
         } catch (\Throwable $e) {
             Log::error('Form submission failed', ['error' => $e->getMessage(), 'user_id' => $user->id]);
+
             return back()->withInput()->with('error', 'Form submission failed: ' . $e->getMessage());
         }
     }
@@ -375,8 +376,32 @@ class FormSubmissionController extends Controller
     {
         abort_unless($submission->prerequisite_path, 404);
 
-        $startup = Startup::withTrashed()->where('name', $submission->startup_name)->first();
-        abort_if($startup && ! $startup->userCanAccessFolder(request()->user()), 403);
+        $user = request()->user();
+        abort_unless($user instanceof User, 401);
+
+        if ($user->isMember()) {
+            $memberStartupName = $user->getAttribute('startup_name')
+                ?: Startup::query()
+                    ->whereRaw('LOWER(contact_email) = ?', [strtolower($user->email)])
+                    ->value('name');
+            $hasAssignedStartupAccess = Startup::query()
+                ->where('name', $submission->startup_name)
+                ->where(function ($query) use ($user): void {
+                    $query->where('folder_access_manager_id', $user->id)
+                        ->orWhereHas('folderAccessUsers', fn ($users) => $users->whereKey($user->id));
+                })
+                ->exists();
+
+            abort_unless(
+                (int) $submission->user_id === (int) $user->id
+                    || (filled($memberStartupName) && strcasecmp($submission->startup_name, $memberStartupName) === 0)
+                    || $hasAssignedStartupAccess,
+                403,
+            );
+        } else {
+            $startup = Startup::withTrashed()->where('name', $submission->startup_name)->first();
+            abort_if($startup && ! $startup->userCanAccessFolder($user), 403);
+        }
 
         $disk = Storage::disk('local');
         abort_unless($disk->exists($submission->prerequisite_path), 404);

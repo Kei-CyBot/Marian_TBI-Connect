@@ -6,7 +6,7 @@
 @section('banner-actions')
     @if (auth()->user()->canManageRecords())
         <button @click="$dispatch('open-broadcast')" class="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/25">✉️ Email Contacts</button>
-        <button @click="$dispatch('open-event-form')" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#b92369] shadow-sm transition hover:bg-[#fcf0f5]">+ Create Event</button>
+        <a href="{{ route('events.create') }}" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#b92369] shadow-sm transition hover:bg-[#fcf0f5]">+ Create Event</a>
     @endif
 @endsection
 
@@ -23,30 +23,10 @@
         <ul class="mt-1 list-inside list-disc">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
     </div>
 @endif
-@php
-    $events = [
-        ['id'=>1,'title'=>'Campus Hackathon 2026','scope'=>'internal','kind'=>'Campus Hackathon','date'=>'2026-10-17','time'=>'09:00 AM','loc'=>'Innovation Hub B, Rm 2','virtual'=>false,'host'=>'Innovation Office','cohort'=>'Student Founders','rsvp'=>[86,24,9]],
-        ['id'=>2,'title'=>'TTO Commercialization Workshop','scope'=>'internal','kind'=>'TTO Workshop','date'=>'2026-10-21','time'=>'02:00 PM','loc'=>'Science Bldg, Rm 101','virtual'=>false,'host'=>'Tech Transfer Office','cohort'=>'Faculty Founders','rsvp'=>[34,12,3]],
-        ['id'=>3,'title'=>'VC Investor Pitch Night','scope'=>'external','kind'=>'VC Pitch Night','date'=>'2026-10-24','time'=>'06:00 PM','loc'=>'https://zoom.us/j/000-000-0000','virtual'=>true,'host'=>'Meridian Ventures','cohort'=>'Seed-stage Startups','rsvp'=>[42,15,6]],
-        ['id'=>4,'title'=>'Student Founder Bootcamp','scope'=>'internal','kind'=>'Founder Bootcamp','date'=>'2026-10-28','time'=>'10:00 AM','loc'=>'Innovation Hub A','virtual'=>false,'host'=>'Student Affairs','cohort'=>'Applicants','rsvp'=>[58,20,4]],
-        ['id'=>5,'title'=>'Corporate Partner Matchmaking','scope'=>'external','kind'=>'Partner Matchmaking','date'=>'2026-11-04','time'=>'01:00 PM','loc'=>'Business Center, Hall C','virtual'=>false,'host'=>'Partnerships Desk','cohort'=>'Active Incubatees','rsvp'=>[27,18,5]],
-        ['id'=>6,'title'=>'Open Innovation Expo','scope'=>'hybrid','kind'=>'Open Innovation Expo','date'=>'2026-11-12','time'=>'09:00 AM','loc'=>'Convention Center + Livestream','virtual'=>true,'host'=>'Marian TBI Connect','cohort'=>'Public / All','rsvp'=>[210,96,18]],
-        ['id'=>7,'title'=>'Regional Startup Summit','scope'=>'external','kind'=>'Startup Summit','date'=>'2026-11-19','time'=>'08:30 AM','loc'=>'Regional Trade Hall','virtual'=>false,'host'=>'Regional Dev. Council','cohort'=>'Regional Startups','rsvp'=>[132,40,11]],
-        ['id'=>8,'title'=>'Public Demo Day','scope'=>'hybrid','kind'=>'Public Demo Day','date'=>'2026-12-03','time'=>'03:00 PM','loc'=>'Main Auditorium + Zoom','virtual'=>true,'host'=>'Marian TBI Connect','cohort'=>'Graduating Cohort','rsvp'=>[150,64,9]],
-    ];
-@endphp
-
 <div x-data="{
         events:@js($events), view:'list', menu:null, selectedEvent:null,
         cursor:new Date(new Date().getFullYear(),new Date().getMonth(),1),
         filt:'all',
-        saveEvent(data){
-            const event={id:data.id || Math.max(0,...this.events.map(item=>item.id))+1,title:data.title,scope:data.scope,kind:data.kind,date:data.date,time:data.time,loc:data.loc,virtual:data.virtual,host:data.host,cohort:data.cohort,rsvp:[0,0,0]};
-            const index=this.events.findIndex(item=>item.id===event.id);
-            if(index<0) this.events.unshift(event);
-            else this.events.splice(index,1,event);
-            this.selectedEvent=event;
-        },
         get list(){ return this.events.filter(e => (scope==='all' || e.scope===scope || e.scope==='hybrid') && (this.filt==='all' || e.scope===this.filt)) },
         get monthLabel(){ return this.cursor.toLocaleString('en-US',{month:'long',year:'numeric'}) },
         get cells(){
@@ -70,7 +50,7 @@
         bar(s){ return s==='internal' ? 'bg-[#b92369]' : s==='external' ? 'bg-[#1a8a8e]' : 'grad' },
         calendarChip(s){ return s==='internal' ? 'bg-[#b92369] text-white' : s==='external' ? 'bg-[#1a8a8e] text-white' : 'grad text-white' },
         lbl(s){ return s==='internal' ? 'Internal Academic' : s==='external' ? 'External Industry' : 'Hybrid · Public' }
-     }" @click.window="menu=null" @event-form-save.window="saveEvent($event.detail)" @keydown.escape.window="selectedEvent=null">
+     }" @click.window="menu=null" @keydown.escape.window="selectedEvent=null">
 
     {{-- Toolbar --}}
     <div class="mb-5 flex flex-wrap items-center gap-3">
@@ -103,7 +83,7 @@
                             @if (auth()->user()->canManageRecords())
                                 <button @click.stop="menu = menu===e.id ? null : e.id" class="rounded-lg px-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700">⋯</button>
                                 <div x-show="menu===e.id" x-cloak x-transition @click.stop class="absolute right-0 z-10 mt-1 w-44 rounded-2xl border border-gray-200 bg-white p-1.5 text-sm shadow-xl">
-                                    <button @click="$dispatch('open-event-form',e); menu=null" class="block w-full rounded-lg px-2.5 py-1.5 text-left hover:bg-gray-50">Edit event</button>
+                                    <a :href="'{{ url('/events') }}/'+e.id+'/edit'" class="block w-full rounded-lg px-2.5 py-1.5 text-left hover:bg-gray-50">Edit event</a>
                                     <button class="block w-full rounded-lg px-2.5 py-1.5 text-left hover:bg-gray-50">Manage RSVPs</button>
                                     <button @click="$dispatch('open-broadcast',e); menu=null" class="block w-full rounded-lg px-2.5 py-1.5 text-left font-semibold text-[#1a8a8e] hover:bg-[#eaf6f6]">Email contacts</button>
                                 </div>
@@ -124,16 +104,15 @@
                                 <a x-show="e.virtual" :href="e.loc.startsWith('http') ? e.loc : '#'" class="font-medium text-[#1a8a8e] hover:underline" x-text="e.loc.startsWith('http') ? '🎥 Virtual · Zoom link' : '🎥 '+e.loc"></a>
                             </dd></div>
                         <div class="flex gap-2"><dt class="w-14 text-gray-400">Host</dt><dd class="flex-1 truncate" x-text="e.host"></dd></div>
-                        <div class="flex gap-2"><dt class="w-14 text-gray-400">Audience</dt><dd class="flex-1"><span class="rounded-md bg-gray-100 px-1.5 py-0.5 font-medium" x-text="e.cohort"></span></dd></div>
                     </dl>
                 </div>
 
                 {{-- RSVP counter --}}
                 <div class="border-t border-gray-100 bg-gray-50/70 px-5 py-3">
                     <div class="flex h-2 overflow-hidden rounded-full bg-gray-200">
-                        <div class="bg-[#1a8a8e]" :style="`width:${e.rsvp[0]/(e.rsvp[0]+e.rsvp[1]+e.rsvp[2])*100}%`"></div>
-                        <div class="bg-amber-300" :style="`width:${e.rsvp[1]/(e.rsvp[0]+e.rsvp[1]+e.rsvp[2])*100}%`"></div>
-                        <div class="bg-[#b92369]" :style="`width:${e.rsvp[2]/(e.rsvp[0]+e.rsvp[1]+e.rsvp[2])*100}%`"></div>
+                        <div class="bg-[#1a8a8e]" :style="`width:${e.rsvp[0]/Math.max(1,e.rsvp[0]+e.rsvp[1]+e.rsvp[2])*100}%`"></div>
+                        <div class="bg-amber-300" :style="`width:${e.rsvp[1]/Math.max(1,e.rsvp[0]+e.rsvp[1]+e.rsvp[2])*100}%`"></div>
+                        <div class="bg-[#b92369]" :style="`width:${e.rsvp[2]/Math.max(1,e.rsvp[0]+e.rsvp[1]+e.rsvp[2])*100}%`"></div>
                     </div>
                     <div class="mt-2 flex justify-between text-[11px] font-medium">
                         <span class="text-[#1a8a8e]">● <span x-text="e.rsvp[0]"></span> Attending</span>
@@ -203,14 +182,14 @@
                     </header>
                     <dl class="space-y-3 px-6 py-5 text-sm">
                         <div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Event type</dt><dd class="mt-1 font-medium text-slate-800" x-text="selectedEvent.kind"></dd></div>
-                        <div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Date and time</dt><dd class="mt-1 text-slate-700" x-text="fmt(selectedEvent.date)+' · '+selectedEvent.time"></dd></div>
+                        <div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Starts</dt><dd class="mt-1 text-slate-700" x-text="selectedEvent.startsLabel"></dd></div>
+                        <div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Ends</dt><dd class="mt-1 text-slate-700" x-text="selectedEvent.endsLabel"></dd></div>
                         <div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Location</dt><dd class="mt-1 break-words text-slate-700" x-text="selectedEvent.loc"></dd></div>
                         <div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Host</dt><dd class="mt-1 text-slate-700" x-text="selectedEvent.host"></dd></div>
-                        <div><dt class="text-xs font-semibold uppercase tracking-wide text-gray-400">Target audience</dt><dd class="mt-1 text-slate-700" x-text="selectedEvent.cohort"></dd></div>
                     </dl>
                     <footer class="flex flex-wrap justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
                         @if (auth()->user()->canManageRecords())
-                            <button type="button" @click="$dispatch('open-event-form',selectedEvent)" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100">Edit event</button>
+                            <a :href="'{{ url('/events') }}/'+selectedEvent.id+'/edit'" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100">Edit event</a>
                             <button type="button" @click="$dispatch('open-broadcast',selectedEvent); selectedEvent=null" class="rounded-lg bg-[#1a8a8e] px-3 py-2 text-xs font-semibold text-white hover:bg-[#146e72]">Email contacts</button>
                         @endif
                     </footer>

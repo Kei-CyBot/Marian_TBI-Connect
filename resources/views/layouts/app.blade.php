@@ -36,17 +36,36 @@
     </a>
 
     @php
-        $nav = [
+        $currentUser = auth()->user();
+
+        $adminNav = [
             ['Dashboard', 'dashboard', 'M3 12l9-9 9 9M5 10v10h14V10'],
-            ['Incubatees & Cohorts', 'incubatees', 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2M5 21H3M9 7h1m-1 4h1m4-4h1m-1 4h1'],
+            ['All Files & Drive Manager', 'files', 'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z'],
+            ['Startup Directory', 'incubatees', 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2M5 21H3M9 7h1m-1 4h1m4-4h1m-1 4h1'],
+            ['Intake Queue', 'contact-intake', 'M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2m6-10a4 4 0 100-8 4 4 0 000 8zm8-1v6m3-3h-6'],
+            ['Activity Logs', 'activity-logs', 'M9 17v-6m3 6V7m3 10v-3M5 21h14a1 1 0 001-1V4a1 1 0 00-1-1H5a1 1 0 00-1 1v16a1 1 0 001 1z'],
             ['Contacts & Network', 'contacts', 'M17 20h5v-2a4 4 0 00-3-3.9M9 20H4v-2a4 4 0 013-3.9m6-4.1a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0'],
-            ['Contact Intake & Accounts', 'contact-intake', 'M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2m6-10a4 4 0 100-8 4 4 0 000 8zm8-1v6m3-3h-6'],
-            ['File Drive & Documents', 'files', 'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z'],
             ['Technical Needs', 'technical-needs', 'M9 3h6m-5 0v5.2L4.5 18a2 2 0 001.7 3h11.6a2 2 0 001.7-3L14 8.2V3m-7 11h10'],
             ['Events & Outreach', 'events', 'M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z'],
-            ['Team & Access Control', 'team', 'M12 11c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3zm0 2c-2.8 0-6 1.4-6 4v2h12v-2c0-2.6-3.2-4-6-4z'],
             ['Archives', 'archives', 'M5 8h14M5 8a2 2 0 010-4h14a2 2 0 010 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4'],
         ];
+
+        $memberNav = [
+            ['Dashboard', 'dashboard', 'M3 12l9-9 9 9M5 10v10h14V10'],
+            ['My Submissions & Files', 'files', 'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z'],
+            ['Profile Settings', 'profile', 'M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-3.3 0-6 1.8-6 4v2h12v-2c0-2.2-2.7-4-6-4z'],
+        ];
+
+        $nav = match (true) {
+            $currentUser?->isMember() => $memberNav,
+            $currentUser?->isSuperAdmin() => [
+                ...$adminNav,
+                ['User & Credential Management', 'team', 'M12 11c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3zm0 2c-2.8 0-6 1.4-6 4v2h12v-2c0-2.6-3.2-4-6-4z'],
+                ['System Integration Settings', 'admin/settings/google', 'M21 12a9 9 0 11-5.6-8.3M21 3v6h-6'],
+            ],
+            $currentUser?->canManageRecords() => $adminNav,
+            default => $memberNav,
+        };
     @endphp
     <nav aria-label="Main navigation" class="mt-4 flex-1 space-y-0.5 overflow-y-auto px-4 pb-4">
         @foreach($nav as [$label, $path, $icon])
@@ -69,7 +88,6 @@
     </nav>
 
     @php
-        $currentUser = auth()->user();
         $userName = $currentUser?->name ?? 'Admin User';
         $userInitials = collect(explode(' ', trim($userName)))->filter()->take(2)->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))->implode('');
     @endphp
@@ -196,7 +214,6 @@
 </div>
 
 @include('partials.contact-slideover')
-@include('partials.event-slideover')
 @stack('scripts')
 </body>
 </html>

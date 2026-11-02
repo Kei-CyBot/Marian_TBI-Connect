@@ -17,11 +17,12 @@ class ProfileController extends Controller
     public function update(Request $request): RedirectResponse
     {
         $user = $request->user();
+        $forcingPassword = $request->session()->get('force_password_change', false);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'current_password' => ['required', 'current_password'],
-            'new_password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'current_password' => [$forcingPassword ? 'nullable' : 'required', 'current_password'],
+            'new_password' => [$forcingPassword ? 'required' : 'nullable', 'string', 'min:8', 'confirmed'],
         ]);
 
         $emailChanged = $user->email !== $validated['email'];
@@ -32,6 +33,7 @@ class ProfileController extends Controller
         }
         if (filled($validated['new_password'] ?? null)) {
             $user->password = $validated['new_password'];
+            $request->session()->forget('force_password_change');
         }
         $user->save();
 

@@ -15,6 +15,11 @@ class IntakeSubmission extends Model
         'status',
     ];
 
+    public function trackingId(): string
+    {
+        return 'MTBI-'.strtoupper(substr($this->type, 0, 1)).'-'.str_pad((string) $this->id, 6, '0', STR_PAD_LEFT);
+    }
+
     protected function casts(): array
     {
         return [

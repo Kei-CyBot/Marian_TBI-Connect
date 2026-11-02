@@ -26,6 +26,9 @@
 @if (session('contact_status'))
     <div role="status" class="mb-4 rounded-xl border border-[#1a8a8e]/20 bg-[#eaf6f6] px-4 py-3 text-sm font-medium text-[#146e72]">{{ session('contact_status') }}</div>
 @endif
+@if (session('error'))
+    <div role="alert" class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ session('error') }}</div>
+@endif
 <div x-data="{
         rows:@js($contacts), startupOptions:@js($startupOptions), tab:'internal', sel:null,
         assignmentModalOpen:false, assignmentContact:null,
@@ -85,7 +88,7 @@
                                         @if (auth()->user()?->isSuperAdmin())
                                             <form method="POST" :action="'{{ url('/contacts') }}/'+sel.id+'/send-credentials'" class="inline">
                                                 @csrf
-                                                <button type="submit" class="rounded-lg border border-[#b92369]/40 px-3 py-2 text-xs font-semibold text-[#b92369] hover:bg-[#fcf0f5]">Send Credentials / Invite Account</button>
+                                                <button type="submit" class="rounded-lg border border-[#b92369]/40 px-3 py-2 text-xs font-semibold text-[#b92369] hover:bg-[#fcf0f5]">Send One-Time Sign-In Link</button>
                                             </form>
                                         @endif
                                         <button type="button" @click="$dispatch('confirm-action-contact', {title: 'Archive Contact', message: 'Archive '+sel.name+'? You can view or restore it from Archives.', confirmText: 'Yes, Archive', confirmClass: 'bg-red-600 hover:bg-red-700', action: 'archive:'+sel.id})" class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100">Archive Contact</button>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\TeamInviteMail;
+use App\Models\Contact;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -12,19 +13,38 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class TeamController extends Controller
 {
     public function index(): View
     {
+        $team = User::query()->orderBy('name')->get(['id', 'name', 'email', 'role']);
+        $invitations = TeamInvitation::query()
+            ->whereNull('accepted_at')
+            ->where('expires_at', '>', now())
+            ->orderBy('email')
+            ->get();
+
+        $unavailable = $team->pluck('email')
+            ->merge($invitations->pluck('email'))
+            ->map(fn (?string $email): string => strtolower((string) $email))
+            ->all();
+
+        $candidates = Contact::query()
+            ->whereNotNull('email')
+            ->where('email', '<>', '')
+            ->orderBy('name')
+            ->get(['name', 'email'])
+            ->reject(fn (Contact $contact): bool => in_array(strtolower($contact->email), $unavailable, true))
+            ->unique(fn (Contact $contact): string => strtolower($contact->email))
+            ->values();
+
         return view('team', [
-            'team' => User::query()->orderBy('name')->get(['id', 'name', 'email', 'role']),
-            'invitations' => TeamInvitation::query()
-                ->whereNull('accepted_at')
-                ->where('expires_at', '>', now())
-                ->orderBy('email')
-                ->get(),
+            'team' => $team,
+            'invitations' => $invitations,
+            'candidates' => $candidates,
         ]);
     }
 
@@ -59,10 +79,23 @@ class TeamController extends Controller
 
     public function invite(Request $request): RedirectResponse
     {
+        $request->merge(['email' => strtolower(trim((string) $request->input('email')))]);
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
             'role' => ['required', Rule::in(User::ROLES)],
         ]);
+
+        if (! Contact::query()->whereRaw('LOWER(email) = ?', [$validated['email']])->exists()) {
+            throw ValidationException::withMessages([
+                'email' => 'Select a contact that is eligible for team onboarding.',
+            ]);
+        }
+
+        if ($validated['role'] === User::ROLE_SUPER_ADMIN && ! $request->user()->isSuperAdmin()) {
+            throw ValidationException::withMessages([
+                'role' => 'Only a Super Admin can assign the Super Admin role.',
+            ]);
+        }
 
         $invitation = TeamInvitation::create([
             'email' => $validated['email'],

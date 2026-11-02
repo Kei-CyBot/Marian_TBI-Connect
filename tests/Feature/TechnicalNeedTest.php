@@ -307,15 +307,15 @@ class TechnicalNeedTest extends TestCase
         $this->assertSame('Pending Verification', $contact->verification_status);
     }
 
-    public function test_events_include_a_custom_event_type_and_target_cohort_explanation(): void
+    public function test_events_page_includes_create_event_action_and_calendar_details(): void
     {
         $this->actingAs(User::factory()->create())
             ->get(route('events'))
             ->assertOk()
-            ->assertSee('Other')
+            ->assertSee('+ Create Event')
             ->assertSee('Other (custom message)')
             ->assertSee('calendar-event-title')
             ->assertDontSee('Insert variable:')
-            ->assertSee('It does not change incubatee membership or automatically send invitations or filter RSVPs.');
+            ->assertDontSee('target_audience');
     }
 }

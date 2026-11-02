@@ -51,7 +51,7 @@
         <div role="status" class="rounded-xl border border-[#1a8a8e]/20 bg-[#eaf6f6] px-4 py-3 text-sm font-medium text-[#146e72]">{{ session('intake_status') }}</div>
     @endif
     <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-        Verification reviews the application only. It does not create a login or send an email invitation.
+        Approved applicants receive account sign-in instructions by email. Existing accounts keep their current credentials.
     </div>
     <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-sm text-gray-500"><span class="font-semibold text-slate-800" x-text="applications.filter(application => application.status === 'Pending').length"></span> applications awaiting review</p>

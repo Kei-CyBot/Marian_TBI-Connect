@@ -6,6 +6,8 @@
         search:'',
         contactSide:'all',
         eventTitle:null,
+        eventId:null,
+        messageType:'email',
         template:'',
         subject:'',
         body:'',
@@ -28,7 +30,7 @@
             }
         },
         get ready(){
-            return this.mailConfigured && this.selectedContactIds.length>0 && this.subject.trim() && this.body.trim();
+            return this.mailConfigured && this.selectedContactIds.length>0 && this.messageType && this.subject.trim() && this.body.trim();
         },
         show(details){
             this.open=true;
@@ -36,6 +38,8 @@
             this.search='';
             this.contactSide='all';
             this.eventTitle=details && details.title ? details.title : null;
+            this.eventId=details && details.id ? details.id : null;
+            this.messageType='email';
             this.template=this.eventTitle ? 'invite' : '';
             this.applyTemplate(this.template);
         },
@@ -63,14 +67,15 @@
         <section role="dialog" aria-modal="true" aria-labelledby="contact-email-title" class="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" @click.outside="open=false">
             <header class="grad flex items-start justify-between px-6 py-5 text-white">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-wider text-white/75">Individual contact email</p>
-                    <h2 id="contact-email-title" class="mt-1 text-lg font-bold" x-text="eventTitle ? 'Email contacts · '+eventTitle : 'Compose email to contacts'"></h2>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-white/75">Event &amp; outreach communication</p>
+                    <h2 id="contact-email-title" class="mt-1 text-lg font-bold" x-text="eventTitle ? 'Send communication · '+eventTitle : 'Compose communication to contacts'"></h2>
                 </div>
                 <button type="button" @click="open=false" aria-label="Close email composer" class="rounded-lg p-1.5 text-white/90 hover:bg-white/15">✕</button>
             </header>
 
-            <form method="POST" action="{{ route('event-emails.send') }}" class="flex min-h-0 flex-1 flex-col">
+            <form method="POST" action="{{ route('event-outreach.send') }}" enctype="multipart/form-data" class="flex min-h-0 flex-1 flex-col">
                 @csrf
+                <input type="hidden" name="event_id" :value="eventId">
                 <div class="grid min-h-0 flex-1 overflow-y-auto md:grid-cols-5">
                     <div class="space-y-4 p-5 md:col-span-2 md:border-r md:border-gray-100">
                         <div>
@@ -92,7 +97,7 @@
                         <div class="max-h-72 space-y-1 overflow-y-auto rounded-xl border border-gray-100 p-2">
                             <template x-for="contact in visibleContacts" :key="contact.id">
                                 <label class="flex cursor-pointer items-start gap-2 rounded-lg p-2 hover:bg-gray-50">
-                                    <input type="checkbox" name="contact_ids[]" :value="String(contact.id)" x-model="selectedContactIds" class="mt-0.5 rounded border-gray-300 text-[#1a8a8e] focus:ring-[#1a8a8e]">
+                                    <input type="checkbox" name="recipients[]" :value="String(contact.id)" x-model="selectedContactIds" class="mt-0.5 rounded border-gray-300 text-[#1a8a8e] focus:ring-[#1a8a8e]">
                                     <span class="min-w-0"><span class="block truncate text-sm font-medium text-slate-800" x-text="contact.name"></span><span class="block truncate text-xs text-gray-500" x-text="contact.email"></span></span>
                                 </label>
                             </template>
@@ -102,26 +107,45 @@
                     </div>
 
                     <div class="space-y-4 p-5 md:col-span-3">
-                        <div>
-                            <label for="contact-email-template" class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-500">Compose</label>
-                            <select id="contact-email-template" x-model="template" @change="applyTemplate(template)" class="w-full rounded-xl border border-slate-line bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
-                                <option value="">Choose message type</option>
-                                <option value="invite">Event invitation</option>
-                                <option value="newsletter">Program update</option>
-                                <option value="review">Progress review reminder</option>
-                                <option value="other">Other (custom message)</option>
-                            </select>
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <label for="outreach-message-type" class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-500">Message type</label>
+                                <select id="outreach-message-type" name="message_type" x-model="messageType" required class="w-full rounded-xl border border-slate-line bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                                    <option value="email">Email</option>
+                                    <option value="announcement">Announcement</option>
+                                    <option value="reminder">Reminder</option>
+                                    <option value="update">Update</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="contact-email-template" class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-500">Quick template</label>
+                                <select id="contact-email-template" x-model="template" @change="applyTemplate(template)" class="w-full rounded-xl border border-slate-line bg-white px-3 py-2 text-sm text-slate-900 focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                                    <option value="">Choose a template</option>
+                                    <option value="invite">Event invitation</option>
+                                    <option value="newsletter">Program update</option>
+                                    <option value="review">Progress review reminder</option>
+                                    <option value="other">Other (custom message)</option>
+                                </select>
+                            </div>
                         </div>
                         <input name="subject" x-model="subject" required maxlength="255" placeholder="Subject line" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
-                        <textarea name="body" x-model="body" required maxlength="20000" rows="12" placeholder="Write your message…" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></textarea>
+                        <textarea name="body" x-model="body" required maxlength="20000" rows="10" placeholder="Write your message…" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></textarea>
+                        <div>
+                            <label for="outreach-attachments" class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-gray-500">Attachments</label>
+                            <input id="outreach-attachments" type="file" name="attachments[]" multiple accept=".pdf,.doc,.docx,.png,.jpg,.zip" class="block w-full rounded-xl border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-[#eaf6f6] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#146e72] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                            <p class="mt-1.5 text-xs text-gray-500">Up to 5 files, 10 MB each. PDF, DOC, DOCX, PNG, JPG or ZIP.</p>
+                            @error('attachments.*')
+                                <p class="mt-1 text-xs font-medium text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
                         <p x-show="!mailConfigured" class="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900">Outgoing email is not configured. Ask an administrator to configure the server mailer before sending.</p>
                     </div>
                 </div>
                 <footer class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">
-                    <p class="text-xs text-gray-500">Send will deliver one private message per selected contact.</p>
+                    <p class="text-xs text-gray-500">Send will deliver one private message per selected contact and save it to communication history.</p>
                     <div class="flex gap-2">
                         <button type="button" @click="open=false" class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700">Cancel</button>
-                        <button type="submit" :disabled="!ready" class="rounded-xl bg-[#1a8a8e] px-5 py-2 text-sm font-semibold text-white hover:bg-[#146e72] disabled:cursor-not-allowed disabled:opacity-40">Send to <span x-text="selectedContactIds.length"></span> contact(s)</button>
+                        <button type="submit" :disabled="!ready" class="rounded-xl bg-[#1a8a8e] px-5 py-2 text-sm font-semibold text-white hover:bg-[#146e72] disabled:cursor-not-allowed disabled:opacity-40">Send to <span x-text="selectedContactIds.length"></span> recipient(s)</button>
                     </div>
                 </footer>
             </form>

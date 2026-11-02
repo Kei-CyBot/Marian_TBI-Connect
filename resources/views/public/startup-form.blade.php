@@ -15,7 +15,7 @@
           stream:@js(old('stream')),
           get c(){ return this.stream==='academic' ? '#b92369' : '#1a8a8e' },
           get tint(){ return this.stream==='academic' ? '#fcf0f5' : '#eaf6f6' },
-          f:{name:'',founder:'',email:'',sector:'Agritech',pitch:'',dept:'',ip:'No',advisor:'',entity:'Inc.',stage:'Pre-Seed',website:'',employees:''}
+          f:{name:@js(old('name', session('oauth_register.name'))),founder:@js(old('founder')),email:@js(old('email', session('oauth_register.email'))),sector:@js(old('sector', 'Agritech')),pitch:@js(old('pitch')),dept:@js(old('dept')),ip:@js(old('ip', 'No')),advisor:@js(old('advisor')),entity:@js(old('entity', 'Inc.')),stage:@js(old('stage', 'Pre-Seed')),website:@js(old('website')),employees:@js(old('employees'))}
       }">
 
     <header class="mx-auto flex max-w-3xl items-center gap-3 px-6 pt-8">
@@ -24,6 +24,12 @@
     </header>
 
     <main class="mx-auto max-w-3xl px-6 py-8">
+        @if (session('info'))
+            <div role="status" class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">{{ session('info') }}</div>
+        @endif
+        @if (session('error'))
+            <div role="alert" class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">{{ session('error') }}</div>
+        @endif
         @if (session('intake_status'))
             <div role="status" class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900">{{ session('intake_status') }}</div>
         @endif
@@ -63,9 +69,15 @@
             <input type="hidden" name="stream" :value="stream">
             <div class="rounded-xl px-3 py-2 text-xs font-semibold" :style="`background:${tint};color:${c}`" x-text="stream==='academic' ? 'Academic Stream application' : 'Industry Stream application'"></div>
             <div class="grid gap-4 sm:grid-cols-2">
-                <div><label class="block mb-1 text-xs font-semibold text-slate-600">Startup / project name</label><input required name="name" x-model="f.name" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none" :style="`--c:${c}`" @focus="$el.style.borderColor=c" @blur="$el.style.borderColor=''"></div>
+                <div><label class="block mb-1 text-xs font-semibold text-slate-600">Startup / project name</label><input required name="name" value="{{ old('name', session('oauth_register.name')) }}" x-model="f.name" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/30" :style="`--c:${c}`" @focus="$el.style.borderColor=c" @blur="$el.style.borderColor=''"></div>
                 <div><label class="block mb-1 text-xs font-semibold text-slate-600">Lead founder</label><input required name="founder" x-model="f.founder" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none"></div>
-                <div><label class="block mb-1 text-xs font-semibold text-slate-600">Email</label><input required type="email" name="email" x-model="f.email" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none"></div>
+                <div>
+                    <label class="block mb-1 text-xs font-semibold text-slate-600">Email</label>
+                    <input required type="email" name="email" value="{{ old('email', session('oauth_register.email')) }}" x-model="f.email" @readonly(filled(session('oauth_register.email'))) class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/30 @if(session('oauth_register.email')) bg-gray-50 text-gray-500 @endif">
+                    @if (session('oauth_register.email'))
+                        <p role="status" class="mt-1 text-sm font-medium text-emerald-700">✓ Verified via Google Account</p>
+                    @endif
+                </div>
                 <div><label class="block mb-1 text-xs font-semibold text-slate-600">Industry sector</label>
                     <select name="sector" x-model="f.sector" class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"><option>Agritech</option><option>Fintech</option><option>Healthtech</option><option>Edtech</option><option>AI/Deeptech</option><option>Clean Energy</option></select></div>
             </div>

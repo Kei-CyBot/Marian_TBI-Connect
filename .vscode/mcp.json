@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "claude-mem": {
+      "command": "npx",
+      "args": ["-y", "claude-mem", "mcp"],
+      "env": {
+        "CLAUDE_MEM_WORKER_URL": "http://localhost:37777"
+      }
+    }
+  }
+}

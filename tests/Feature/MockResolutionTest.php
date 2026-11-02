@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\Forms\ApprovalStatus;
+use App\Mail\IntakeSubmissionReceiptMail;
 use App\Models\ActivityLog;
 use App\Models\Contact;
 use App\Models\ContactRegistrationApplication;
@@ -113,7 +114,7 @@ class MockResolutionTest extends TestCase
             'pitch' => 'Solar-powered irrigation for small farms.',
             'dept' => 'College of Engineering',
             'ip' => 'No',
-        ])->assertRedirect(route('startup-form'));
+        ])->assertRedirect(route('public.startup-form'));
 
         $this->assertDatabaseHas('intake_submissions', [
             'type' => 'startup',
@@ -123,7 +124,34 @@ class MockResolutionTest extends TestCase
             'status' => 'Pending',
         ]);
 
-        Mail::assertQueued('App\\Mail\\IntakeSubmissionReceived', fn ($mail): bool => $mail->hasTo('ana@example.test'));
+        Mail::assertQueued('App\\Mail\\IntakeSubmissionReceiptMail', fn ($mail): bool => $mail->hasTo('ana@example.test'));
+    }
+
+    public function test_startup_application_uses_verified_oauth_email_and_clears_oauth_session(): void
+    {
+        Mail::fake();
+
+        $this->withSession(['oauth_register' => [
+            'name' => 'Google Applicant',
+            'email' => 'verified@example.test',
+            'avatar' => null,
+            'google_id' => 'google-verified',
+        ]])
+            ->post(route('startup-form.store'), [
+                'stream' => 'academic',
+                'name' => 'Google Applicant',
+                'founder' => 'Google Applicant',
+                'email' => 'changed@example.test',
+                'sector' => 'Agritech',
+            ])
+            ->assertRedirect(route('public.startup-form'))
+            ->assertSessionMissing('oauth_register');
+
+        $this->assertDatabaseHas('intake_submissions', [
+            'type' => 'startup',
+            'email' => 'verified@example.test',
+        ]);
+        Mail::assertQueued(IntakeSubmissionReceiptMail::class, fn (IntakeSubmissionReceiptMail $mail): bool => $mail->hasTo('verified@example.test'));
     }
 
     public function test_public_alumni_update_is_saved_and_emails_the_alumnus(): void
@@ -153,19 +181,19 @@ class MockResolutionTest extends TestCase
             'status' => 'Pending',
         ]);
 
-        Mail::assertQueued('App\\Mail\\IntakeSubmissionReceived', fn ($mail): bool => $mail->hasTo('carlo@example.test'));
+        Mail::assertQueued('App\\Mail\\IntakeSubmissionReceiptMail', fn ($mail): bool => $mail->hasTo('carlo@example.test'));
     }
 
     public function test_public_intake_rejects_invalid_fields(): void
     {
-        $this->from(route('startup-form'))
+        $this->from(route('public.startup-form'))
             ->post(route('startup-form.store'), [
                 'stream' => 'academic',
                 'name' => '',
                 'founder' => 'Ana Cruz',
                 'email' => 'not-an-email',
             ])
-            ->assertRedirect(route('startup-form'))
+            ->assertRedirect(route('public.startup-form'))
             ->assertSessionHasErrors(['name', 'email']);
 
         $this->assertDatabaseCount('intake_submissions', 0);

@@ -7,6 +7,7 @@ use App\Models\ContactRegistrationApplication;
 use App\Models\Startup;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class DirectoryArchiveTest extends TestCase
@@ -102,12 +103,13 @@ class DirectoryArchiveTest extends TestCase
             ->assertSee('Delete Application')
             ->assertSee('aria-modal="true"', false)
             ->assertSee('Tools, languages or methods')
-            ->assertSee('does not create a login')
+            ->assertSee('Approved applicants receive account sign-in instructions by email.')
             ->assertSee('Add Incubatee');
     }
 
     public function test_public_contact_registration_is_saved_reviewed_and_deletable(): void
     {
+        Mail::fake();
         $user = User::factory()->create();
         $payload = [
             'stream' => 'internal',
@@ -149,7 +151,10 @@ class DirectoryArchiveTest extends TestCase
             'status' => 'Approved',
             'reviewed_by' => $user->id,
         ]);
-        $this->assertDatabaseMissing('users', ['email' => 'mika.santos@example.edu']);
+        $this->assertDatabaseHas('users', [
+            'email' => 'mika.santos@example.edu',
+            'role' => User::ROLE_MEMBER_INCUBATEE,
+        ]);
 
         $this->actingAs($user)
             ->delete(route('contact-intake.destroy', $application))

@@ -3,15 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SaveContactRequest;
-use App\Mail\UserCredentialInviteMail;
+use App\Mail\OneTimeLoginMail;
 use App\Models\Contact;
 use App\Models\ContactStartupAssignment;
 use App\Models\Startup;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -207,24 +211,35 @@ class ContactController extends Controller
             abort(403);
         }
 
+        if (! is_string($contact->email) || trim($contact->email) === '') {
+            return back()->with('error', 'Contact does not have a valid email address.');
+        }
+
         $linkedUser = User::query()->where('email', $contact->email)->first();
 
         if (! $linkedUser) {
             $linkedUser = User::create([
                 'name' => $contact->name,
                 'email' => $contact->email,
-                'password' => Hash::make((string) random_int(10000000, 99999999)),
+                'password' => Str::random(32),
                 'role' => 'member_incubatee',
             ]);
         }
 
-        $tempPassword = (string) random_int(10000000, 99999999);
-        $linkedUser->password = Hash::make($tempPassword);
-        $linkedUser->save();
+        $token = Str::random(64);
+        DB::table('one_time_login_tokens')->updateOrInsert(
+            ['email' => $linkedUser->email],
+            ['token' => Hash::make($token), 'created_at' => now()],
+        );
+        $loginUrl = URL::temporarySignedRoute(
+            'auth.magic-login',
+            now()->addMinutes(15),
+            ['token' => $token, 'email' => $linkedUser->email],
+        );
 
-        Mail::to($contact->email)->queue(new UserCredentialInviteMail($contact->email, $tempPassword, route('login')));
+        Mail::to($linkedUser->email)->queue(new OneTimeLoginMail($loginUrl));
 
-        return to_route('contacts')->with('contact_status', 'One-time login email sent.');
+        return to_route('contacts')->with('contact_status', 'One-time login link sent.');
     }
 
     public function removeStartupAssignment(Contact $contact, Startup $startup): RedirectResponse

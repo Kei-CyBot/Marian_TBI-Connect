@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Enums\Forms\ApprovalStatus;
+use App\Models\FormSubmission;
 use App\Models\Startup;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class StartupFolderAccessTest extends TestCase
@@ -46,5 +49,67 @@ class StartupFolderAccessTest extends TestCase
                 'user_ids' => [$outsider->id],
             ])
             ->assertForbidden();
+    }
+
+    public function test_member_files_are_limited_to_owned_submissions_and_their_startup(): void
+    {
+        Storage::fake('local');
+        $member = User::factory()->create([
+            'role' => User::ROLE_MEMBER_INCUBATEE,
+            'email' => 'founder@example.test',
+        ]);
+        $otherUser = User::factory()->create();
+        $ownStartup = Startup::query()->create([
+            'name' => 'Founders Startup',
+            'founder' => 'Founder',
+            'contact_email' => $member->email,
+            'track' => 'external',
+            'status' => 'Applicant',
+            'cohort_id' => 1,
+        ]);
+        Startup::query()->create([
+            'name' => 'Other Startup',
+            'founder' => 'Other Founder',
+            'contact_email' => 'other@example.test',
+            'track' => 'external',
+            'status' => 'Applicant',
+            'cohort_id' => 1,
+        ]);
+
+        $ownStartupSubmission = FormSubmission::query()->create([
+            'user_id' => $otherUser->id,
+            'form_id' => 1,
+            'form_name' => 'Founders Form',
+            'startup_name' => $ownStartup->name,
+            'track' => 'external',
+            'data' => [],
+            'approval_status' => ApprovalStatus::Submitted,
+        ]);
+        $ownUserSubmission = FormSubmission::query()->create([
+            'user_id' => $member->id,
+            'form_id' => 1,
+            'form_name' => 'Personal Form',
+            'startup_name' => 'Unlinked Startup',
+            'track' => 'external',
+            'data' => [],
+            'approval_status' => ApprovalStatus::Submitted,
+        ]);
+        FormSubmission::query()->create([
+            'user_id' => $otherUser->id,
+            'form_id' => 1,
+            'form_name' => 'Other Form',
+            'startup_name' => 'Other Startup',
+            'track' => 'external',
+            'data' => [],
+            'approval_status' => ApprovalStatus::Submitted,
+        ]);
+
+        $response = $this->actingAs($member)->get(route('files'))->assertOk();
+        $this->assertEqualsCanonicalizing(
+            [$ownStartupSubmission->id, $ownUserSubmission->id],
+            array_column($response->viewData('savedSubmissions'), 'submissionId'),
+        );
+        $this->assertContains('founders-startup', array_column($response->viewData('startupFolders'), 'slug'));
+        $this->assertNotContains('other-startup', array_column($response->viewData('startupFolders'), 'slug'));
     }
 }

@@ -27,8 +27,29 @@ class FileManagerController extends Controller
         $startups = Startup::withTrashed()
             ->with('folderAccessUsers:id')
             ->get();
+        $user = $request->user();
+        $memberStartupNames = collect();
+        if ($user?->isMember()) {
+            $memberStartupNames = collect([
+                $user->getAttribute('startup_name'),
+                Startup::query()
+                    ->whereRaw('LOWER(contact_email) = ?', [strtolower($user->email)])
+                    ->value('name'),
+            ])->merge(
+                $startups
+                    ->filter(static fn (Startup $startup): bool => (int) $startup->folder_access_manager_id === (int) $user->id
+                        || $startup->folderAccessUsers->contains('id', $user->id))
+                    ->pluck('name')
+            )->filter(static fn ($name): bool => is_string($name) && trim($name) !== '')
+                ->map(static fn (string $name): string => strtolower(trim($name)))
+                ->unique()
+                ->values();
+            $startups = $startups->filter(
+                static fn (Startup $startup): bool => $memberStartupNames->contains(strtolower(trim($startup->name)))
+            );
+        }
         $accessibleStartups = $startups
-            ->filter(fn (Startup $startup): bool => $startup->userCanAccessFolder($request->user()))
+            ->filter(fn (Startup $startup): bool => $user && $startup->userCanAccessFolder($user))
             ->keyBy(static fn (Startup $startup): string => Str::slug($startup->name));
         $activeAccessibleStartups = $accessibleStartups->reject(
             static fn (Startup $startup): bool => $startup->trashed()
@@ -41,23 +62,26 @@ class FileManagerController extends Controller
             ->get();
         $driveLinksByStartupName = $driveLinkRows->groupBy('startup_name');
 
-        $user = $request->user();
-
         $submissions = FormSubmission::query()
             ->with('user:id,name')
             ->latest()
             ->get()
-            ->filter(function (FormSubmission $submission) use ($activeAccessibleStartups, $user): bool {
+            ->filter(function (FormSubmission $submission) use ($activeAccessibleStartups, $memberStartupNames, $user): bool {
                 if (! $user) {
                     return false;
                 }
 
-                if (method_exists($user, 'isAdmin') && $user->isAdmin()) {
+                if ($user->canManageRecords()) {
                     return true;
                 }
 
                 if ($submission->user_id && (int) $submission->user_id === (int) $user->id) {
                     return true;
+                }
+
+                if ($user->isMember()) {
+                    return $submission->startup_name
+                        && $memberStartupNames->contains(strtolower(trim($submission->startup_name)));
                 }
 
                 return $submission->startup_name
@@ -171,7 +195,9 @@ class FileManagerController extends Controller
             'startupFolders' => $foldersBySlug->values()->all(),
             'savedSubmissions' => $submissions,
             'driveLinks' => $driveLinks,
-            'teamUsers' => User::query()->orderBy('name')->get(['id', 'name', 'email']),
+            'teamUsers' => $user->canManageRecords()
+                ? User::query()->orderBy('name')->get(['id', 'name', 'email'])
+                : User::query()->whereKey($user->id)->get(['id', 'name', 'email']),
             'driveConnected' => $driveConnection !== null,
             'driveAccountEmail' => $driveConnection?->google_email,
             'driveConfigured' => config('services.google.client_id')

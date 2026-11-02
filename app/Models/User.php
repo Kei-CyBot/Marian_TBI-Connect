@@ -36,6 +36,8 @@ class User extends Authenticatable
         'password',
         'role',
         'google_id',
+        'google_email',
+        'avatar',
         'google_access_token',
         'google_refresh_token',
         'google_token_expires_at',
@@ -79,11 +81,16 @@ class User extends Authenticatable
         return in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN], true);
     }
 
+    public function isMember(): bool
+    {
+        return in_array($this->role, [self::ROLE_MEMBER_INCUBATEE, 'member'], true);
+    }
+
     public function roleLabel(): string
     {
         return match ($this->role) {
             self::ROLE_SUPER_ADMIN => 'Super Admin',
-            self::ROLE_MEMBER_INCUBATEE => 'Member/Incubatee',
+            self::ROLE_MEMBER_INCUBATEE, 'member' => 'Member/Incubatee',
             default => 'Admin',
         };
     }

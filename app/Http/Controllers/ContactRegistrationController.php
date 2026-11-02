@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\AccountProvisionedMail;
 use App\Mail\ContactRegistrationNotificationMail;
 use App\Mail\ContactRegistrationReceiptMail;
-use App\Mail\UserCredentialInviteMail;
 use App\Models\Contact;
 use App\Models\ContactRegistrationApplication;
 use App\Models\User;
@@ -203,21 +203,23 @@ class ContactRegistrationController extends Controller
 
     public function approveAndProvision(Request $request, ContactRegistrationApplication $application): RedirectResponse
     {
+        $temporaryPassword = null;
+        $email = strtolower(trim((string) $application->email));
+
         try {
             if (strtolower((string) $application->status) !== 'pending') {
                 return redirect()->back()->with('error', 'This application has already been processed.');
             }
 
-            DB::transaction(function () use ($application) {
+            DB::transaction(function () use ($application, $email, &$temporaryPassword) {
                 $data = $application->application_data ?? [];
-                $email = strtolower(trim((string) $application->email));
 
                 $domains = array_values(array_filter((array) ($data['domains'] ?? $data['domain_expertise'] ?? $application->domain_expertise ?? [])));
                 $technicalSkills = array_values(array_filter((array) ($data['technicalSkills'] ?? $data['technical_skills'] ?? $application->technical_skills ?? [])));
 
-                $role = !empty($data['role']) ? $data['role'] : ($application->role ?? 'Applicant');
+                $role = ! empty($data['role']) ? $data['role'] : ($application->role ?? 'Applicant');
                 $affiliation = $data['affiliationType'] ?? $data['affiliation_type'] ?? $application->affiliation_type ?? null;
-                $affiliationType = !empty($affiliation) ? $affiliation : 'External';
+                $affiliationType = ! empty($affiliation) ? $affiliation : 'External';
 
                 $side = strtolower((string) ($application->stream ?? $data['stream'] ?? 'external'));
                 if (str_contains($side, 'internal')) {
@@ -232,7 +234,7 @@ class ContactRegistrationController extends Controller
                     [
                         'name' => $application->name,
                         'phone' => $data['phone'] ?? $application->phone ?? null,
-                        'organization' => !empty($data['organization']) ? $data['organization'] : ($application->organization ?? null),
+                        'organization' => ! empty($data['organization']) ? $data['organization'] : ($application->organization ?? null),
                         'role' => $role,
                         'affiliation_type' => $affiliationType,
                         'verification_status' => 'Verified Contact',
@@ -243,12 +245,25 @@ class ContactRegistrationController extends Controller
                         'technical_other' => $data['technicalOther'] ?? $data['technical_other'] ?? null,
                         'academic_program' => $data['academicProgram'] ?? $data['academic_program'] ?? $application->department ?? null,
                         'academic_year' => $data['academicYear'] ?? $data['academic_year'] ?? null,
-                        'skill_details' => $data['skillDetails'] ?? (is_array($application->tools_methods) && !empty(array_filter($application->tools_methods)) ? implode(', ', array_filter($application->tools_methods)) : ($application->tools_methods ?? null)),
+                        'skill_details' => $data['skillDetails'] ?? (is_array($application->tools_methods) && ! empty(array_filter($application->tools_methods)) ? implode(', ', array_filter($application->tools_methods)) : ($application->tools_methods ?? null)),
                         'nda_status' => 'Pending',
                         'incubatees' => [],
                         'activity_log' => [],
                     ]
                 );
+
+                $temporaryPassword = Str::random(32);
+                $user = User::query()->firstOrCreate(
+                    ['email' => $email],
+                    [
+                        'name' => $application->name,
+                        'password' => $temporaryPassword,
+                        'role' => User::ROLE_MEMBER_INCUBATEE,
+                    ]
+                );
+                if (! $user->wasRecentlyCreated) {
+                    $temporaryPassword = null;
+                }
 
                 $application->update([
                     'status' => 'Approved',
@@ -256,8 +271,6 @@ class ContactRegistrationController extends Controller
                     'reviewed_at' => now(),
                 ]);
             });
-
-            return redirect()->route('contact-intake')->with('success', 'Application approved and contact successfully moved to Contact & Networks.');
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('Contact Approval Failed: ' . $e->getMessage(), [
                 'application_id' => $application->id,
@@ -266,6 +279,16 @@ class ContactRegistrationController extends Controller
 
             return redirect()->route('contact-intake')->with('error', 'Approval failed: ' . $e->getMessage());
         }
+
+        if ($temporaryPassword !== null) {
+            Mail::to($email)->queue(new AccountProvisionedMail(
+                $email,
+                $temporaryPassword,
+                route('login'),
+            ));
+        }
+
+        return redirect()->route('contact-intake')->with('success', 'Application approved, contact verified, and account provisioned.');
     }
 
     public function destroy(ContactRegistrationApplication $application): RedirectResponse

@@ -6,6 +6,7 @@ use App\Models\FormSubmission;
 use App\Support\GoogleDriveService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 
 class SyncFormSubmissionToDriveJob implements ShouldQueue
 {
@@ -13,8 +14,7 @@ class SyncFormSubmissionToDriveJob implements ShouldQueue
 
     public int $tries = 3;
 
-    /** @var array<int, int> */
-    public array $backoff = [10, 30, 60];
+    public int $backoff = 60;
 
     public int $submissionId;
 
@@ -30,25 +30,35 @@ class SyncFormSubmissionToDriveJob implements ShouldQueue
 
     public function handle(GoogleDriveService $driveService): void
     {
-        $submission = FormSubmission::query()->find($this->submissionId);
-        if (! $submission || ! $driveService->isConnected()) {
-            return;
+        try {
+            $submission = FormSubmission::query()->find($this->submissionId);
+            if (! $submission) {
+                return;
+            }
+
+            if (! $driveService->isConnected()) {
+                throw new \RuntimeException('Google Drive is not configured or connected.');
+            }
+
+            if ($this->moveToFolderId === null) {
+                $driveService->syncSubmission($submission);
+
+                return;
+            }
+
+            $fileIds = array_values(array_filter([
+                $submission->google_drive_response_file_id,
+                $submission->google_drive_attachment_file_id,
+            ]));
+            foreach ($fileIds as $fileId) {
+                $driveService->moveFile($fileId, $this->moveToFolderId, $this->moveFromFolderId);
+            }
+
+            $submission->forceFill(['drive_synced_at' => now()])->save();
+        } catch (\Illuminate\Http\Client\HttpClientException|\RuntimeException $e) {
+            Log::warning('Google Drive Sync failed: '.$e->getMessage());
+
+            throw $e;
         }
-
-        if ($this->moveToFolderId === null) {
-            $driveService->syncSubmission($submission);
-
-            return;
-        }
-
-        $fileIds = array_values(array_filter([
-            $submission->google_drive_response_file_id,
-            $submission->google_drive_attachment_file_id,
-        ]));
-        foreach ($fileIds as $fileId) {
-            $driveService->moveFile($fileId, $this->moveToFolderId, $this->moveFromFolderId);
-        }
-
-        $submission->forceFill(['drive_synced_at' => now()])->save();
     }
 }

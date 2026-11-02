@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Enums\Forms\ApprovalStatus;
 use App\Models\Contact;
 use App\Models\ContactRegistrationApplication;
+use App\Models\Event;
+use App\Models\EventInvitation;
 use App\Models\FormSubmission;
 use App\Models\Startup;
 use App\Models\StartupDriveLink;
@@ -49,6 +51,10 @@ class RouteAuthorizationTest extends TestCase
 
     private TechnicalNeed $technicalNeed;
 
+    private Event $event;
+
+    private EventInvitation $eventInvitation;
+
     private Startup $trashedStartup;
 
     private Contact $trashedContact;
@@ -79,7 +85,7 @@ class RouteAuthorizationTest extends TestCase
         Storage::disk('local')->put('technical-needs/coverage.pdf', 'coverage');
 
         $this->submission = FormSubmission::query()->create([
-            'user_id' => $this->admin->id,
+            'user_id' => $this->member->id,
             'form_id' => 2,
             'form_name' => 'Startup profile',
             'startup_name' => $this->startup->name,
@@ -137,6 +143,22 @@ class RouteAuthorizationTest extends TestCase
             'approval_document_path' => 'technical-needs/coverage.pdf',
             'approval_document_original_name' => 'coverage.pdf',
         ]);
+        $this->event = Event::query()->create([
+            'title' => 'Route Coverage Event',
+            'scope' => 'internal',
+            'kind' => 'Campus Hackathon',
+            'starts_at' => '2026-12-01 09:00:00',
+            'ends_at' => '2026-12-01 11:00:00',
+            'location' => 'Innovation Hub',
+            'host' => 'Marian TBI',
+        ]);
+        $this->eventInvitation = EventInvitation::query()->create([
+            'event_id' => $this->event->id,
+            'contact_id' => $this->contact->id,
+            'email' => $this->contact->email,
+            'name' => $this->contact->name,
+            'token' => Str::random(40),
+        ]);
         $this->trashedStartup = Startup::query()->create([
             'name' => 'Route Archived Startup',
             'founder' => 'Archived Founder',
@@ -190,6 +212,9 @@ class RouteAuthorizationTest extends TestCase
             'google drive connect' => ['google-drive.connect', 'get', [], [], 'redirect'],
             'google drive callback' => ['google-drive.callback', 'get', [], [], 'redirect'],
             'google drive sync' => ['google-drive.sync', 'post', [], [], 'redirect'],
+            'admin google settings index' => ['admin.settings.google.index', 'get', [], [], 'ok'],
+            'admin google settings folder' => ['admin.settings.google.update-folder', 'post', [], ['folder_id' => 'coverage-folder'], 'redirect'],
+            'admin google settings disconnect' => ['admin.settings.google.disconnect', 'post', [], [], 'redirect'],
             'startup folder access' => ['startup-folders.access.update', 'post', ['startup' => 'startup'], ['restricted' => '0', 'user_ids' => []], 'redirect'],
             'team invite' => ['team.invite', 'post', [], ['email' => 'route-new-member@example.test', 'role' => User::ROLE_ADMIN], 'redirect'],
             'team invitation revoke' => ['team.invitations.revoke', 'delete', ['invitation' => 'invitation'], [], 'redirect'],
@@ -201,7 +226,14 @@ class RouteAuthorizationTest extends TestCase
             'technical needs store' => ['technical-needs.store', 'post', [], [], 'redirect'],
             'technical needs update' => ['technical-needs.update', 'put', ['technicalNeed' => 'technicalNeed'], [], 'redirect'],
             'technical needs destroy' => ['technical-needs.destroy', 'delete', ['technicalNeed' => 'technicalNeed'], [], 'redirect'],
+            'event create' => ['events.create', 'get', [], [], 'ok'],
+            'event store' => ['events.store', 'post', [], [], 'redirect'],
+            'event edit' => ['events.edit', 'get', ['event' => 'event'], [], 'ok'],
+            'event update' => ['events.update', 'put', ['event' => 'event'], [], 'redirect'],
+            'event invitation send' => ['events.invitations.send', 'post', ['event' => 'event'], [], 'redirect'],
             'event email send' => ['event-emails.send', 'post', [], [], 'redirect'],
+            'event outreach send' => ['event-outreach.send', 'post', [], [], 'redirect'],
+            'team index' => ['team', 'get', [], [], 'ok'],
             'team role update' => ['team.roles.update', 'put', ['user' => 'member'], ['role' => User::ROLE_ADMIN], 'redirect'],
         ];
     }
@@ -218,9 +250,8 @@ class RouteAuthorizationTest extends TestCase
             'technical needs index' => ['technical-needs', 'get', [], [], 'ok'],
             'technical need approval' => ['technical-needs.approval', 'get', ['technicalNeed' => 'technicalNeed'], [], 'ok'],
             'events' => ['events', 'get', [], [], 'ok'],
-            'team' => ['team', 'get', [], [], 'ok'],
-            'google connect' => ['google.redirect', 'get', [], [], 'redirect'],
-            'google callback' => ['google.callback', 'get', [], [], 'redirect'],
+            'event show' => ['events.show', 'get', ['event' => 'event'], [], 'ok'],
+            'google disconnect' => ['auth.google.disconnect', 'post', [], [], 'redirect'],
             'logout' => ['logout', 'post', [], [], 'redirect'],
         ];
     }
@@ -229,7 +260,11 @@ class RouteAuthorizationTest extends TestCase
     {
         return [
             'home' => ['home', 'get', [], [], 'ok'],
-            'startup form' => ['startup-form', 'get', [], [], 'ok'],
+            'public apply' => ['public.apply', 'get', [], [], 'ok'],
+            'apply status' => ['public.apply-status', 'get', [], [], 'ok'],
+            'google connect' => ['auth.google', 'get', [], [], 'redirect'],
+            'google callback' => ['google.callback', 'get', [], [], 'redirect'],
+            'startup form' => ['public.startup-form', 'get', [], [], 'ok'],
             'startup form store' => ['startup-form.store', 'post', [], [], 'redirect'],
             'alumni form' => ['alumni-form', 'get', [], [], 'ok'],
             'alumni form store' => ['alumni-form.store', 'post', [], [], 'redirect'],
@@ -237,6 +272,7 @@ class RouteAuthorizationTest extends TestCase
             'contact registration store' => ['contact-registration.store', 'post', [], [], 'redirect'],
             'login form' => ['login', 'get', [], [], 'ok'],
             'login store' => ['login.store', 'post', [], [], 'redirect'],
+            'event invitation respond' => ['events.invitations.respond', 'get', ['token' => 'eventInvitationToken', 'status' => 'eventInvitationStatus'], [], 'ok'],
             'invite form' => ['invites.accept', 'get', ['token' => 'invitationToken'], [], 'ok'],
             'invite accept' => ['invites.accept.process', 'post', ['token' => 'invitationToken'], [], 'redirect'],
         ];
@@ -294,10 +330,6 @@ class RouteAuthorizationTest extends TestCase
 
         $this->{$method}($url, $payload)->assertRedirect(route('login'));
 
-        if (in_array($routeName, ['google.redirect', 'google.callback'], true)) {
-            $this->fakeGoogleLogin();
-        }
-
         $response = $this->actingAs($this->member)->{$method}($url, $payload);
         $this->assertAuthorizedResponse($response, $expectedStatus, $routeName);
     }
@@ -307,6 +339,10 @@ class RouteAuthorizationTest extends TestCase
     {
         $url = $this->routeUrl($routeName, $params);
         $payload = $this->payloadFor($routeName, $payload);
+
+        if (in_array($routeName, ['auth.google', 'google.callback'], true)) {
+            $this->fakeGoogleLogin();
+        }
 
         $response = $this->{$method}($url, $payload);
         $this->assertAuthorizedResponse($response, $expectedStatus, $routeName);
@@ -329,9 +365,9 @@ class RouteAuthorizationTest extends TestCase
 
     public function test_public_write_routes_reject_invalid_guest_input(): void
     {
-        $this->from(route('startup-form'))
+        $this->from(route('public.startup-form'))
             ->post(route('startup-form.store'), ['stream' => 'academic'])
-            ->assertRedirect(route('startup-form'))
+            ->assertRedirect(route('public.startup-form'))
             ->assertSessionHasErrors(['name', 'founder', 'email', 'sector']);
 
         $this->from(route('alumni-form'))
@@ -367,7 +403,11 @@ class RouteAuthorizationTest extends TestCase
         $routes = collect(app('router')->getRoutes()->getRoutes())
             ->filter(fn ($route): bool => $route->getName() !== null && ! str_starts_with($route->uri(), 'storage/'))
             ->map(fn ($route): string => (string) $route->getName())
-            ->filter(fn ($name): bool => ! in_array($name, ['contacts.credentials.update', 'contacts.credentials.send'], true))
+            ->filter(fn ($name): bool => ! in_array($name, [
+                'auth.magic-login',
+                'contacts.credentials.update',
+                'contacts.credentials.send',
+            ], true))
             ->sort()
             ->values();
 
@@ -392,6 +432,18 @@ class RouteAuthorizationTest extends TestCase
         foreach ($params as $key => $property) {
             if ($property === 'invitationToken') {
                 $resolved[$key] = $this->invitation->token;
+
+                continue;
+            }
+
+            if ($property === 'eventInvitationToken') {
+                $resolved[$key] = $this->eventInvitation->token;
+
+                continue;
+            }
+
+            if ($property === 'eventInvitationStatus') {
+                $resolved[$key] = 'attending';
 
                 continue;
             }
@@ -441,6 +493,11 @@ class RouteAuthorizationTest extends TestCase
                 'signed_approval' => UploadedFile::fake()->create('coverage.pdf', 10, 'application/pdf'),
             ],
             'technical-needs.update' => $this->technicalNeedPayload(),
+            'events.store' => $this->eventPayload(),
+            'events.update' => $this->eventPayload('Route Updated Event'),
+            'events.invitations.send' => [
+                'contact_ids' => [$this->contact->id],
+            ],
             'event-emails.send' => [
                 'contact_ids' => [$this->contact->id],
                 'subject' => 'Route coverage',
@@ -514,6 +571,19 @@ class RouteAuthorizationTest extends TestCase
             'domains' => ['Information Technology'],
             'technical_skills' => [],
             'nda_status' => 'Pending',
+        ];
+    }
+
+    private function eventPayload(string $title = 'Route Coverage Event'): array
+    {
+        return [
+            'title' => $title,
+            'scope' => 'internal',
+            'kind' => 'Campus Hackathon',
+            'starts_at' => '2026-12-01T09:00',
+            'ends_at' => '2026-12-01T11:00',
+            'location' => 'Innovation Hub',
+            'host' => 'Marian TBI',
         ];
     }
 

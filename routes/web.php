@@ -1,11 +1,14 @@
 <?php
 
 use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\Admin\GoogleIntegrationController;
 use App\Http\Controllers\ArchiveController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ContactRegistrationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventEmailController;
+use App\Http\Controllers\EventInvitationController;
+use App\Http\Controllers\EventOutreachController;
 use App\Http\Controllers\EventsController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\FileManagerController;
@@ -20,22 +23,33 @@ use App\Http\Controllers\StartupDriveLinkController;
 use App\Http\Controllers\StartupFolderAccessController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TechnicalNeedController;
+use App\Http\Middleware\EnsurePasswordIsConfigured;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/startup-form', 'public.startup-form')->name('startup-form');
+Route::view('/startup-form', 'public.startup-form')->name('public.startup-form');
 Route::post('/startup-form', [PublicIntakeController::class, 'storeStartup'])
     ->middleware('throttle:10,1')
     ->name('startup-form.store');
+Route::view('/apply', 'public.startup-form')->name('public.apply');
+Route::view('/apply/status', 'public.apply-status')->name('public.apply-status');
 Route::view('/alumni-form', 'public.alumni-form')->name('alumni-form');
 Route::post('/alumni-form', [PublicIntakeController::class, 'storeAlumni'])
     ->middleware('throttle:10,1')
     ->name('alumni-form.store');
+Route::get('/events/invitations/{token}/respond/{status}', [EventInvitationController::class, 'respond'])
+    ->name('events.invitations.respond');
 Route::get('/contact-registration', [ContactRegistrationController::class, 'create'])->name('contact-registration');
 Route::post('/contact-registration', [ContactRegistrationController::class, 'store'])
     ->middleware('throttle:10,1')
     ->name('contact-registration.store');
+
+Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('auth.google');
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback'])->name('google.callback');
+Route::get('/auth/magic-login/{token}', [GoogleAuthController::class, 'handleMagicLogin'])
+    ->middleware('throttle:5,1')
+    ->name('auth.magic-login');
 
 Route::get('/', function () {
     return Auth::check() ? redirect()->route('dashboard') : view('login');
@@ -69,9 +83,8 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/invites/accept/{token}', [TeamController::class, 'processAcceptInvite'])->name('invites.accept.process');
 });
 
-Route::middleware('auth')->group(function (): void {
-    Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])->name('google.redirect');
-    Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])->name('google.callback');
+Route::middleware(['auth', EnsurePasswordIsConfigured::class])->group(function (): void {
+    Route::post('/auth/google/disconnect', [GoogleAuthController::class, 'disconnect'])->name('auth.google.disconnect');
 
     Route::post('/form-submissions', [FormSubmissionController::class, 'store'])
         ->middleware('role:admin,super_admin')
@@ -138,12 +151,15 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('role:admin,super_admin')
         ->name('contact-intake.destroy');
     Route::get('/files', [FileManagerController::class, 'index'])->name('files');
-    Route::get('/activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs.index');
+    Route::get('/activity-logs', [ActivityLogController::class, 'index'])->middleware('role:admin,super_admin')->name('activity-logs.index');
     Route::get('/exports/form-submissions', [ExportController::class, 'exportSubmissions'])->middleware('role:admin,super_admin')->name('exports.form-submissions');
     Route::get('/exports/technical-needs', [ExportController::class, 'exportTechnicalNeeds'])->middleware('role:admin,super_admin')->name('exports.technical-needs');
     Route::get('/google-drive/connect', [GoogleDriveController::class, 'connect'])->middleware('role:admin,super_admin')->name('google-drive.connect');
     Route::get('/google-drive/callback', [GoogleDriveController::class, 'callback'])->middleware('role:admin,super_admin')->name('google-drive.callback');
     Route::post('/google-drive/sync', [GoogleDriveController::class, 'synchronize'])->middleware('role:admin,super_admin')->name('google-drive.sync');
+    Route::get('/admin/settings/google', [GoogleIntegrationController::class, 'index'])->middleware('role:admin,super_admin')->name('admin.settings.google.index');
+    Route::post('/admin/settings/google/folder', [GoogleIntegrationController::class, 'updateFolder'])->middleware('role:admin,super_admin')->name('admin.settings.google.update-folder');
+    Route::post('/admin/settings/google/disconnect', [GoogleIntegrationController::class, 'disconnect'])->middleware('role:admin,super_admin')->name('admin.settings.google.disconnect');
     Route::post('/startup-folders/{startup}/access', [StartupFolderAccessController::class, 'update'])
         ->middleware('role:admin,super_admin')
         ->name('startup-folders.access.update');
@@ -154,8 +170,17 @@ Route::middleware('auth')->group(function (): void {
     Route::put('/technical-needs/{technicalNeed}', [TechnicalNeedController::class, 'update'])->middleware('role:admin,super_admin')->name('technical-needs.update');
     Route::delete('/technical-needs/{technicalNeed}', [TechnicalNeedController::class, 'destroy'])->middleware('role:admin,super_admin')->name('technical-needs.destroy');
     Route::get('/events', [EventsController::class, 'index'])->name('events');
+    Route::get('/events/create', [EventsController::class, 'create'])->middleware('role:admin,super_admin')->name('events.create');
+    Route::post('/events', [EventsController::class, 'store'])->middleware('role:admin,super_admin')->name('events.store');
+    Route::get('/events/{event}', [EventsController::class, 'show'])->name('events.show');
+    Route::get('/events/{event}/edit', [EventsController::class, 'edit'])->middleware('role:admin,super_admin')->name('events.edit');
+    Route::put('/events/{event}', [EventsController::class, 'update'])->middleware('role:admin,super_admin')->name('events.update');
+    Route::post('/admin/events/{event}/send-invites', [EventInvitationController::class, 'sendInvites'])
+        ->middleware('role:admin,super_admin')
+        ->name('events.invitations.send');
     Route::post('/event-emails', [EventEmailController::class, 'send'])->middleware('role:admin,super_admin')->name('event-emails.send');
-    Route::get('/team', [TeamController::class, 'index'])->name('team');
+    Route::post('/event-outreach', [EventOutreachController::class, 'sendCommunication'])->middleware('role:admin,super_admin')->name('event-outreach.send');
+    Route::get('/team', [TeamController::class, 'index'])->middleware('role:admin,super_admin')->name('team');
     Route::put('/team/{user}/role', [TeamController::class, 'updateRole'])->middleware('role:super_admin')->name('team.roles.update');
     Route::post('/team/invite', [TeamController::class, 'invite'])->middleware('role:admin,super_admin')->name('team.invite');
     Route::delete('/team/invitations/{invitation}', [TeamController::class, 'revokeInvite'])->middleware('role:admin,super_admin')->name('team.invitations.revoke');

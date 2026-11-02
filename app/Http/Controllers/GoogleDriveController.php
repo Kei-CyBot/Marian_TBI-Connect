@@ -30,7 +30,11 @@ class GoogleDriveController extends Controller
         );
 
         return $this->driveProvider($socialite)
-            ->scopes(['https://www.googleapis.com/auth/drive.file'])
+            ->scopes([
+                'https://www.googleapis.com/auth/drive.file',
+                'https://www.googleapis.com/auth/gmail.send',
+                'https://www.googleapis.com/auth/gmail.readonly',
+            ])
             ->with(['access_type' => 'offline', 'prompt' => 'consent'])
             ->redirect();
     }

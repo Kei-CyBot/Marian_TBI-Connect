@@ -55,6 +55,20 @@ class ProfileAndRolesTest extends TestCase
         $this->assertSame(User::ROLE_ADMIN, $member->refresh()->role);
     }
 
+    public function test_role_changes_immediately_apply_to_team_permissions(): void
+    {
+        $superAdmin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
+        $member = User::factory()->create(['role' => User::ROLE_MEMBER_INCUBATEE]);
+
+        $this->actingAs($member)->get(route('team'))->assertForbidden();
+
+        $this->actingAs($superAdmin)
+            ->put(route('team.roles.update', $member), ['role' => User::ROLE_ADMIN])
+            ->assertRedirect(route('team'));
+
+        $this->actingAs($member->refresh())->get(route('team'))->assertOk();
+    }
+
     public function test_user_can_update_profile_and_password_with_current_password(): void
     {
         $user = User::factory()->create([

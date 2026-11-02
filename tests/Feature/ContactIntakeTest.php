@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Mail\AccountProvisionedMail;
 use App\Mail\ContactRegistrationNotificationMail;
 use App\Mail\ContactRegistrationReceiptMail;
-use App\Mail\UserCredentialInviteMail;
+use App\Mail\IntakeSubmissionReceiptMail;
 use App\Models\Contact;
 use App\Models\ContactRegistrationApplication;
+use App\Models\IntakeSubmission;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -16,6 +18,22 @@ use Tests\TestCase;
 class ContactIntakeTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_startup_intake_receipt_renders_all_submission_fields(): void
+    {
+        $submission = new IntakeSubmission([
+            'type' => 'startup',
+            'name' => 'Avery Founder',
+            'email' => 'avery@example.test',
+        ]);
+        $submission->id = 42;
+
+        $rendered = (new IntakeSubmissionReceiptMail($submission))->render();
+
+        $this->assertStringContainsString('Avery Founder', $rendered);
+        $this->assertStringContainsString('avery@example.test', $rendered);
+        $this->assertStringContainsString($submission->trackingId(), $rendered);
+    }
 
     private function application(array $overrides = []): ContactRegistrationApplication
     {
@@ -111,6 +129,7 @@ class ContactIntakeTest extends TestCase
 
     public function test_verify_converts_application_to_a_contact_record(): void
     {
+        Mail::fake();
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
         $application = $this->application();
 
@@ -128,9 +147,10 @@ class ContactIntakeTest extends TestCase
         $this->assertSame('Approved', $application->status);
         $this->assertSame($admin->id, $application->reviewed_by);
         $this->assertNotNull($application->reviewed_at);
+        Mail::assertQueued(AccountProvisionedMail::class);
     }
 
-    public function test_approve_and_provision_creates_contact_and_dispatches_invite_mail(): void
+    public function test_approve_and_provision_creates_contact_user_and_queues_account_mail(): void
     {
         Mail::fake();
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -146,8 +166,15 @@ class ContactIntakeTest extends TestCase
             ->assertRedirect(route('contact-intake'));
 
         $this->assertSame($contactsBefore + 1, Contact::count());
-        $this->assertSame($usersBefore, User::count());
-        Mail::assertNothingQueued();
+        $this->assertSame($usersBefore + 1, User::count());
+        Mail::assertQueued(AccountProvisionedMail::class, function (AccountProvisionedMail $mail): bool {
+            $user = User::query()->where('email', 'provision@example.com')->sole();
+            $this->assertTrue(Hash::check($mail->temporaryPassword, $user->password));
+
+            return $mail->email === 'provision@example.com'
+                && $mail->loginUrl === route('login')
+                && $mail->hasTo('provision@example.com');
+        });
 
         $this->assertDatabaseHas('contacts', [
             'email' => 'provision@example.com',
@@ -161,7 +188,7 @@ class ContactIntakeTest extends TestCase
         $this->assertNotNull($application->reviewed_at);
     }
 
-    public function test_admin_approval_generates_hashed_eight_digit_password_and_queues_account_provisioned_mail(): void
+    public function test_admin_approval_generates_hashed_temporary_password_and_queues_account_mail(): void
     {
         Mail::fake();
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -171,11 +198,22 @@ class ContactIntakeTest extends TestCase
             ->post(route('contact-intake.provision', $application))
             ->assertRedirect(route('contact-intake'));
 
+        $user = User::query()->where('email', 'provisioned@example.com')->sole();
         $this->assertDatabaseHas('contacts', ['email' => 'provisioned@example.com']);
-        Mail::assertNothingQueued();
+        Mail::assertQueued(AccountProvisionedMail::class, function (AccountProvisionedMail $mail) use ($user): bool {
+            $this->assertSame('provisioned@example.com', $mail->email);
+            $this->assertSame(route('login'), $mail->loginUrl);
+            $this->assertTrue(Hash::check($mail->temporaryPassword, $user->password));
+            $rendered = $mail->render();
+            $this->assertStringContainsString($mail->email, $rendered);
+            $this->assertStringContainsString($mail->temporaryPassword, $rendered);
+            $this->assertStringContainsString($mail->loginUrl, $rendered);
+
+            return $mail->hasTo('provisioned@example.com');
+        });
     }
 
-    public function test_provisioned_user_can_log_in_with_eight_digit_temporary_password_and_access_profile(): void
+    public function test_approval_provisions_member_account_and_sends_login_instructions(): void
     {
         Mail::fake();
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -183,7 +221,9 @@ class ContactIntakeTest extends TestCase
 
         $this->actingAs($admin)->post(route('contact-intake.provision', $application));
 
-        Mail::assertNothingQueued();
+        $user = User::query()->where('email', 'loginable@example.com')->sole();
+        $this->assertSame(User::ROLE_MEMBER_INCUBATEE, $user->role);
         $this->assertDatabaseHas('contacts', ['email' => 'loginable@example.com', 'name' => $application->name]);
+        Mail::assertQueued(AccountProvisionedMail::class);
     }
 }

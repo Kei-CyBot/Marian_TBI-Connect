@@ -96,22 +96,36 @@
             <form method="POST" action="{{ route('team.invite') }}" class="space-y-4 px-5 py-4">
                 @csrf
                 <div>
-                    <label for="invite-email" class="mb-1.5 block text-sm font-semibold text-slate-700">Email</label>
-                    <input id="invite-email" name="email" type="email" required class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm">
+                    <label for="invite-email" class="mb-1.5 block text-sm font-semibold text-slate-700">Contact</label>
+                    <select id="invite-email" name="email" required class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm">
+                        <option value="" disabled @selected(! old('email'))>Select a contact eligible for onboarding</option>
+                        @foreach ($candidates as $candidate)
+                            <option value="{{ $candidate->email }}" @selected(old('email') === $candidate->email)>{{ $candidate->name }} — {{ $candidate->email }}</option>
+                        @endforeach
+                    </select>
+                    @error('email')
+                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
+                    @if ($candidates->isEmpty())
+                        <p class="mt-1 text-xs text-gray-500">No eligible contacts are available. Add a contact with a valid email first.</p>
+                    @endif
                 </div>
                 <div>
                     <label for="invite-role" class="mb-1.5 block text-sm font-semibold text-slate-700">Role</label>
                     <select id="invite-role" name="role" required class="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm">
-                        <option value="admin">Admin</option>
-                        <option value="member_incubatee">Member/Incubatee</option>
+                        <option value="admin" @selected(old('role') === 'admin')>Admin</option>
+                        <option value="member_incubatee" @selected(old('role') === 'member_incubatee')>Member/Incubatee</option>
                         @if (auth()->user()->isSuperAdmin())
-                            <option value="super_admin">Super Admin</option>
+                            <option value="super_admin" @selected(old('role') === 'super_admin')>Super Admin</option>
                         @endif
                     </select>
+                    @error('role')
+                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" @click="open = false" class="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-slate-700">Cancel</button>
-                    <button type="submit" class="rounded-lg bg-[#1a8a8e] px-3 py-2 text-sm font-semibold text-white">Send Invite</button>
+                    <button type="submit" @disabled($candidates->isEmpty()) class="rounded-lg bg-[#1a8a8e] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Send Invite</button>
                 </div>
             </form>
         </div>

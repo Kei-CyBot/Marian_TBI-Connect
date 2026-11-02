@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\FormSubmission;
 use App\Models\GoogleDriveConnection;
+use App\Models\Setting;
 use App\Models\Startup;
 use App\Models\User;
 use Google\Client;
@@ -429,6 +430,16 @@ class GoogleDriveService
             return ['id' => $connection->root_folder_id, 'url' => $connection->root_folder_url];
         }
 
+        if ($configuredFolderId = $this->configuredRootFolderId()) {
+            $folderUrl = 'https://drive.google.com/drive/folders/'.$configuredFolderId;
+            $connection->forceFill([
+                'root_folder_id' => $configuredFolderId,
+                'root_folder_url' => $folderUrl,
+            ])->save();
+
+            return ['id' => $configuredFolderId, 'url' => $folderUrl];
+        }
+
         $result = $this->send(fn ($http) => $http->post(self::API_URL.'/files?fields=id,name,webViewLink', [
             'name' => 'Marian TBI Connect',
             'mimeType' => 'application/vnd.google-apps.folder',
@@ -553,6 +564,16 @@ class GoogleDriveService
             return ['id' => $connection->root_folder_id, 'url' => $connection->root_folder_url];
         }
 
+        if ($configuredFolderId = $this->configuredRootFolderId()) {
+            $folderUrl = 'https://drive.google.com/drive/folders/'.$configuredFolderId;
+            $connection->forceFill([
+                'root_folder_id' => $configuredFolderId,
+                'root_folder_url' => $folderUrl,
+            ])->save();
+
+            return ['id' => $configuredFolderId, 'url' => $folderUrl];
+        }
+
         $result = $this->send(fn ($http) => $http->post(self::API_URL.'/files?fields=id,name,webViewLink', [
             'name' => 'Marian TBI Connect',
             'mimeType' => 'application/vnd.google-apps.folder',
@@ -571,6 +592,14 @@ class GoogleDriveService
         ])->save();
 
         return ['id' => $folderId, 'url' => $folderUrl];
+    }
+
+    private function configuredRootFolderId(): ?string
+    {
+        $folderId = Setting::query()->where('key', 'google.drive_folder_id')->value('value')
+            ?: config('services.google.folder_id');
+
+        return is_string($folderId) && $folderId !== '' ? $folderId : null;
     }
 
     public function accessToken(): string

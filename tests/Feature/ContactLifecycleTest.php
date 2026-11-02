@@ -2,15 +2,17 @@
 
 namespace Tests\Feature;
 
-use App\Mail\ContactRegistrationNotificationMail;
-use App\Mail\ContactRegistrationReceiptMail;
-use App\Mail\UserCredentialInviteMail;
+use App\Mail\AccountProvisionedMail;
+use App\Mail\OneTimeLoginMail;
 use App\Models\Contact;
 use App\Models\ContactRegistrationApplication;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 class ContactLifecycleTest extends TestCase
@@ -88,7 +90,7 @@ class ContactLifecycleTest extends TestCase
         $response->assertOk();
     }
 
-    public function test_approval_creates_user_with_eight_digit_hashed_password_and_queues_provisioning_email(): void
+    public function test_approval_creates_user_with_hashed_password_and_queues_provisioning_email(): void
     {
         Mail::fake();
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
@@ -99,8 +101,14 @@ class ContactLifecycleTest extends TestCase
             ->post(route('contact-intake.provision', $application))
             ->assertRedirect(route('contact-intake'));
 
-        $this->assertSame($usersBefore, User::count());
-        Mail::assertNothingQueued();
+        $this->assertSame($usersBefore + 1, User::count());
+        $user = User::query()->where('email', 'provisioned2@example.com')->sole();
+        Mail::assertQueued(AccountProvisionedMail::class, function (AccountProvisionedMail $mail) use ($user): bool {
+            $this->assertSame('provisioned2@example.com', $mail->email);
+            $this->assertTrue(Hash::check($mail->temporaryPassword, $user->password));
+
+            return $mail->hasTo('provisioned2@example.com');
+        });
     }
 
     public function test_super_admin_can_update_contact_user_email_and_password(): void
@@ -138,7 +146,7 @@ class ContactLifecycleTest extends TestCase
         $this->assertTrue(Hash::check('newpassword123', $user->password));
     }
 
-    public function test_super_admin_can_send_one_time_login_email_with_valid_temporary_password(): void
+    public function test_super_admin_can_send_and_consume_one_time_login_link(): void
     {
         Mail::fake();
         $superAdmin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
@@ -154,24 +162,134 @@ class ContactLifecycleTest extends TestCase
             'incubatees' => [],
             'activity_log' => [],
         ]);
-        User::factory()->create([
+        $user = User::factory()->create([
             'name' => 'Taylor Morgan',
             'email' => 'taylor.morgan@example.com',
             'role' => 'member_incubatee',
+            'password' => 'keep-this-password',
+        ]);
+        DB::table('password_reset_tokens')->insert([
+            'email' => $user->email,
+            'token' => 'existing-password-reset',
+            'created_at' => now(),
         ]);
 
         $this->actingAs($superAdmin)
             ->post(route('contacts.credentials.send', $contact))
             ->assertRedirect(route('contacts'));
 
-        Mail::assertQueued(UserCredentialInviteMail::class, function (UserCredentialInviteMail $mail) {
-            $this->assertSame('taylor.morgan@example.com', $mail->email);
-            $this->assertMatchesRegularExpression('/^\d{8}$/', $mail->tempPassword);
-            $user = User::query()->where('email', 'taylor.morgan@example.com')->sole();
-            $this->assertTrue(Hash::check($mail->tempPassword, $user->password));
+        $this->assertTrue(Hash::check('keep-this-password', $user->fresh()->password));
+        $this->assertDatabaseHas('password_reset_tokens', ['email' => $user->email, 'token' => 'existing-password-reset']);
+        $loginUrl = null;
+        Mail::assertQueued(OneTimeLoginMail::class, function (OneTimeLoginMail $mail) use (&$loginUrl): bool {
+            $loginUrl = $mail->loginUrl;
+            $this->assertStringContainsString(htmlspecialchars($mail->loginUrl, ENT_QUOTES), $mail->render());
 
             return $mail->hasTo('taylor.morgan@example.com');
         });
+
+        $this->get($loginUrl)
+            ->assertRedirect(route('profile.edit'))
+            ->assertSessionHas('status', 'Welcome to Marian TBI Connect! Please set your personal account password to complete your setup.')
+            ->assertSessionHas('force_password_change', true);
+        $this->assertAuthenticatedAs($user);
+
+        $this->get(route('dashboard'))->assertRedirect(route('profile.edit'));
+
+        $this->put(route('profile.update'), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'new_password' => 'new-password-123',
+            'new_password_confirmation' => 'new-password-123',
+        ])->assertRedirect(route('profile.edit'))
+            ->assertSessionMissing('force_password_change');
+
+        $this->assertTrue(Hash::check('new-password-123', $user->fresh()->password));
+        $this->get(route('dashboard'))->assertOk();
+
+        Auth::logout();
+        $this->get($loginUrl)
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('error', 'Login token is invalid or already used.');
+        $this->assertDatabaseMissing('one_time_login_tokens', ['email' => $user->email]);
+    }
+
+    public function test_send_one_time_link_requires_a_contact_email(): void
+    {
+        Mail::fake();
+        $superAdmin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
+        $contact = Contact::create([
+            'side' => 'external',
+            'name' => 'No Email',
+            'email' => null,
+            'affiliation_type' => 'Company / Corporation',
+            'role' => 'Industry Mentor',
+            'verification_status' => 'Verified Contact',
+            'domains' => [],
+            'technical_skills' => [],
+            'incubatees' => [],
+            'activity_log' => [],
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->from(route('contacts'))
+            ->post(route('contacts.credentials.send', $contact))
+            ->assertRedirect(route('contacts'))
+            ->assertSessionHas('error', 'Contact does not have a valid email address.');
+
+        Mail::assertNothingQueued();
+    }
+
+    public function test_magic_login_rejects_invalid_signatures_and_tokens_with_login_flashes(): void
+    {
+        $email = 'magic@example.test';
+        $token = 'one-time-token';
+        DB::table('one_time_login_tokens')->insert([
+            'email' => $email,
+            'token' => Hash::make($token),
+            'created_at' => now(),
+        ]);
+
+        $this->get(route('auth.magic-login', ['token' => 'tampered', 'email' => $email]))
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('error', 'This login link has expired or is invalid.');
+
+        $expiredUrl = URL::temporarySignedRoute(
+            'auth.magic-login',
+            now()->subMinute(),
+            ['token' => $token, 'email' => $email],
+        );
+        $this->get($expiredUrl)
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('error', 'This login link has expired or is invalid.');
+
+        $missingEmailUrl = URL::temporarySignedRoute(
+            'auth.magic-login',
+            now()->addMinutes(15),
+            ['token' => $token],
+        );
+        $this->get($missingEmailUrl)
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('error', 'This login link has expired or is invalid.');
+
+        $invalidTokenUrl = URL::temporarySignedRoute(
+            'auth.magic-login',
+            now()->addMinutes(15),
+            ['token' => 'wrong-token', 'email' => $email],
+        );
+        $this->get($invalidTokenUrl)
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('error', 'Login token is invalid or already used.');
+
+        $unknownUserUrl = URL::temporarySignedRoute(
+            'auth.magic-login',
+            now()->addMinutes(15),
+            ['token' => $token, 'email' => $email],
+        );
+        $this->get($unknownUserUrl)
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('error', 'User account not found.');
+        $this->assertDatabaseHas('one_time_login_tokens', ['email' => $email]);
     }
 
     public function test_regular_members_and_standard_admins_denied_access_to_credential_editing_routes(): void

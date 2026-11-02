@@ -89,7 +89,7 @@
                 </div>
 
                 <div class="mt-6">
-                    <a href="{{ route('google.redirect') }}"
+                    <a href="{{ route('auth.google') }}"
                        class="w-full flex items-center justify-center gap-3 px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
                         <svg class="w-5 h-5" viewBox="0 0 24 24">
                             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -106,7 +106,7 @@
         <div class="mt-6 text-center text-sm text-slate-500">
             <p>New to the ecosystem? Explore our public forms:</p>
             <div class="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 font-medium">
-                <a href="{{ route('startup-form') }}" class="text-[#b92369] hover:text-[#9a1b55]">Startup intake</a>
+                <a href="{{ route('public.startup-form') }}" class="text-[#b92369] hover:text-[#9a1b55]">Startup intake</a>
                 <a href="{{ route('alumni-form') }}" class="text-[#1a8a8e] hover:text-[#146e72]">Alumni form</a>
                 <a href="{{ route('contact-registration') }}" class="text-slate-600 hover:text-slate-900">Contact registration</a>
             </div>

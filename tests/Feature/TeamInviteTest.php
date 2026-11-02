@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\TeamInviteMail;
+use App\Models\Contact;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,10 +27,26 @@ class TeamInviteTest extends TestCase
         ], $attributes));
     }
 
+    private function contact(string $name, string $email): Contact
+    {
+        return Contact::create([
+            'side' => 'external',
+            'name' => $name,
+            'email' => $email,
+            'affiliation_type' => 'Company / Corporation',
+            'role' => 'Industry Mentor',
+            'domains' => [],
+            'technical_skills' => [],
+            'incubatees' => [],
+            'activity_log' => [],
+        ]);
+    }
+
     public function test_admin_can_invite_a_team_member(): void
     {
         Mail::fake();
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $this->contact('New Member', 'new.member@example.com');
 
         $this->actingAs($admin)
             ->post(route('team.invite'), [
@@ -45,19 +62,98 @@ class TeamInviteTest extends TestCase
         $this->assertSame($admin->id, $invite->invited_by);
         $this->assertTrue($invite->expires_at->between(now()->addDays(6), now()->addDays(8)));
 
-        Mail::assertQueued(TeamInviteMail::class, fn (TeamInviteMail $mail): bool => $mail->hasTo('new.member@example.com'));
+        Mail::assertQueued(TeamInviteMail::class, function (TeamInviteMail $mail): bool {
+            $rendered = $mail->render();
+
+            $this->assertStringContainsString(route('invites.accept', $mail->invitation->token), $rendered);
+            $this->assertStringContainsString($mail->invitation->expires_at->format('F j, Y'), $rendered);
+
+            return $mail->hasTo('new.member@example.com');
+        });
     }
 
-    public function test_team_page_lists_pending_invitations(): void
+    public function test_team_page_lists_pending_invitations_and_available_contacts(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
         $this->invitation(['email' => 'pending@example.com']);
+        $this->contact('Eligible Mentor', 'eligible@example.com');
 
         $this->actingAs($admin)
             ->get(route('team'))
             ->assertOk()
             ->assertSee('pending@example.com')
-            ->assertSee('Revoke');
+            ->assertSee('Revoke')
+            ->assertSee('Eligible Mentor')
+            ->assertSee('eligible@example.com');
+    }
+
+    public function test_invite_rejects_emails_without_an_existing_contact(): void
+    {
+        Mail::fake();
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+
+        $this->actingAs($admin)
+            ->from(route('team'))
+            ->post(route('team.invite'), [
+                'email' => 'not-a-contact@example.com',
+                'role' => User::ROLE_ADMIN,
+            ])
+            ->assertSessionHasErrors('email');
+
+        $this->assertDatabaseCount('team_invitations', 0);
+    }
+
+    public function test_admin_cannot_assign_the_super_admin_role(): void
+    {
+        Mail::fake();
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $this->contact('Promoted Contact', 'promote@example.com');
+
+        $this->actingAs($admin)
+            ->from(route('team'))
+            ->post(route('team.invite'), [
+                'email' => 'promote@example.com',
+                'role' => User::ROLE_SUPER_ADMIN,
+            ])
+            ->assertSessionHasErrors('role');
+
+        $this->assertDatabaseCount('team_invitations', 0);
+    }
+
+    public function test_super_admin_can_assign_the_super_admin_role(): void
+    {
+        Mail::fake();
+        $superAdmin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
+        $this->contact('Promoted Contact', 'promote@example.com');
+
+        $this->actingAs($superAdmin)
+            ->post(route('team.invite'), [
+                'email' => 'promote@example.com',
+                'role' => User::ROLE_SUPER_ADMIN,
+            ])
+            ->assertRedirect(route('team'));
+
+        $this->assertSame(User::ROLE_SUPER_ADMIN, TeamInvitation::query()->sole()->role);
+    }
+
+    public function test_invite_candidates_exclude_existing_members_and_pending_invitations(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'email' => 'admin@example.com']);
+        User::factory()->create(['email' => 'member@example.com']);
+        $this->contact('Existing Member', 'member@example.com');
+        $this->contact('Pending Invite', 'pending@example.com');
+        $this->invitation(['email' => 'pending@example.com']);
+        $this->contact('Eligible Mentor', 'eligible@example.com');
+
+        $emails = $this->actingAs($admin)
+            ->get(route('team'))
+            ->assertOk()
+            ->viewData('candidates')
+            ->pluck('email');
+
+        $this->assertTrue($emails->contains('eligible@example.com'));
+        $this->assertFalse($emails->contains('member@example.com'));
+        $this->assertFalse($emails->contains('pending@example.com'));
     }
 
     public function test_invited_user_can_accept_and_create_an_account(): void

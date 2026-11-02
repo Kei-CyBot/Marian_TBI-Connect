@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\SyncFormSubmissionToDriveJob;
 use App\Models\FormSubmission;
 use App\Models\GoogleDriveConnection;
 use App\Models\Startup;
@@ -12,11 +13,24 @@ use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Mockery;
 use Tests\TestCase;
 
 class GoogleDriveSyncTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function createSubmission(): FormSubmission
+    {
+        return FormSubmission::query()->create([
+            'user_id' => User::factory()->create()->id,
+            'form_id' => 1,
+            'form_name' => 'Startup profile',
+            'startup_name' => 'Test Incubatee',
+            'track' => 'internal',
+            'data' => ['business_name' => 'Test Incubatee'],
+        ]);
+    }
 
     public function test_sync_creates_private_folder_tree_and_uploads_form_response(): void
     {
@@ -121,6 +135,41 @@ class GoogleDriveSyncTest extends TestCase
 
         config(['services.google.refresh_token' => null, 'services.google.client_id' => 'client-id']);
         $this->assertTrue($drive->isConnected());
+    }
+
+    public function test_sync_job_logs_and_rethrows_when_google_drive_is_not_connected(): void
+    {
+        $submission = $this->createSubmission();
+        $drive = Mockery::mock(GoogleDriveService::class);
+        $drive->shouldReceive('isConnected')->once()->andReturn(false);
+        $drive->shouldNotReceive('syncSubmission');
+        Log::shouldReceive('warning')
+            ->once()
+            ->with('Google Drive Sync failed: Google Drive is not configured or connected.');
+
+        $job = new SyncFormSubmissionToDriveJob($submission);
+        $this->assertSame(3, $job->tries);
+        $this->assertSame(60, $job->backoff);
+
+        $this->expectException(\RuntimeException::class);
+        $job->handle($drive);
+    }
+
+    public function test_sync_job_logs_and_rethrows_google_drive_failures(): void
+    {
+        $submission = $this->createSubmission();
+        $drive = Mockery::mock(GoogleDriveService::class);
+        $drive->shouldReceive('isConnected')->once()->andReturn(true);
+        $drive->shouldReceive('syncSubmission')
+            ->once()
+            ->with(Mockery::on(fn (FormSubmission $value): bool => $value->is($submission)))
+            ->andThrow(new \RuntimeException('Google Drive API unavailable.'));
+        Log::shouldReceive('warning')
+            ->once()
+            ->with('Google Drive Sync failed: Google Drive API unavailable.');
+
+        $this->expectException(\RuntimeException::class);
+        (new SyncFormSubmissionToDriveJob($submission))->handle($drive);
     }
 
     public function test_access_token_prefers_the_authenticated_user_token(): void

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\IntakeSubmissionReceived;
+use App\Mail\IntakeSubmissionReceiptMail;
 use App\Models\IntakeSubmission;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,6 +28,12 @@ class PublicIntakeController extends Controller
             'website' => ['nullable', 'string', 'max:255'],
             'employees' => ['nullable', 'integer', 'min:0', 'max:1000000'],
         ]);
+        if ($oauthEmail = $request->session()->get('oauth_register.email')) {
+            $validated['email'] = validator(
+                ['email' => $oauthEmail],
+                ['email' => ['required', 'email', 'max:255']]
+            )->validate()['email'];
+        }
 
         $submission = IntakeSubmission::query()->create([
             'type' => 'startup',
@@ -37,9 +43,10 @@ class PublicIntakeController extends Controller
             'data' => $validated,
         ]);
 
-        Mail::to($submission->email)->queue(new IntakeSubmissionReceived($submission));
+        Mail::to($submission->email)->queue(new IntakeSubmissionReceiptMail($submission));
+        $request->session()->forget('oauth_register');
 
-        return to_route('startup-form')->with('intake_status', 'Your startup application was submitted for review.');
+        return to_route('public.startup-form')->with('intake_status', 'Your startup application was submitted for review.');
     }
 
     public function storeAlumni(Request $request): RedirectResponse
@@ -67,7 +74,7 @@ class PublicIntakeController extends Controller
             'data' => [...$validated, 'mentor' => $request->boolean('mentor')],
         ]);
 
-        Mail::to($submission->email)->queue(new IntakeSubmissionReceived($submission));
+        Mail::to($submission->email)->queue(new IntakeSubmissionReceiptMail($submission));
 
         return to_route('alumni-form')->with('intake_status', 'Your alumni update was submitted. Thank you!');
     }
