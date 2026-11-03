@@ -196,11 +196,6 @@ class ContactRegistrationController extends Controller
         return view('contact-intake', compact('applications'));
     }
 
-    public function verify(Request $request, ContactRegistrationApplication $application): RedirectResponse
-    {
-        return $this->approveAndProvision($request, $application);
-    }
-
     public function approveAndProvision(Request $request, ContactRegistrationApplication $application): RedirectResponse
     {
         $temporaryPassword = null;

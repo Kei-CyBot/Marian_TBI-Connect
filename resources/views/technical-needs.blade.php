@@ -6,6 +6,7 @@
 @section('banner-actions')
     @if (auth()->user()->canManageRecords() && $selectedStartup)
         <button type="button" @click="$dispatch('open-technical-need')" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#146e72] shadow-sm hover:bg-[#eaf6f6]">+ Add Technical Need</button>
+        <button type="button" @click="$dispatch('open-technical-approval-form')" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#146e72] shadow-sm hover:bg-[#eaf6f6]">📄 Technical Need Approval Form</button>
     @endif
 @endsection
 
@@ -28,7 +29,9 @@
      )"
      @open-technical-need.window="openCreate()"
      @edit-technical-need.window="openEdit($event.detail)"
-     @keydown.escape.window="modal=false">
+     @review-technical-need.window="openReview($event.detail)"
+     @open-technical-approval-form.window="openApprovalForm()"
+     @keydown.escape.window="modal=false; reviewModal=false; approvalFormModal=false">
 
     @if (!$selectedStartup)
     <section class="mb-6" aria-labelledby="technical-need-folders-heading">
@@ -71,7 +74,7 @@
         <label class="block">
             <span class="mb-1 block text-xs font-semibold text-gray-600">Status</span>
             <select x-model="statusFilter" class="rounded-xl border border-slate-line bg-white px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
-                <option value="">All statuses</option><option>Ongoing</option><option>Done</option>
+                <option value="">All statuses</option><option>pending</option><option>approved</option><option>rejected</option>
             </select>
         </label>
         <label class="block">
@@ -92,14 +95,14 @@
                             <div class="flex flex-wrap items-center gap-2">
                                 <h2 class="text-base font-semibold text-slate-900" x-text="item.requirement"></h2>
                                 <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1" :class="priorityClass(item.priority)" x-text="item.priority+' priority'"></span>
-                                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-700" x-text="item.status"></span>
+                                <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1" :class="statusClass(item.status)" x-text="statusLabel(item.status)"></span>
                             </div>
                             <p x-show="item.description" class="mt-1 line-clamp-2 text-sm text-slate-600" x-text="item.description"></p>
                         </div>
                         <div class="flex shrink-0 flex-wrap items-center gap-2">
-                            <a x-show="item.approvalUrl" :href="item.approvalUrl" class="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-900 hover:bg-teal-100">Signed approval PDF</a>
-                            <span x-show="!item.approvalUrl" class="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">Approval missing</span>
+                            <a x-show="item.approvalUrl" :href="item.approvalUrl" target="_blank" rel="noopener" class="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-900 hover:bg-teal-100">👁️ View Approval</a>
                             @if (auth()->user()->canManageRecords() && $selectedStartup)
+                                <button type="button" x-show="item.status==='pending'" @click="$dispatch('review-technical-need',item)" class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100">Attach &amp; Review</button>
                                 <button type="button" @click="$dispatch('edit-technical-need',item)" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Edit</button>
                                 <form method="POST" :action="'{{ url('/technical-needs') }}/'+item.id" @submit="if(!confirm('Remove this technical need?')) $event.preventDefault()">
                                     @csrf @method('DELETE')
@@ -140,7 +143,7 @@
     @if (auth()->user()->canManageRecords() && $selectedStartup)
     <div x-show="modal" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="modal=false">
         <section role="dialog" aria-modal="true" aria-labelledby="technical-need-modal-title" class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <form method="POST" enctype="multipart/form-data" :action="editing ? '{{ url('/technical-needs') }}/'+draft.id : '{{ route('technical-needs.store') }}'">
+            <form method="POST" :action="editing ? '{{ url('/technical-needs') }}/'+draft.id : '{{ route('technical-needs.store') }}'">
                 @csrf
                 <input type="hidden" name="_method" value="PUT" :disabled="!editing">
                 <header class="flex items-start justify-between gap-4 bg-[#146e72] px-6 py-5 text-white">
@@ -153,8 +156,8 @@
                         <p class="text-xs font-semibold uppercase tracking-wide text-teal-800">Incubatee folder</p>
                         <p class="mt-1 text-sm font-semibold text-slate-900" x-text="selectedStartupName"></p>
                     </div>
-                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Technical requirement <span class="text-red-600">*</span></span><input name="requirement" x-model="draft.requirement" required maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Description</span><textarea name="description" x-model="draft.description" rows="2" maxlength="5000" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></textarea></label>
+                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Title <span class="text-red-600">*</span></span><input name="requirement" x-model="draft.requirement" required maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Specifications</span><textarea name="description" x-model="draft.description" rows="2" maxlength="5000" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></textarea></label>
                     <label><span class="mb-1 block text-xs font-semibold text-gray-700">Price / subscription (PHP)</span><div class="flex rounded-xl border border-slate-line focus-within:border-[#1a8a8e]"><span class="px-3 py-2 text-sm font-semibold text-gray-700">₱</span><input name="subscription_price" type="number" min="0" step="0.01" x-model="draft.price" class="min-w-0 flex-1 rounded-r-xl border-0 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></div></label>
                     <label><span class="mb-1 block text-xs font-semibold text-gray-700">Number of months needed</span><input name="months_needed" type="number" min="1" max="65535" x-model="draft.months" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
                     <label><span class="mb-1 block text-xs font-semibold text-gray-700">Responsible team member</span><input name="responsible_team_member" x-model="draft.responsible" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
@@ -162,27 +165,73 @@
                     <label><span class="mb-1 block text-xs font-semibold text-gray-700">Date needed</span><input name="date_needed" type="date" x-model="draft.dateNeeded" :min="draft.dateEntry" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
                     <label><span class="mb-1 block text-xs font-semibold text-gray-700">Resource / tool needed</span><input name="resource_tool" x-model="draft.resource" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
                     <label><span class="mb-1 block text-xs font-semibold text-gray-700">Prospect resource person</span><input name="prospect_resource_person" x-model="draft.prospect" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Status</span><select name="status" x-model="draft.status" required class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"><option>Ongoing</option><option>Done</option></select></label>
                     <label><span class="mb-1 block text-xs font-semibold text-gray-700">Priority</span><select name="priority" x-model="draft.priority" required class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"><option>Low</option><option>Moderate</option><option>High</option></select></label>
                     <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Remarks</span><textarea name="remarks" x-model="draft.remarks" rows="2" maxlength="5000" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></textarea></label>
-                    <div class="sm:col-span-2 rounded-2xl border border-teal-200 bg-teal-50/60 p-4">
-                        <div class="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                                <h3 class="text-sm font-semibold text-teal-950" x-text="editing ? 'Signed approval on file' : 'Signed approval is required'"></h3>
-                                <p class="mt-1 max-w-xl text-xs leading-5 text-teal-900">Print the completed request, obtain the required signatures, scan it, and upload the signed form as a PDF.<span x-show="!editing"> The request cannot be saved without it.</span></p>
-                            </div>
-                            <button type="button" @click="printApprovalForm()" class="shrink-0 rounded-xl border border-teal-300 bg-white px-3.5 py-2 text-sm font-semibold text-teal-900 shadow-sm hover:bg-teal-50">Print approval form</button>
-                        </div>
-                        <label class="mt-4 block">
-                            <span class="mb-1.5 block text-xs font-semibold text-slate-800">Upload signed approval (PDF, max 10 MB) <span x-show="!editing" class="text-red-600">*</span></span>
-                            <input name="signed_approval" type="file" accept="application/pdf,.pdf" :required="!editing" class="block w-full rounded-xl border border-teal-200 bg-white px-3 py-2 text-sm text-slate-800 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-teal-900">
-                        </label>
-                        <p x-show="editing" class="mt-2 text-xs text-teal-900">Uploading this signed form replaces the approval document currently on file.</p>
-                    </div>
                 </div>
                 <footer class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
                     <button type="button" @click="modal=false" class="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100">Cancel</button>
-                    <button type="submit" class="rounded-xl bg-[#146e72] px-5 py-2 text-sm font-semibold text-white hover:bg-[#10595c]" x-text="editing ? 'Save with new approval' : 'Save approved need'"></button>
+                    <button type="submit" class="rounded-xl bg-[#146e72] px-5 py-2 text-sm font-semibold text-white hover:bg-[#10595c]" x-text="editing ? 'Save changes' : 'Submit for review'"></button>
+                </footer>
+            </form>
+        </section>
+    </div>
+
+    <div x-show="reviewModal" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="reviewModal=false">
+        <section role="dialog" aria-modal="true" aria-labelledby="technical-need-review-title" class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <form method="POST" enctype="multipart/form-data" :action="'{{ url('/technical-needs') }}/'+reviewItem.id+'/review'">
+                @csrf
+                <input type="hidden" name="action" x-model="reviewAction">
+                <header class="flex items-start justify-between gap-4 bg-[#146e72] px-6 py-5 text-white">
+                    <div><p class="text-xs font-semibold uppercase tracking-wider text-white/80">Technical need review</p><h2 id="technical-need-review-title" class="mt-1 text-lg font-bold">Attach &amp; Review</h2></div>
+                    <button type="button" @click="reviewModal=false" aria-label="Close review" class="rounded-lg p-1.5 text-white/90 hover:bg-white/15">✕</button>
+                </header>
+                <div class="space-y-4 p-6">
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <p class="text-sm font-semibold text-slate-900" x-text="reviewItem.requirement"></p>
+                            <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1" :class="priorityClass(reviewItem.priority)" x-text="reviewItem.priority+' priority'"></span>
+                        </div>
+                        <p class="mt-1 text-xs text-slate-600"><span x-text="reviewItem.startupName"></span> · Requested by <span x-text="reviewItem.requestor || 'Unknown'"></span></p>
+                        <p x-show="reviewItem.description" class="mt-2 whitespace-pre-wrap text-sm text-slate-700" x-text="reviewItem.description"></p>
+                        <span class="mt-3 inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1" :class="statusClass(reviewItem.status)" x-text="statusLabel(reviewItem.status)"></span>
+                    </div>
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-semibold text-gray-700">Attach Institutional Approval Document (PDF, Word, Excel, max 10 MB)</span>
+                        <input name="approval_document" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" class="block w-full rounded-xl border border-slate-line px-3 py-2 text-sm text-slate-800 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-teal-900">
+                    </label>
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-semibold text-gray-700">Review notes</span>
+                        <textarea name="review_notes" rows="3" maxlength="5000" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></textarea>
+                    </label>
+                </div>
+                <footer class="flex flex-wrap justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
+                    <button type="button" @click="reviewModal=false" class="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100">Cancel</button>
+                    <button type="submit" @click="reviewAction='rejected'" class="rounded-xl bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700">Reject</button>
+                    <button type="submit" @click="reviewAction='approved'" class="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Approve</button>
+                </footer>
+            </form>
+        </section>
+    </div>
+
+    <div x-show="approvalFormModal" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="approvalFormModal=false">
+        <section role="dialog" aria-modal="true" aria-labelledby="approval-form-title" class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <form @submit.prevent="printApprovalForm()">
+                <header class="flex items-start justify-between gap-4 bg-[#146e72] px-6 py-5 text-white">
+                    <div><p class="text-xs font-semibold uppercase tracking-wider text-white/80">Marian TBI institutional template</p><h2 id="approval-form-title" class="mt-1 text-lg font-bold">Technical Need Approval Form</h2></div>
+                    <button type="button" @click="approvalFormModal=false" aria-label="Close approval form" class="rounded-lg p-1.5 text-white/90 hover:bg-white/15">✕</button>
+                </header>
+                <div class="grid gap-4 p-6 sm:grid-cols-2">
+                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Incubatee</span><input x-model="approvalDraft.incubatee" readonly class="w-full rounded-xl border border-slate-line bg-slate-50 px-3 py-2 text-sm"></label>
+                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Technical need / subscription</span><input x-model="approvalDraft.requirement" required maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"></label>
+                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Specifications / purpose</span><textarea x-model="approvalDraft.description" rows="3" maxlength="5000" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"></textarea></label>
+                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Estimated cost (PHP)</span><input x-model="approvalDraft.price" type="number" min="0" step="0.01" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"></label>
+                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Date needed</span><input x-model="approvalDraft.dateNeeded" type="date" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"></label>
+                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Priority</span><select x-model="approvalDraft.priority" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"><option>Low</option><option>Moderate</option><option>High</option></select></label>
+                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Remarks</span><textarea x-model="approvalDraft.remarks" rows="2" maxlength="5000" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"></textarea></label>
+                </div>
+                <footer class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
+                    <button type="button" @click="approvalFormModal=false" class="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100">Cancel</button>
+                    <button type="submit" class="rounded-xl bg-[#146e72] px-5 py-2 text-sm font-semibold text-white hover:bg-[#10595c]">Preview &amp; Print</button>
                 </footer>
             </form>
         </section>

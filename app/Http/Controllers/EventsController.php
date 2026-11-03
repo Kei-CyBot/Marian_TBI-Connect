@@ -2,14 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\EventCancelledMail;
 use App\Models\Contact;
 use App\Models\Event;
 use App\Models\Startup;
+use App\Services\ActivityLogger;
+use App\Support\GoogleDriveService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use RuntimeException;
+use Throwable;
 
 class EventsController extends Controller
 {
@@ -22,6 +30,7 @@ class EventsController extends Controller
             ->get(['id', 'name', 'email', 'side']);
 
         $events = Event::query()
+            ->active()
             ->orderBy('starts_at')
             ->get()
             ->map(static fn (Event $event): array => [
@@ -36,6 +45,7 @@ class EventsController extends Controller
                 'loc' => $event->location,
                 'virtual' => $event->virtual,
                 'host' => $event->host,
+                'status' => $event->status,
                 'rsvp' => [0, 0, 0],
             ])
             ->all();
@@ -87,6 +97,139 @@ class EventsController extends Controller
         $event->update($this->attributes($request));
 
         return to_route('events.show', $event)->with('event_status', 'Event updated.');
+    }
+
+    public function markCompleted(Request $request, Event $event): RedirectResponse
+    {
+        abort_if($event->status !== 'scheduled', 422, 'Only scheduled events can be completed.');
+
+        $validated = $request->validate([
+            'actual_attendees_count' => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'post_event_notes' => ['nullable', 'string', 'max:5000'],
+            'post_event_document' => ['nullable', 'file', 'mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg', 'max:10240'],
+        ]);
+
+        $document = $request->file('post_event_document');
+        $path = $document?->store('events/'.$event->id.'/documents', 'local');
+        if ($path === false) {
+            throw new RuntimeException('The post-event document could not be stored.');
+        }
+
+        try {
+            $event->update([
+                'status' => 'completed',
+                'completed_at' => now(),
+                'archived_at' => now(),
+                'actual_attendees_count' => $validated['actual_attendees_count'] ?? null,
+                'post_event_notes' => $validated['post_event_notes'] ?? null,
+                'post_event_document_path' => $path ?? $event->post_event_document_path,
+                'post_event_document_original_name' => $document?->getClientOriginalName()
+                    ?? $event->post_event_document_original_name,
+            ]);
+        } catch (Throwable $exception) {
+            if ($path !== null) {
+                Storage::disk('local')->delete($path);
+            }
+
+            throw $exception;
+        }
+
+        $driveWarning = null;
+        if ($document !== null && app(GoogleDriveService::class)->isConnected($request->user())) {
+            try {
+                app(GoogleDriveService::class)->uploadEventDocument($event, $request->user());
+            } catch (Throwable $exception) {
+                app(GoogleDriveService::class)->logSyncFailure($exception, ['event_id' => $event->getKey()]);
+                $driveWarning = 'File saved locally. Cloud backup will retry shortly.';
+            }
+        }
+
+        ActivityLogger::log(
+            'event_completed',
+            "Event '{$event->title}' completed and moved to Archives.",
+            $event,
+            [
+                'status' => 'completed',
+                'actual_attendees_count' => $event->actual_attendees_count,
+            ]
+        );
+
+        $redirect = to_route('events.show', $event)->with('event_status', 'Event marked as completed.');
+
+        return $driveWarning === null
+            ? $redirect
+            : $redirect->with('drive_sync_warning', $driveWarning);
+    }
+
+    public function cancel(Request $request, Event $event): RedirectResponse
+    {
+        abort_if($event->status !== 'scheduled', 422, 'Only scheduled events can be cancelled.');
+
+        $validated = $request->validate([
+            'cancellation_reason' => ['required', 'string', 'max:1000'],
+            'send_cancellation_email' => ['nullable', 'boolean'],
+        ]);
+
+        $event->update([
+            'status' => 'cancelled',
+            'cancelled_at' => now(),
+            'archived_at' => now(),
+            'cancellation_reason' => $validated['cancellation_reason'],
+        ]);
+
+        if ($request->boolean('send_cancellation_email')) {
+            foreach ($event->invitations()->whereIn('status', ['pending', 'attending'])->get() as $invitation) {
+                try {
+                    Mail::to($invitation->email)->send(new EventCancelledMail($event, $invitation));
+                } catch (Throwable $exception) {
+                    Log::error("Failed to send event cancellation email to {$invitation->email}: ".$exception->getMessage());
+                }
+            }
+        }
+
+        ActivityLogger::log(
+            'event_cancelled',
+            "Event '{$event->title}' was cancelled and archived. Reason: {$validated['cancellation_reason']}",
+            $event,
+            ['status' => 'cancelled', 'cancellation_reason' => $event->cancellation_reason]
+        );
+
+        return to_route('events.show', $event)->with('event_status', 'Event cancelled.');
+    }
+
+    public function archive(Event $event): RedirectResponse
+    {
+        $event->update(['archived_at' => now()]);
+
+        ActivityLogger::log('event_archived', "Event '{$event->title}' was archived.", $event);
+
+        return to_route('archives.index', ['tab' => 'events'])->with('archive_status', 'Event archived.');
+    }
+
+    public function restore(Event $event): RedirectResponse
+    {
+        $event->update([
+            'archived_at' => null,
+            'status' => 'scheduled',
+        ]);
+
+        ActivityLogger::log('event_restored', "Event '{$event->title}' was restored from Archives.", $event);
+
+        return to_route('archives.index', ['tab' => 'events'])->with('archive_status', 'Event restored.');
+    }
+
+    public function downloadPostEventDocument(Event $event)
+    {
+        $path = $event->post_event_document_path;
+        abort_unless($path, 404);
+
+        $disk = Storage::disk('local');
+        abort_unless($disk->exists($path), 404);
+
+        return response()->download(
+            $disk->path($path),
+            $event->post_event_document_original_name ?: basename($path)
+        );
     }
 
     private function hosts(): array

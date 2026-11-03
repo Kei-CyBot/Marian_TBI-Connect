@@ -104,6 +104,10 @@ class GoogleDriveController extends Controller
             return to_route('files')->with('drive_sync_warning', 'Google Drive sync failed. Local form records were kept; completed uploads can be retried. Check the application log and Google Drive connection.');
         }
 
+        if (($result['configured'] ?? true) === false) {
+            return to_route('files')->with('drive_sync_warning', GoogleDriveService::NOT_CONFIGURED_MESSAGE);
+        }
+
         return to_route('files')->with(
             'status',
             'Google Drive sync completed: '.$result['folders'].' incubatee folders and '.$result['forms'].' form records processed.'

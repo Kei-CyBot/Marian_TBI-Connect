@@ -3,17 +3,51 @@
 namespace App\Http\Controllers;
 
 use App\Models\Contact;
+use App\Models\Event;
 use App\Models\Startup;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ArchiveController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
         $startups = Startup::onlyTrashed()->with('archiver')->orderByDesc('deleted_at')->get();
         $contacts = Contact::onlyTrashed()->with('archiver')->orderByDesc('deleted_at')->get();
+
+        $events = Event::query()
+            ->archived()
+            ->withCount('invitations')
+            ->orderByDesc('starts_at')
+            ->get()
+            ->map(static fn (Event $event): array => [
+                'id' => $event->id,
+                'title' => $event->title,
+                'status' => $event->status,
+                'statusLabel' => ucfirst($event->status),
+                'date' => $event->starts_at?->format('M j, Y'),
+                'turnout' => $event->actual_attendees_count !== null && $event->invitations_count > 0
+                    ? (int) round($event->actual_attendees_count / $event->invitations_count * 100)
+                    : null,
+                'reason' => $event->cancellation_reason ?: '—',
+                'notes' => $event->post_event_notes ? Str::limit($event->post_event_notes, 120) : '—',
+                'archivedAt' => ($event->archived_at ?? $event->completed_at ?? $event->cancelled_at)?->format('M j, Y'),
+                'summaryUrl' => route('events.show', $event),
+                'documentUrl' => $event->post_event_document_path
+                    ? route('events.post-event-document', $event)
+                    : null,
+                'restoreUrl' => route('events.restore', $event),
+            ]);
+
+        $initialTab = match ($request->query('tab')) {
+            'events' => 'Events',
+            'incubatees' => 'Incubatees',
+            'contacts' => 'Contacts',
+            default => 'All',
+        };
 
         $items = $startups->map(fn (Startup $startup): array => [
             'id' => $startup->id,
@@ -39,7 +73,7 @@ class ArchiveController extends Controller
             'deleteUrl' => route('archives.contacts.destroy', $contact),
         ]))->sortByDesc('timestamp')->values();
 
-        return view('archives', compact('items'));
+        return view('archives', compact('items', 'events', 'initialTab'));
     }
 
     public function restoreStartup(string $startup): RedirectResponse

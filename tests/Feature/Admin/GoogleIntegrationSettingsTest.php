@@ -19,6 +19,7 @@ class GoogleIntegrationSettingsTest extends TestCase
         $this->get(route('admin.settings.google.index'))->assertRedirect(route('login'));
         $this->post(route('admin.settings.google.update-folder'), ['folder_id' => 'guest-folder'])
             ->assertRedirect(route('login'));
+        $this->post(route('admin.settings.google.create-folder'))->assertRedirect(route('login'));
     }
 
     public function test_standard_members_are_forbidden(): void
@@ -29,6 +30,7 @@ class GoogleIntegrationSettingsTest extends TestCase
         $this->actingAs($member)->post(route('admin.settings.google.update-folder'), ['folder_id' => 'member-folder'])
             ->assertForbidden();
         $this->actingAs($member)->post(route('admin.settings.google.disconnect'))->assertForbidden();
+        $this->actingAs($member)->post(route('admin.settings.google.create-folder'))->assertForbidden();
     }
 
     public function test_admins_and_super_admins_can_view_the_settings_page(): void
@@ -67,6 +69,31 @@ class GoogleIntegrationSettingsTest extends TestCase
             ->assertOk()
             ->assertSee('Action Required')
             ->assertSee('configured-folder');
+    }
+
+    public function test_super_admin_can_auto_create_the_storage_folder(): void
+    {
+        $connection = $this->createConnection();
+        config(['services.google.folder_id' => null]);
+        Http::fake([
+            'https://www.googleapis.com/drive/v3/files?fields=id,name,webViewLink*' => Http::response([
+                'id' => 'auto-folder',
+                'name' => 'Marian TBI Storage',
+            ]),
+        ]);
+
+        $this->actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]))
+            ->from(route('admin.settings.google.index'))
+            ->post(route('admin.settings.google.create-folder'))
+            ->assertRedirect(route('admin.settings.google.index'))
+            ->assertSessionHas('success', 'Google Drive storage folder ready: auto-folder');
+
+        $this->assertDatabaseHas('settings', [
+            'key' => 'google.drive_folder_id',
+            'value' => 'auto-folder',
+        ]);
+        $this->assertSame('auto-folder', $connection->refresh()->root_folder_id);
+        $this->assertSame('https://drive.google.com/drive/folders/auto-folder', $connection->root_folder_url);
     }
 
     public function test_folder_setting_is_persisted_and_applied_to_the_connection(): void

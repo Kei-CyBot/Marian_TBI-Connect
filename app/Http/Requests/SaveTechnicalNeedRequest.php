@@ -25,15 +25,9 @@ class SaveTechnicalNeedRequest extends FormRequest
             'date_needed' => ['nullable', 'date', 'after_or_equal:date_entry'],
             'resource_tool' => ['nullable', 'string', 'max:255'],
             'prospect_resource_person' => ['nullable', 'string', 'max:255'],
-            'status' => ['required', Rule::in(['Ongoing', 'Done'])],
             'priority' => ['required', Rule::in(['Low', 'Moderate', 'High'])],
             'remarks' => ['nullable', 'string', 'max:5000'],
-            'signed_approval' => [
-                $this->isMethod('PUT') || $this->isMethod('PATCH') ? 'nullable' : 'required',
-                'file',
-                'mimes:pdf',
-                'max:10240',
-            ],
+            'attachment' => ['nullable', 'file', 'mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg', 'max:10240'],
         ];
     }
 }

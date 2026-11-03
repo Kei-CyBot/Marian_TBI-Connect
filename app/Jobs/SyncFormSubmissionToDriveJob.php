@@ -41,7 +41,9 @@ class SyncFormSubmissionToDriveJob implements ShouldQueue
             }
 
             if ($this->moveToFolderId === null) {
-                $driveService->syncSubmission($submission);
+                if (! $driveService->syncSubmission($submission)) {
+                    Log::warning('Google Drive sync skipped: '.GoogleDriveService::NOT_CONFIGURED_MESSAGE);
+                }
 
                 return;
             }

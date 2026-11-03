@@ -34,6 +34,7 @@ class GoogleDriveSyncTest extends TestCase
 
     public function test_sync_creates_private_folder_tree_and_uploads_form_response(): void
     {
+        config(['services.google.folder_id' => null]);
         Storage::fake('local');
         Storage::disk('local')->put('form-attachments/application.pdf', 'sample application');
         $user = User::factory()->create(['email' => 'staff@example.test']);
@@ -85,6 +86,9 @@ class GoogleDriveSyncTest extends TestCase
             if ($request->method() === 'POST' && str_contains($path, '/permissions')) {
                 return Http::response(['id' => 'drive-permission']);
             }
+            if ($request->method() === 'GET' && $path === '/drive/v3/files') {
+                return Http::response(['files' => []]);
+            }
             if ($request->method() === 'POST' && $path === '/upload/drive/v3/files') {
                 $uploadedFileCount++;
 
@@ -100,7 +104,7 @@ class GoogleDriveSyncTest extends TestCase
 
         $result = app(GoogleDriveService::class)->syncAll();
 
-        $this->assertSame(['folders' => 1, 'forms' => 1], $result);
+        $this->assertSame(['configured' => true, 'folders' => 1, 'forms' => 1], $result);
         $this->assertSame(2, $uploadedFileCount);
         $this->assertSame('incubatee-folder', $startup->refresh()->google_drive_folder_id);
         $this->assertSame('response-file', $submission->refresh()->google_drive_response_file_id);
@@ -112,10 +116,98 @@ class GoogleDriveSyncTest extends TestCase
         ]);
         Http::assertSent(fn (ClientRequest $request): bool => $request->method() === 'POST'
             && str_contains($request->url(), '/upload/drive/v3/files')
-            && str_contains($request->body(), $startup->name));
+            && str_contains($request->body(), 'response.html')
+            && str_contains($request->body(), '<!DOCTYPE html>')
+            && str_contains($request->body(), 'google-apps.document'));
         Http::assertSent(fn (ClientRequest $request): bool => $request->method() === 'POST'
             && str_contains($request->url(), '/upload/drive/v3/files')
             && str_contains($request->body(), 'application.pdf'));
+    }
+
+    public function test_permissions_sync_works_without_a_connection_record(): void
+    {
+        config([
+            'services.google.refresh_token' => 'central-token',
+            'services.google.client_id' => 'client-id',
+            'services.google.client_secret' => 'client-secret',
+            'services.google.drive_account_email' => 'drive@example.test',
+        ]);
+
+        $startup = Startup::query()->create([
+            'name' => 'Test Incubatee',
+            'founder' => 'Test Founder',
+            'contact_email' => 'founder@example.test',
+            'track' => 'internal',
+            'status' => 'Incubatee',
+            'cohort_id' => 1,
+            'google_drive_folder_id' => 'incubatee-folder',
+            'google_drive_folder_url' => 'https://drive.google.com/drive/folders/incubatee-folder',
+        ]);
+        User::factory()->create(['email' => 'staff@example.test']);
+        User::factory()->create(['email' => 'drive@example.test']);
+
+        Http::fake(function (ClientRequest $request) {
+            $path = parse_url($request->url(), PHP_URL_PATH);
+            if ($request->url() === 'https://oauth2.googleapis.com/token') {
+                return Http::response(['access_token' => 'system-token', 'expires_in' => 3600]);
+            }
+            if ($request->method() === 'GET' && str_contains($path, '/permissions')) {
+                return Http::response(['permissions' => []]);
+            }
+            if ($request->method() === 'POST' && str_contains($path, '/permissions')) {
+                return Http::response(['id' => 'drive-permission']);
+            }
+
+            return Http::response(['error' => 'Unexpected request: '.$request->method().' '.$request->url()], 500);
+        });
+
+        app(GoogleDriveService::class)->syncPermissions($startup);
+
+        Http::assertSent(fn (ClientRequest $request): bool => $request->method() === 'POST'
+            && str_contains($request->url(), '/permissions')
+            && str_contains($request->body(), 'staff@example.test'));
+        Http::assertNotSent(fn (ClientRequest $request): bool => $request->method() === 'POST'
+            && str_contains($request->body(), 'drive@example.test'));
+    }
+
+    public function test_sync_all_skips_with_a_warning_when_the_integration_is_not_configured(): void
+    {
+        config([
+            'services.google.refresh_token' => null,
+            'services.google.client_id' => null,
+            'services.google.client_secret' => null,
+            'services.google.drive_account_email' => null,
+            'mail.from.address' => null,
+        ]);
+        Log::spy();
+        Http::fake();
+
+        $result = app(GoogleDriveService::class)->syncAll();
+
+        $this->assertFalse($result['configured']);
+        $this->assertSame(['configured' => false, 'folders' => 0, 'forms' => 0], $result);
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->with('Google Drive sync skipped: Google Drive integration is not fully configured.');
+        Http::assertNothingSent();
+    }
+
+    public function test_sync_submission_returns_false_when_the_integration_is_not_configured(): void
+    {
+        config([
+            'services.google.refresh_token' => null,
+            'services.google.client_id' => null,
+            'services.google.client_secret' => null,
+            'services.google.drive_account_email' => null,
+            'mail.from.address' => null,
+        ]);
+        $submission = $this->createSubmission();
+        Log::spy();
+
+        $this->assertFalse(app(GoogleDriveService::class)->syncSubmission($submission));
+        Log::shouldHaveReceived('warning')
+            ->once()
+            ->with('Google Drive sync skipped: Google Drive integration is not fully configured.');
     }
 
     public function test_connection_check_accepts_user_tokens_or_system_config(): void

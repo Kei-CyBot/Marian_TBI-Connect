@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Enums\Forms\ApprovalStatus;
 use App\Models\ActivityLog;
+use App\Models\Event;
+use App\Models\EventInvitation;
 use App\Models\FormSubmission;
 use App\Models\Startup;
 use App\Models\TechnicalNeed;
@@ -105,7 +107,6 @@ class ActivityLogTest extends TestCase
             'status' => 'Ongoing',
             'priority' => 'High',
             'remarks' => 'Urgent',
-            'signed_approval' => \Illuminate\Http\UploadedFile::fake()->create('approval.pdf', 100, 'application/pdf'),
         ])->assertRedirect();
 
         $this->assertDatabaseHas('activity_logs', [
@@ -122,5 +123,66 @@ class ActivityLogTest extends TestCase
             'action' => 'deleted',
             'subject_type' => TechnicalNeed::class,
         ]);
+    }
+
+    public function test_event_and_rsvp_activity_are_logged(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $this->actingAs($admin);
+
+        $event = Event::query()->create([
+            'title' => 'Founder Fireside',
+            'scope' => 'internal',
+            'kind' => 'Fireside Chat',
+            'starts_at' => now()->addWeek(),
+            'ends_at' => now()->addWeek()->addHour(),
+            'location' => 'Innovation Hub',
+            'host' => 'Marian TBI',
+        ]);
+
+        $this->assertDatabaseHas('activity_logs', [
+            'action' => 'created',
+            'subject_type' => Event::class,
+            'subject_id' => $event->id,
+        ]);
+
+        $invitation = EventInvitation::query()->create([
+            'event_id' => $event->id,
+            'email' => 'guest@example.test',
+            'token' => 'activity-rsvp-token',
+        ]);
+
+        $this->get(route('events.invitations.respond', [
+            'token' => $invitation->token,
+            'status' => 'attending',
+        ]))->assertOk();
+
+        $this->assertDatabaseHas('activity_logs', [
+            'action' => 'rsvp_response',
+            'subject_type' => EventInvitation::class,
+            'subject_id' => $invitation->id,
+        ]);
+    }
+
+    public function test_activity_stream_returns_new_entries_after_id(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $first = ActivityLog::query()->create([
+            'user_id' => $admin->id,
+            'action' => 'created',
+            'description' => 'First activity',
+        ]);
+        $second = ActivityLog::query()->create([
+            'user_id' => $admin->id,
+            'action' => 'updated',
+            'description' => 'Second activity',
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('activity-logs.stream', ['after_id' => $first->id]))
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', $second->id)
+            ->assertJsonPath('0.description', 'Second activity');
     }
 }

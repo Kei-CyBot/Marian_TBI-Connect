@@ -2,13 +2,24 @@
 
 namespace App\Observers;
 
-use App\Models\ActivityLog;
+use App\Models\EventInvitation;
+use App\Models\User;
+use App\Services\ActivityLogger;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Request;
 
 class ActivityLogObserver
 {
+    private const IGNORED_ATTRIBUTES = [
+        'created_at',
+        'updated_at',
+        'remember_token',
+        'password',
+        'google_access_token',
+        'google_refresh_token',
+        'drive_synced_at',
+    ];
+
     public function created(Model $model): void
     {
         $this->log('created', $model);
@@ -16,13 +27,9 @@ class ActivityLogObserver
 
     public function updated(Model $model): void
     {
-        if (empty($model->getChanges())) {
-            return;
-        }
-
         $changes = [];
         foreach ($model->getChanges() as $key => $value) {
-            if (in_array($key, ['updated_at', 'drive_synced_at'], true)) {
+            if (in_array($key, self::IGNORED_ATTRIBUTES, true)) {
                 continue;
             }
             $changes[$key] = [
@@ -31,11 +38,15 @@ class ActivityLogObserver
             ];
         }
 
-        if (empty($changes)) {
+        if ($changes === []) {
             return;
         }
 
-        $this->log('updated', $model, $changes);
+        $action = $model instanceof EventInvitation && $model->wasChanged('status')
+            ? 'rsvp_response'
+            : 'updated';
+
+        $this->log($action, $model, $changes);
     }
 
     public function deleted(Model $model): void
@@ -46,48 +57,40 @@ class ActivityLogObserver
     protected function log(string $action, Model $model, array $changes = []): void
     {
         $user = Auth::user();
-        $description = $this->describe($action, $model);
 
-        ActivityLog::query()->create([
-            'user_id' => $user?->getKey(),
-            'action' => $action,
-            'subject_type' => get_class($model),
-            'subject_id' => $model->getKey(),
-            'description' => $description,
-            'changes' => empty($changes) ? null : $changes,
-            'ip_address' => Request::ip(),
-        ]);
+        // Event invitations can be answered by guests; everything else only logs real user actions.
+        if ($user === null && ! $model instanceof EventInvitation) {
+            return;
+        }
+
+        if ($action === 'created' && $model instanceof \App\Models\OutreachMessage) {
+            $action = 'email_sent';
+        }
+
+        ActivityLogger::log($action, $this->describe($action, $model, $user), $model, $changes);
     }
 
-    protected function describe(string $action, Model $model): string
+    protected function describe(string $action, Model $model, ?User $user): string
     {
-        $userName = Auth::user()?->name ?? 'System';
+        $userName = $user?->name ?? 'Guest';
         $class = class_basename($model);
+        $verb = match ($action) {
+            'rsvp_response' => 'responded to',
+            'email_sent' => 'sent',
+            default => $action,
+        };
 
-        if ($class === 'FormSubmission') {
-            $formName = $model->form_name ?? 'Form';
-            $startup = $model->startup_name ?? 'unknown startup';
-
-            return match ($action) {
-                'created' => "{$userName} created submission {$formName} for {$startup}",
-                'updated' => "{$userName} updated submission {$formName} for {$startup}",
-                'deleted' => "{$userName} deleted submission {$formName} for {$startup}",
-                default => "{$userName} {$action} submission {$formName} for {$startup}",
-            };
-        }
-
-        if ($class === 'TechnicalNeed') {
-            $requirement = $model->requirement ?? 'technical need';
-            $startupName = $model->startup?->name ?? 'unknown startup';
-
-            return match ($action) {
-                'created' => "{$userName} created technical need {$requirement} for {$startupName}",
-                'updated' => "{$userName} updated technical need {$requirement} for {$startupName}",
-                'deleted' => "{$userName} deleted technical need {$requirement} for {$startupName}",
-                default => "{$userName} {$action} technical need {$requirement} for {$startupName}",
-            };
-        }
-
-        return "{$userName} {$action} {$class}";
+        return match ($class) {
+            'Event' => "{$userName} {$verb} event {$model->title}",
+            'EventInvitation' => $action === 'rsvp_response'
+                ? "{$userName} {$model->email} responded {$model->status} for {$model->event?->title}"
+                : "{$userName} {$verb} invitation for {$model->email}",
+            'OutreachMessage' => "{$userName} {$verb} outreach email {$model->subject}",
+            'Startup' => "{$userName} {$verb} startup {$model->name}",
+            'User' => "{$userName} {$verb} user {$model->name}",
+            'FormSubmission' => "{$userName} {$verb} submission ".($model->form_name ?? 'Form').' for '.($model->startup_name ?? 'unknown startup'),
+            'TechnicalNeed' => "{$userName} {$verb} technical need ".($model->requirement ?? 'technical need').' for '.($model->startup?->name ?? 'unknown startup'),
+            default => "{$userName} {$verb} {$class}",
+        };
     }
 }

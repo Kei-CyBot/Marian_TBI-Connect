@@ -107,24 +107,6 @@ class FormFormatHelper
     }
 
     /**
-     * Top-level scalar fields that can be edited as plain text inputs.
-     *
-     * @return list<array{key:string,label:string,value:string}>
-     */
-    public static function editableFields(array $data): array
-    {
-        return collect($data)
-            ->filter(static fn (mixed $value): bool => is_scalar($value) || $value === null)
-            ->map(static fn (mixed $value, int|string $key): array => [
-                'key' => (string) $key,
-                'label' => self::toLabel((string) $key),
-                'value' => self::formatScalar($value),
-            ])
-            ->values()
-            ->all();
-    }
-
-    /**
      * @param  list<mixed>  $value
      * @return array<string, mixed>
      */

@@ -16,7 +16,6 @@ use App\Models\User;
 use App\Support\GoogleDriveService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -83,6 +82,7 @@ class RouteAuthorizationTest extends TestCase
 
         Storage::disk('local')->put('form-attachments/coverage.pdf', 'coverage');
         Storage::disk('local')->put('technical-needs/coverage.pdf', 'coverage');
+        Storage::disk('local')->put('events/coverage.pdf', 'coverage');
 
         $this->submission = FormSubmission::query()->create([
             'user_id' => $this->member->id,
@@ -140,6 +140,7 @@ class RouteAuthorizationTest extends TestCase
             'date_entry' => '2026-01-01',
             'status' => 'Ongoing',
             'priority' => 'High',
+            'attachment_path' => 'technical-needs/coverage.pdf',
             'approval_document_path' => 'technical-needs/coverage.pdf',
             'approval_document_original_name' => 'coverage.pdf',
         ]);
@@ -151,6 +152,8 @@ class RouteAuthorizationTest extends TestCase
             'ends_at' => '2026-12-01 11:00:00',
             'location' => 'Innovation Hub',
             'host' => 'Marian TBI',
+            'post_event_document_path' => 'events/coverage.pdf',
+            'post_event_document_original_name' => 'coverage.pdf',
         ]);
         $this->eventInvitation = EventInvitation::query()->create([
             'event_id' => $this->event->id,
@@ -186,6 +189,7 @@ class RouteAuthorizationTest extends TestCase
     {
         return [
             'activity logs' => ['activity-logs.index', 'get', [], [], 'ok'],
+            'activity logs stream' => ['activity-logs.stream', 'get', [], [], 'ok'],
             'form submissions store' => ['form-submissions.store', 'post', [], [], 'redirect'],
             'form submissions update' => ['form-submissions.update', 'put', ['submission' => 'submission'], [], 'redirect'],
             'form submissions status' => ['form-submissions.status', 'patch', ['submission' => 'submission'], ['status' => 'approved'], 'redirect'],
@@ -198,12 +202,14 @@ class RouteAuthorizationTest extends TestCase
             'startup drive links store' => ['startup-drive-links.store', 'post', [], [], 'redirect'],
             'startup drive links destroy' => ['startup-drive-links.destroy', 'delete', ['driveLink' => 'driveLink'], [], 'redirect'],
             'contacts index' => ['contacts', 'get', [], [], 'ok'],
+            'contacts network alias' => ['contacts.index', 'get', [], [], 'ok'],
             'contacts store' => ['contacts.store', 'post', [], [], 'redirect'],
             'contacts update' => ['contacts.update', 'put', ['contact' => 'contact'], [], 'redirect'],
             'contacts destroy' => ['contacts.destroy', 'delete', ['contact' => 'contact'], [], 'redirect'],
             'contact assignments store' => ['contacts.assignments.store', 'post', ['contact' => 'contact'], [], 'redirect'],
             'contact assignments destroy' => ['contacts.assignments.destroy', 'delete', ['contact' => 'contact', 'startup' => 'startup'], [], 'redirect'],
             'contact intake index' => ['contact-intake', 'get', [], [], 'ok'],
+            'contact intake alias' => ['intake.index', 'get', [], [], 'ok'],
             'contact intake approve' => ['contact-intake.approve', 'post', ['application' => 'application'], [], 'redirect'],
             'contact intake provision' => ['contact-intake.provision', 'post', ['application' => 'application'], [], 'redirect'],
             'contact intake destroy' => ['contact-intake.destroy', 'delete', ['application' => 'application'], [], 'redirect'],
@@ -213,27 +219,36 @@ class RouteAuthorizationTest extends TestCase
             'google drive callback' => ['google-drive.callback', 'get', [], [], 'redirect'],
             'google drive sync' => ['google-drive.sync', 'post', [], [], 'redirect'],
             'admin google settings index' => ['admin.settings.google.index', 'get', [], [], 'ok'],
+            'admin settings alias' => ['settings.index', 'get', [], [], 'ok'],
             'admin google settings folder' => ['admin.settings.google.update-folder', 'post', [], ['folder_id' => 'coverage-folder'], 'redirect'],
+            'admin google settings create folder' => ['admin.settings.google.create-folder', 'post', [], [], 'redirect'],
             'admin google settings disconnect' => ['admin.settings.google.disconnect', 'post', [], [], 'redirect'],
             'startup folder access' => ['startup-folders.access.update', 'post', ['startup' => 'startup'], ['restricted' => '0', 'user_ids' => []], 'redirect'],
             'team invite' => ['team.invite', 'post', [], ['email' => 'route-new-member@example.test', 'role' => User::ROLE_ADMIN], 'redirect'],
             'team invitation revoke' => ['team.invitations.revoke', 'delete', ['invitation' => 'invitation'], [], 'redirect'],
             'archives index' => ['archives', 'get', [], [], 'ok'],
+            'archives vault alias' => ['archives.index', 'get', [], [], 'ok'],
             'archived startup restore' => ['archives.startups.restore', 'post', ['startup' => 'trashedStartup'], [], 'redirect'],
             'archived startup destroy' => ['archives.startups.destroy', 'delete', ['startup' => 'trashedStartup'], [], 'redirect'],
             'archived contact restore' => ['archives.contacts.restore', 'post', ['contact' => 'trashedContact'], [], 'redirect'],
             'archived contact destroy' => ['archives.contacts.destroy', 'delete', ['contact' => 'trashedContact'], [], 'redirect'],
             'technical needs store' => ['technical-needs.store', 'post', [], [], 'redirect'],
             'technical needs update' => ['technical-needs.update', 'put', ['technicalNeed' => 'technicalNeed'], [], 'redirect'],
+            'technical needs review' => ['technical-needs.review', 'post', ['technicalNeed' => 'technicalNeed'], ['action' => 'approved'], 'redirect'],
             'technical needs destroy' => ['technical-needs.destroy', 'delete', ['technicalNeed' => 'technicalNeed'], [], 'redirect'],
             'event create' => ['events.create', 'get', [], [], 'ok'],
             'event store' => ['events.store', 'post', [], [], 'redirect'],
             'event edit' => ['events.edit', 'get', ['event' => 'event'], [], 'ok'],
             'event update' => ['events.update', 'put', ['event' => 'event'], [], 'redirect'],
+            'event complete' => ['events.complete', 'post', ['event' => 'event'], [], 'redirect'],
+            'event cancel' => ['events.cancel', 'post', ['event' => 'event'], [], 'redirect'],
+            'event archive' => ['events.archive', 'post', ['event' => 'event'], [], 'redirect'],
+            'event restore' => ['events.restore', 'post', ['event' => 'event'], [], 'redirect'],
             'event invitation send' => ['events.invitations.send', 'post', ['event' => 'event'], [], 'redirect'],
             'event email send' => ['event-emails.send', 'post', [], [], 'redirect'],
             'event outreach send' => ['event-outreach.send', 'post', [], [], 'redirect'],
             'team index' => ['team', 'get', [], [], 'ok'],
+            'team users alias' => ['users.index', 'get', [], [], 'ok'],
             'team role update' => ['team.roles.update', 'put', ['user' => 'member'], ['role' => User::ROLE_ADMIN], 'redirect'],
         ];
     }
@@ -243,14 +258,21 @@ class RouteAuthorizationTest extends TestCase
         return [
             'dashboard' => ['dashboard', 'get', [], [], 'ok'],
             'files' => ['files', 'get', [], [], 'ok'],
+            'files drive alias' => ['files.index', 'get', [], [], 'ok'],
             'submission attachment' => ['form-submissions.attachment', 'get', ['submission' => 'submission'], [], 'ok'],
             'incubatees' => ['incubatees', 'get', [], [], 'ok'],
+            'startups alias' => ['startups.index', 'get', [], [], 'ok'],
             'profile edit' => ['profile.edit', 'get', [], [], 'ok'],
             'profile update' => ['profile.update', 'put', [], [], 'redirect'],
             'technical needs index' => ['technical-needs', 'get', [], [], 'ok'],
+            'technical needs list alias' => ['technical-needs.index', 'get', [], [], 'ok'],
             'technical need approval' => ['technical-needs.approval', 'get', ['technicalNeed' => 'technicalNeed'], [], 'ok'],
+            'technical need attachment' => ['technical-needs.attachment', 'get', ['technicalNeed' => 'technicalNeed'], [], 'ok'],
+            'technical need document preview' => ['technical-needs.view-document', 'get', ['technicalNeed' => 'technicalNeed'], [], 'ok'],
             'events' => ['events', 'get', [], [], 'ok'],
+            'events list alias' => ['events.index', 'get', [], [], 'ok'],
             'event show' => ['events.show', 'get', ['event' => 'event'], [], 'ok'],
+            'event post document' => ['events.post-event-document', 'get', ['event' => 'event'], [], 'ok'],
             'google disconnect' => ['auth.google.disconnect', 'post', [], [], 'redirect'],
             'logout' => ['logout', 'post', [], [], 'redirect'],
         ];
@@ -489,12 +511,13 @@ class RouteAuthorizationTest extends TestCase
                 'verification_method' => 'program_records',
                 'verification_notes' => 'Covered by the route authorization matrix.',
             ],
-            'technical-needs.store' => $this->technicalNeedPayload() + [
-                'signed_approval' => UploadedFile::fake()->create('coverage.pdf', 10, 'application/pdf'),
-            ],
+            'technical-needs.store' => $this->technicalNeedPayload(),
             'technical-needs.update' => $this->technicalNeedPayload(),
             'events.store' => $this->eventPayload(),
             'events.update' => $this->eventPayload('Route Updated Event'),
+            'events.cancel' => [
+                'cancellation_reason' => 'Route coverage cancellation.',
+            ],
             'events.invitations.send' => [
                 'contact_ids' => [$this->contact->id],
             ],
@@ -633,6 +656,12 @@ class RouteAuthorizationTest extends TestCase
             $this->mock(GoogleDriveService::class, function ($mock): void {
                 $mock->shouldReceive('isConnected')->andReturn(true);
                 $mock->shouldReceive('syncAll')->andReturn(['folders' => 0, 'forms' => 0]);
+            });
+        }
+
+        if ($routeName === 'admin.settings.google.create-folder') {
+            $this->mock(GoogleDriveService::class, function ($mock): void {
+                $mock->shouldReceive('getOrCreateTargetFolderId')->andReturn('coverage-folder');
             });
         }
     }

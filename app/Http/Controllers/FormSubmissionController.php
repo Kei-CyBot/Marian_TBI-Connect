@@ -13,6 +13,7 @@ use App\Models\FormSubmission;
 use App\Models\Startup;
 use App\Models\StartupDriveLink;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use App\Support\Forms\StartupFormCatalog;
 use App\Support\GoogleDriveService;
 use Illuminate\Http\Client\ConnectionException;
@@ -66,7 +67,7 @@ class FormSubmissionController extends Controller
             try {
                 if ($submission->prerequisite_path && Storage::disk('local')->exists($submission->prerequisite_path)) {
                     $contents = Storage::disk('local')->get($submission->prerequisite_path);
-                    $publicName = 'form-submissions/' . basename($submission->prerequisite_path);
+                    $publicName = 'form-submissions/'.basename($submission->prerequisite_path);
                     Storage::disk('public')->put($publicName, $contents);
                 }
             } catch (\Throwable $e) {
@@ -90,8 +91,8 @@ class FormSubmissionController extends Controller
                     SyncFormSubmissionToDriveJob::dispatch($submission);
                     $redirect->with('drive_sync_status', 'The form response was queued for Google Drive synchronization.');
                 } catch (\Throwable $e) {
-                    Log::error('Failed to queue Drive sync', ['error' => $e->getMessage(), 'submission_id' => $submission->id]);
-                    // Don't fail the request if Drive sync fails
+                    $drive->logSyncFailure($e, ['submission_id' => $submission->id]);
+                    $redirect->with('drive_sync_warning', 'File saved locally. Cloud backup will retry shortly.');
                 }
             }
 
@@ -99,7 +100,7 @@ class FormSubmissionController extends Controller
         } catch (\Throwable $e) {
             Log::error('Form submission failed', ['error' => $e->getMessage(), 'user_id' => $user->id]);
 
-            return back()->withInput()->with('error', 'Form submission failed: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Form submission failed: '.$e->getMessage());
         }
     }
 
@@ -179,7 +180,7 @@ class FormSubmissionController extends Controller
         try {
             if ($submission->prerequisite_path && Storage::disk('local')->exists($submission->prerequisite_path)) {
                 $contents = Storage::disk('local')->get($submission->prerequisite_path);
-                $publicName = 'form-submissions/' . basename($submission->prerequisite_path);
+                $publicName = 'form-submissions/'.basename($submission->prerequisite_path);
                 Storage::disk('public')->put($publicName, $contents);
             }
         } catch (\Throwable $e) {
@@ -198,7 +199,8 @@ class FormSubmissionController extends Controller
                 SyncFormSubmissionToDriveJob::dispatch($submission);
                 $redirect->with('drive_sync_status', 'The updated form response was queued for Google Drive synchronization.');
             } catch (\Throwable $e) {
-                Log::error('Failed to queue Drive sync on update', ['error' => $e->getMessage(), 'submission_id' => $submission->id]);
+                $drive->logSyncFailure($e, ['submission_id' => $submission->id]);
+                $redirect->with('drive_sync_warning', 'File saved locally. Cloud backup will retry shortly.');
             }
         }
 
@@ -213,32 +215,46 @@ class FormSubmissionController extends Controller
         $startup = Startup::withTrashed()->where('name', $submission->startup_name)->first();
         abort_if($startup && ! $startup->userCanAccessFolder($user), 403);
 
+        $localPaths = array_values(array_unique(array_filter([
+            $submission->prerequisite_path,
+            $submission->local_path,
+        ])));
+        if ($localPaths !== []) {
+            Storage::disk('local')->delete($localPaths);
+        }
         if ($submission->prerequisite_path) {
-            Storage::disk('local')->delete($submission->prerequisite_path);
+            Storage::disk('public')->delete('form-submissions/'.basename($submission->prerequisite_path));
         }
 
         $driveWarning = null;
-        $driveFileIds = array_values(array_filter([
+        $driveFileIds = array_values(array_unique(array_filter([
             $submission->google_drive_response_file_id,
             $submission->google_drive_attachment_file_id,
-        ]));
+            $submission->google_drive_file_id,
+        ])));
         if ($drive->isConnected() && $driveFileIds !== []) {
             try {
                 foreach ($driveFileIds as $fileId) {
                     $drive->deleteFile($fileId);
                 }
             } catch (ConnectionException|RequestException|\RuntimeException $exception) {
-                Log::error('Form submission was deleted locally but Google Drive files could not be removed.', [
-                    'submission_id' => $submission->getKey(),
-                    'exception' => $exception,
-                ]);
+                $drive->logSyncFailure($exception, ['submission_id' => $submission->getKey()]);
                 $driveWarning = 'The response was deleted in Marian TBI Connect but some Google Drive copies could not be removed.';
             }
         }
 
         $startupName = $submission->startup_name;
         $track = $submission->track;
+        $fileName = $submission->prerequisite_original_name ?: $submission->form_name;
         $submission->delete();
+
+        ActivityLogger::log(
+            'file_deleted',
+            $driveWarning === null
+                ? "File '{$fileName}' removed from local storage and Google Drive."
+                : "File '{$fileName}' removed from local storage; Google Drive copies could not all be removed.",
+            $submission,
+        );
 
         $redirect = to_route('files', [
             'startup' => Str::slug($startupName),
@@ -281,9 +297,6 @@ class FormSubmissionController extends Controller
             'startup' => Str::slug($submission->startup_name),
             'track' => $submission->track,
         ]);
-        if ($submission->google_drive_folder_id === $targetFolderId) {
-            return $sourceRedirect->with('drive_sync_warning', 'The file is already in that Drive folder.');
-        }
 
         $previousFolderId = $submission->google_drive_folder_id ?? $sourceStartup?->google_drive_folder_id;
         $driveFileIds = array_values(array_filter([
@@ -310,14 +323,13 @@ class FormSubmissionController extends Controller
                 foreach ($driveFileIds as $fileId) {
                     $drive->moveFile($fileId, $targetFolderId, $previousFolderId);
                 }
-            } else {
-                $drive->syncSubmissionFiles($submission, $targetFolderId);
+            } elseif (! $drive->syncSubmissionFiles($submission, $targetFolderId)) {
+                return $sourceRedirect->with('drive_sync_warning', GoogleDriveService::NOT_CONFIGURED_MESSAGE);
             }
         } catch (\Throwable $e) {
-            Log::error('Google Drive move failed', [
+            $drive->logSyncFailure($e, [
                 'submission_id' => $submission->getKey(),
                 'target' => $targetFolderId,
-                'error' => $e->getMessage(),
             ]);
 
             return $sourceRedirect->with('error', 'Google Drive Move Failed: '.$e->getMessage());

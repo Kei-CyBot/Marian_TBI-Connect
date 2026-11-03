@@ -6,6 +6,7 @@
 @section('banner-actions')
     @if (auth()->user()->canManageRecords())
         <button @click="$dispatch('open-broadcast')" class="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/25">✉️ Email Contacts</button>
+        <a href="{{ route('archives.index', ['tab' => 'events']) }}" class="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/25">📁 View Event Archives</a>
         <a href="{{ route('events.create') }}" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#b92369] shadow-sm transition hover:bg-[#fcf0f5]">+ Create Event</a>
     @endif
 @endsection
@@ -49,7 +50,8 @@
         pill(s){ return s==='internal' ? 'bg-[#fcf0f5] text-[#b92369]' : s==='external' ? 'bg-[#eaf6f6] text-[#1a8a8e]' : 'grad text-white' },
         bar(s){ return s==='internal' ? 'bg-[#b92369]' : s==='external' ? 'bg-[#1a8a8e]' : 'grad' },
         calendarChip(s){ return s==='internal' ? 'bg-[#b92369] text-white' : s==='external' ? 'bg-[#1a8a8e] text-white' : 'grad text-white' },
-        lbl(s){ return s==='internal' ? 'Internal Academic' : s==='external' ? 'External Industry' : 'Hybrid · Public' }
+        lbl(s){ return s==='internal' ? 'Internal Academic' : s==='external' ? 'External Industry' : 'Hybrid · Public' },
+        statusPill(s){ return s==='completed' ? 'bg-emerald-100 text-emerald-700' : s==='cancelled' ? 'bg-rose-100 text-rose-700' : 'bg-sky-100 text-sky-700' }
      }" @click.window="menu=null" @keydown.escape.window="selectedEvent=null">
 
     {{-- Toolbar --}}
@@ -77,6 +79,7 @@
                         <div class="flex flex-wrap gap-1.5">
                             <span class="rounded-lg px-2 py-0.5 text-[11px] font-semibold" :class="pill(e.scope)" x-text="lbl(e.scope)"></span>
                             <span class="rounded-lg bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600" x-text="e.kind"></span>
+                            <span class="rounded-lg px-2 py-0.5 text-[11px] font-semibold" :class="statusPill(e.status)" x-text="e.status.charAt(0).toUpperCase()+e.status.slice(1)"></span>
                         </div>
                         {{-- Action menu --}}
                         <div class="relative">

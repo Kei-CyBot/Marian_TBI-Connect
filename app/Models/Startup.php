@@ -60,19 +60,9 @@ class Startup extends Model
         return $this->belongsTo(User::class, 'archived_by');
     }
 
-    public function contactAssignments(): HasMany
-    {
-        return $this->hasMany(ContactStartupAssignment::class);
-    }
-
     public function technicalNeeds(): HasMany
     {
         return $this->hasMany(TechnicalNeed::class);
-    }
-
-    public function founderContact(): BelongsTo
-    {
-        return $this->belongsTo(Contact::class, 'founder_contact_id');
     }
 
     public function folderAccessUsers(): BelongsToMany

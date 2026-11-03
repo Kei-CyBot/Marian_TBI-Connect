@@ -25,6 +25,13 @@ class EventInvitationController extends Controller
             ->where('token', $token)
             ->firstOrFail();
 
+        if ($invitation->event->status === 'cancelled') {
+            return view('events.invitation-response', [
+                'invitation' => $invitation,
+                'event' => $invitation->event,
+            ]);
+        }
+
         $invitation->update([
             'status' => $status,
             'responded_at' => now(),

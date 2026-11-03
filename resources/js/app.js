@@ -12,6 +12,11 @@ window.technicalNeedsPage = (requirements, startups, selectedStartupId, selected
     modal: false,
     editing: false,
     draft: {},
+    reviewModal: false,
+    reviewItem: {},
+    reviewAction: 'approved',
+    approvalFormModal: false,
+    approvalDraft: {},
     get filteredRequirements() {
         return this.requirements.filter((item) =>
             (!this.statusFilter || item.status === this.statusFilter)
@@ -31,7 +36,6 @@ window.technicalNeedsPage = (requirements, startups, selectedStartupId, selected
             dateNeeded: '',
             resource: '',
             prospect: '',
-            status: 'Ongoing',
             priority: 'Moderate',
             remarks: '',
         };
@@ -42,12 +46,24 @@ window.technicalNeedsPage = (requirements, startups, selectedStartupId, selected
         this.draft = { ...item };
         this.modal = true;
     },
+    openReview(item) {
+        this.reviewItem = { ...item };
+        this.reviewAction = item.status === 'pending' ? 'approved' : item.status;
+        this.reviewModal = true;
+    },
+    openApprovalForm() {
+        this.approvalDraft = {
+            incubatee: this.selectedStartupName || '',
+            requirement: '',
+            description: '',
+            price: '',
+            dateNeeded: '',
+            priority: 'Moderate',
+            remarks: '',
+        };
+        this.approvalFormModal = true;
+    },
     printApprovalForm() {
-        if (!this.draft.requirement || !this.draft.dateEntry) {
-            window.alert('Enter the technical need and date entered before previewing the approval form.');
-            return;
-        }
-
         const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (character) => ({
             '&': '&amp;',
             '<': '&lt;',
@@ -56,18 +72,14 @@ window.technicalNeedsPage = (requirements, startups, selectedStartupId, selected
             "'": '&#39;',
         })[character]);
         const rows = [
-            ['Technical need / subscription', this.draft.requirement],
-            ['Description / purpose', this.draft.description],
-            ['Estimated cost (PHP)', this.draft.price
-                ? `₱${Number(this.draft.price).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            ['Technical need / subscription', this.approvalDraft.requirement],
+            ['Specifications / purpose', this.approvalDraft.description],
+            ['Estimated cost (PHP)', this.approvalDraft.price
+                ? `₱${Number(this.approvalDraft.price).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : ''],
-            ['Duration (months)', this.draft.months],
-            ['Resource / tool requested', this.draft.resource],
-            ['Prospective resource person / provider', this.draft.prospect],
-            ['Responsible team member', this.draft.responsible],
-            ['Date entered', this.draft.dateEntry],
-            ['Date needed', this.draft.dateNeeded],
-            ['Remarks', this.draft.remarks],
+            ['Date needed', this.approvalDraft.dateNeeded],
+            ['Priority', this.approvalDraft.priority],
+            ['Remarks', this.approvalDraft.remarks],
         ];
         const printWindow = window.open('', '_blank', 'width=900,height=700');
         if (!printWindow) {
@@ -114,7 +126,7 @@ window.technicalNeedsPage = (requirements, startups, selectedStartupId, selected
                 <div class="brand">Marian TBI Connect</div>
                 <h1>Technical Need / Subscription Request</h1>
                 <div class="sub">Review the request, print this form, complete signatures, and upload the signed copy.</div>
-                <div class="meta"><strong>Incubatee:</strong> ${escapeHtml(this.selectedStartupName)}</div>
+                <div class="meta"><strong>Incubatee:</strong> ${escapeHtml(this.approvalDraft.incubatee)}</div>
                 <table>${detailRows}</table>
                 <h2>Review and approval</h2>
                 <p>By signing below, the parties confirm that this technical need has been reviewed and approved for processing, subject to applicable program and procurement policies.</p>
@@ -124,10 +136,18 @@ window.technicalNeedsPage = (requirements, startups, selectedStartupId, selected
                     <div><div class="signature"></div><div class="caption">Approved by — Authorized Marian TBI Approver · Date</div></div>
                     <div><div class="signature"></div><div class="caption">Noted by — Finance / Procurement, if applicable · Date</div></div>
                 </div>
-                <p class="notice">Attach the signed and approved document as a PDF. The technical need will not be saved until the signed approval is uploaded.</p>
+                <p class="notice">Attach the signed and approved document through the Attach &amp; Review workflow.</p>
             </body>
             </html>`);
         printWindow.document.close();
+    },
+    statusClass(status) {
+        return status === 'approved' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+            : status === 'rejected' ? 'bg-red-50 text-red-700 ring-red-200'
+                : 'bg-amber-50 text-amber-700 ring-amber-200';
+    },
+    statusLabel(status) {
+        return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Pending';
     },
     priorityClass(priority) {
         return priority === 'High' ? 'bg-red-50 text-red-700 ring-red-200'

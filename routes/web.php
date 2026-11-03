@@ -24,6 +24,7 @@ use App\Http\Controllers\StartupFolderAccessController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TechnicalNeedController;
 use App\Http\Middleware\EnsurePasswordIsConfigured;
+use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -76,6 +77,8 @@ Route::middleware('guest')->group(function (): void {
 
         $request->session()->regenerate();
 
+        ActivityLogger::log('login', Auth::user()->name.' signed in', Auth::user());
+
         return redirect()->intended(route('dashboard'));
     })->middleware('throttle:5,1')->name('login.store');
 
@@ -116,6 +119,7 @@ Route::middleware(['auth', EnsurePasswordIsConfigured::class])->group(function (
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/incubatees', [StartupAssessmentController::class, 'index'])->name('incubatees');
+    Route::get('/startups', [StartupAssessmentController::class, 'index'])->name('startups.index');
     Route::post('/incubatees', [StartupController::class, 'store'])->middleware('role:admin,super_admin')->name('incubatees.store');
     Route::put('/incubatees/{startup}', [StartupController::class, 'update'])->middleware('role:admin,super_admin')->name('incubatees.update');
     Route::delete('/incubatees/{startup}', [StartupController::class, 'destroy'])->middleware('role:admin,super_admin')->name('incubatees.destroy');
@@ -129,6 +133,7 @@ Route::middleware(['auth', EnsurePasswordIsConfigured::class])->group(function (
         ->middleware('role:admin,super_admin')
         ->name('startup-drive-links.destroy');
     Route::get('/contacts', [ContactController::class, 'index'])->middleware('role:admin,super_admin')->name('contacts');
+    Route::get('/network', [ContactController::class, 'index'])->middleware('role:admin,super_admin')->name('contacts.index');
     Route::post('/contacts', [ContactController::class, 'store'])->middleware('role:admin,super_admin')->name('contacts.store');
     Route::put('/contacts/{contact}', [ContactController::class, 'update'])->middleware('role:admin,super_admin')->name('contacts.update');
     Route::delete('/contacts/{contact}', [ContactController::class, 'destroy'])->middleware('role:admin,super_admin')->name('contacts.destroy');
@@ -141,6 +146,7 @@ Route::middleware(['auth', EnsurePasswordIsConfigured::class])->group(function (
         ->middleware('role:admin,super_admin')
         ->name('contacts.assignments.destroy');
     Route::get('/contact-intake', [ContactRegistrationController::class, 'index'])->middleware('role:admin,super_admin')->name('contact-intake');
+    Route::get('/intake', [ContactRegistrationController::class, 'index'])->middleware('role:admin,super_admin')->name('intake.index');
     Route::post('/contact-intake/{application}/approve', [ContactRegistrationController::class, 'approveAndProvision'])
         ->middleware('role:admin,super_admin')
         ->name('contact-intake.approve');
@@ -151,40 +157,60 @@ Route::middleware(['auth', EnsurePasswordIsConfigured::class])->group(function (
         ->middleware('role:admin,super_admin')
         ->name('contact-intake.destroy');
     Route::get('/files', [FileManagerController::class, 'index'])->name('files');
+    Route::get('/drive', [FileManagerController::class, 'index'])->name('files.index');
     Route::get('/activity-logs', [ActivityLogController::class, 'index'])->middleware('role:admin,super_admin')->name('activity-logs.index');
+    Route::get('/api/activity-logs/stream', [ActivityLogController::class, 'stream'])->middleware('role:admin,super_admin')->name('activity-logs.stream');
     Route::get('/exports/form-submissions', [ExportController::class, 'exportSubmissions'])->middleware('role:admin,super_admin')->name('exports.form-submissions');
     Route::get('/exports/technical-needs', [ExportController::class, 'exportTechnicalNeeds'])->middleware('role:admin,super_admin')->name('exports.technical-needs');
     Route::get('/google-drive/connect', [GoogleDriveController::class, 'connect'])->middleware('role:admin,super_admin')->name('google-drive.connect');
     Route::get('/google-drive/callback', [GoogleDriveController::class, 'callback'])->middleware('role:admin,super_admin')->name('google-drive.callback');
     Route::post('/google-drive/sync', [GoogleDriveController::class, 'synchronize'])->middleware('role:admin,super_admin')->name('google-drive.sync');
     Route::get('/admin/settings/google', [GoogleIntegrationController::class, 'index'])->middleware('role:admin,super_admin')->name('admin.settings.google.index');
+    Route::get('/settings', [GoogleIntegrationController::class, 'index'])->middleware('role:admin,super_admin')->name('settings.index');
     Route::post('/admin/settings/google/folder', [GoogleIntegrationController::class, 'updateFolder'])->middleware('role:admin,super_admin')->name('admin.settings.google.update-folder');
+    Route::post('/admin/settings/google/create-folder', [GoogleIntegrationController::class, 'createFolder'])->middleware('role:admin,super_admin')->name('admin.settings.google.create-folder');
     Route::post('/admin/settings/google/disconnect', [GoogleIntegrationController::class, 'disconnect'])->middleware('role:admin,super_admin')->name('admin.settings.google.disconnect');
     Route::post('/startup-folders/{startup}/access', [StartupFolderAccessController::class, 'update'])
         ->middleware('role:admin,super_admin')
         ->name('startup-folders.access.update');
     Route::get('/technical-needs', [TechnicalNeedController::class, 'index'])->name('technical-needs');
+    Route::get('/technical-needs-list', [TechnicalNeedController::class, 'index'])->name('technical-needs.index');
+    Route::get('/technical-needs/{technicalNeed}/view-document', [TechnicalNeedController::class, 'viewDocument'])
+        ->name('technical-needs.view-document');
+    Route::get('/technical-needs/{technicalNeed}/attachment', [TechnicalNeedController::class, 'downloadAttachment'])
+        ->name('technical-needs.attachment');
     Route::get('/technical-needs/{technicalNeed}/approval', [TechnicalNeedController::class, 'downloadApproval'])
         ->name('technical-needs.approval');
+    Route::post('/technical-needs/{technicalNeed}/review', [TechnicalNeedController::class, 'review'])
+        ->middleware('role:admin,super_admin')
+        ->name('technical-needs.review');
     Route::post('/technical-needs', [TechnicalNeedController::class, 'store'])->middleware('role:admin,super_admin')->name('technical-needs.store');
     Route::put('/technical-needs/{technicalNeed}', [TechnicalNeedController::class, 'update'])->middleware('role:admin,super_admin')->name('technical-needs.update');
     Route::delete('/technical-needs/{technicalNeed}', [TechnicalNeedController::class, 'destroy'])->middleware('role:admin,super_admin')->name('technical-needs.destroy');
     Route::get('/events', [EventsController::class, 'index'])->name('events');
+    Route::get('/events-list', [EventsController::class, 'index'])->name('events.index');
     Route::get('/events/create', [EventsController::class, 'create'])->middleware('role:admin,super_admin')->name('events.create');
     Route::post('/events', [EventsController::class, 'store'])->middleware('role:admin,super_admin')->name('events.store');
     Route::get('/events/{event}', [EventsController::class, 'show'])->name('events.show');
     Route::get('/events/{event}/edit', [EventsController::class, 'edit'])->middleware('role:admin,super_admin')->name('events.edit');
     Route::put('/events/{event}', [EventsController::class, 'update'])->middleware('role:admin,super_admin')->name('events.update');
+    Route::post('/events/{event}/complete', [EventsController::class, 'markCompleted'])->middleware('role:admin,super_admin')->name('events.complete');
+    Route::post('/events/{event}/cancel', [EventsController::class, 'cancel'])->middleware('role:admin,super_admin')->name('events.cancel');
+    Route::post('/events/{event}/archive', [EventsController::class, 'archive'])->middleware('role:admin,super_admin')->name('events.archive');
+    Route::post('/events/{event}/restore', [EventsController::class, 'restore'])->middleware('role:admin,super_admin')->name('events.restore');
+    Route::get('/events/{event}/post-event-document', [EventsController::class, 'downloadPostEventDocument'])->name('events.post-event-document');
     Route::post('/admin/events/{event}/send-invites', [EventInvitationController::class, 'sendInvites'])
         ->middleware('role:admin,super_admin')
         ->name('events.invitations.send');
     Route::post('/event-emails', [EventEmailController::class, 'send'])->middleware('role:admin,super_admin')->name('event-emails.send');
     Route::post('/event-outreach', [EventOutreachController::class, 'sendCommunication'])->middleware('role:admin,super_admin')->name('event-outreach.send');
     Route::get('/team', [TeamController::class, 'index'])->middleware('role:admin,super_admin')->name('team');
+    Route::get('/users', [TeamController::class, 'index'])->middleware('role:admin,super_admin')->name('users.index');
     Route::put('/team/{user}/role', [TeamController::class, 'updateRole'])->middleware('role:super_admin')->name('team.roles.update');
     Route::post('/team/invite', [TeamController::class, 'invite'])->middleware('role:admin,super_admin')->name('team.invite');
     Route::delete('/team/invitations/{invitation}', [TeamController::class, 'revokeInvite'])->middleware('role:admin,super_admin')->name('team.invitations.revoke');
     Route::get('/archives', [ArchiveController::class, 'index'])->middleware('role:admin,super_admin')->name('archives');
+    Route::get('/archive-vault', [ArchiveController::class, 'index'])->middleware('role:admin,super_admin')->name('archives.index');
     Route::post('/archives/startups/{startup}/restore', [ArchiveController::class, 'restoreStartup'])->middleware('role:admin,super_admin')->name('archives.startups.restore');
     Route::delete('/archives/startups/{startup}', [ArchiveController::class, 'destroyStartup'])->middleware('role:admin,super_admin')->name('archives.startups.destroy');
     Route::post('/archives/contacts/{contact}/restore', [ArchiveController::class, 'restoreContact'])->middleware('role:admin,super_admin')->name('archives.contacts.restore');

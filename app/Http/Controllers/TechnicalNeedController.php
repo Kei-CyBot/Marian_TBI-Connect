@@ -7,14 +7,16 @@ use App\Mail\TechnicalNeedUpdatedAlert;
 use App\Models\Startup;
 use App\Models\TechnicalNeed;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 use RuntimeException;
 use Throwable;
-use Illuminate\View\View;
 
 class TechnicalNeedController extends Controller
 {
@@ -43,7 +45,7 @@ class TechnicalNeedController extends Controller
 
         $requirements = $selectedStartup
             ? TechnicalNeed::query()
-                ->with('startup:id,name')
+                ->with('startup:id,name', 'user:id,name', 'reviewer:id,name')
                 ->where('startup_id', $selectedStartup->id)
                 ->latest('date_entry')
                 ->get()
@@ -56,6 +58,7 @@ class TechnicalNeedController extends Controller
                     'price' => $need->subscription_price,
                     'months' => $need->months_needed,
                     'responsible' => $need->responsible_team_member,
+                    'requestor' => $need->user?->name,
                     'dateEntry' => $need->date_entry?->format('Y-m-d'),
                     'dateNeeded' => $need->date_needed?->format('Y-m-d'),
                     'resource' => $need->resource_tool,
@@ -63,9 +66,12 @@ class TechnicalNeedController extends Controller
                     'status' => $need->status,
                     'priority' => $need->priority,
                     'remarks' => $need->remarks,
-                    'approvalUrl' => $need->approval_document_path
-                        ? route('technical-needs.approval', $need)
+                    'approvalUrl' => $need->approval_attachment_path || $need->approval_document_path
+                        ? route('technical-needs.view-document', ['technicalNeed' => $need, 'document' => 'approval'])
                         : null,
+                    'reviewNotes' => $need->review_notes,
+                    'reviewedBy' => $need->reviewer?->name,
+                    'reviewedAt' => $need->reviewed_at?->format('M d, Y g:i A'),
                 ])
                 ->all()
             : [];
@@ -89,26 +95,30 @@ class TechnicalNeedController extends Controller
         $validated = $request->validated();
         $startup = Startup::query()->findOrFail($validated['startup_id']);
         abort_unless($startup->userCanAccessFolder($request->user()), 403);
-        $approval = $request->file('signed_approval');
-        $path = $approval->store('technical-needs/'.$startup->id, 'local');
+        $attachment = $request->file('attachment');
+        $path = $attachment?->store('technical-needs/'.$startup->id.'/attachments', 'local');
         if ($path === false) {
-            throw new RuntimeException('The signed technical-needs approval could not be stored.');
+            throw new RuntimeException('The technical-needs attachment could not be stored.');
         }
 
         try {
             DB::transaction(fn () => TechnicalNeed::query()->create(
-                collect($validated)->except('signed_approval')->all() + [
-                    'approval_document_path' => $path,
-                    'approval_document_original_name' => $approval->getClientOriginalName(),
+                collect($validated)->except('attachment')->all() + [
+                    'user_id' => $request->user()->id,
+                    'status' => 'pending',
+                    'attachment_path' => $path,
                 ]
             ));
         } catch (Throwable $exception) {
-            Storage::disk('local')->delete($path);
+            if ($path !== null) {
+                Storage::disk('local')->delete($path);
+            }
+
             throw $exception;
         }
 
         return to_route('technical-needs', ['startup_id' => $startup->id])
-            ->with('technical_need_status', 'Technical need saved with its signed approval.');
+            ->with('technical_need_status', 'Technical need submitted for review.');
     }
 
     public function update(SaveTechnicalNeedRequest $request, TechnicalNeed $technicalNeed): RedirectResponse
@@ -117,24 +127,23 @@ class TechnicalNeedController extends Controller
         abort_unless((int) $validated['startup_id'] === $technicalNeed->startup_id, 422);
         $startup = $technicalNeed->startup;
         abort_unless($startup && $startup->userCanAccessFolder($request->user()), 403);
-        $approval = $request->file('signed_approval');
-        $oldPath = $technicalNeed->approval_document_path;
+        $attachment = $request->file('attachment');
+        $oldPath = $technicalNeed->attachment_path;
         $newPath = null;
 
-        if ($approval !== null) {
-            $newPath = $approval->store('technical-needs/'.$startup->id, 'local');
+        if ($attachment !== null) {
+            $newPath = $attachment->store('technical-needs/'.$startup->id.'/attachments', 'local');
             if ($newPath === false) {
-                throw new RuntimeException('The signed technical-needs approval could not be stored.');
+                throw new RuntimeException('The technical-needs attachment could not be stored.');
             }
         }
 
         try {
-            DB::transaction(function () use ($technicalNeed, $validated, $approval, $newPath): void {
-                $attributes = collect($validated)->except('signed_approval')->all();
+            DB::transaction(function () use ($technicalNeed, $validated, $newPath): void {
+                $attributes = collect($validated)->except('attachment')->all();
 
-                if ($approval !== null) {
-                    $attributes['approval_document_path'] = $newPath;
-                    $attributes['approval_document_original_name'] = $approval->getClientOriginalName();
+                if ($newPath !== null) {
+                    $attributes['attachment_path'] = $newPath;
                 }
 
                 $technicalNeed->update($attributes);
@@ -171,30 +180,122 @@ class TechnicalNeedController extends Controller
             403
         );
         $startupId = $technicalNeed->startup_id;
-        $approvalPath = $technicalNeed->approval_document_path;
+        $paths = array_filter([
+            $technicalNeed->attachment_path,
+            $technicalNeed->approval_attachment_path,
+            $technicalNeed->approval_document_path,
+        ]);
         $technicalNeed->delete();
-        if ($approvalPath) {
-            Storage::disk('local')->delete($approvalPath);
+        if ($paths !== []) {
+            Storage::disk('local')->delete($paths);
         }
 
         return to_route('technical-needs', ['startup_id' => $startupId])
             ->with('technical_need_status', 'Technical need removed.');
     }
 
+    public function review(Request $request, TechnicalNeed $technicalNeed): RedirectResponse
+    {
+        abort_unless(
+            $technicalNeed->startup?->userCanAccessFolder($request->user()),
+            403
+        );
+
+        $validated = $request->validate([
+            'action' => ['required', Rule::in(['approved', 'rejected'])],
+            'approval_document' => ['nullable', 'file', 'mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg', 'max:10240'],
+            'review_notes' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $attachment = $request->file('approval_document');
+        $oldPath = $technicalNeed->approval_attachment_path;
+        $newPath = null;
+
+        if ($attachment !== null) {
+            $newPath = $attachment->store('technical-needs/'.$technicalNeed->startup_id.'/approvals', 'local');
+            if ($newPath === false) {
+                throw new RuntimeException('The technical-needs approval attachment could not be stored.');
+            }
+        }
+
+        try {
+            DB::transaction(function () use ($technicalNeed, $validated, $newPath): void {
+                $technicalNeed->update([
+                    'status' => $validated['action'],
+                    'review_notes' => $validated['review_notes'] ?? null,
+                    'reviewed_by' => request()->user()->id,
+                    'reviewed_at' => now(),
+                    'approval_attachment_path' => $newPath ?? $technicalNeed->approval_attachment_path,
+                ]);
+            });
+        } catch (Throwable $exception) {
+            if ($newPath !== null) {
+                Storage::disk('local')->delete($newPath);
+            }
+
+            throw $exception;
+        }
+
+        if ($newPath !== null && $oldPath) {
+            Storage::disk('local')->delete($oldPath);
+        }
+
+        ActivityLogger::log(
+            'technical_need_reviewed',
+            'Technical need '.$technicalNeed->requirement.' was '.$validated['action'],
+            $technicalNeed,
+            ['status' => $validated['action'], 'review_notes' => $validated['review_notes'] ?? null]
+        );
+
+        return to_route('technical-needs', ['startup_id' => $technicalNeed->startup_id])
+            ->with('technical_need_status', 'Technical need '.$validated['action'].'.');
+    }
+
+    public function viewDocument(Request $request, TechnicalNeed $technicalNeed)
+    {
+        abort_unless(
+            $technicalNeed->startup?->userCanAccessFolder($request->user()),
+            403
+        );
+
+        $path = $request->query('document') === 'request'
+            ? $technicalNeed->attachment_path
+            : ($technicalNeed->approval_attachment_path ?? $technicalNeed->approval_document_path);
+        abort_unless($path, 404);
+
+        $disk = Storage::disk('local');
+        abort_unless($disk->exists($path), 404);
+
+        return response()->file($disk->path($path), [
+            'Content-Disposition' => 'inline',
+        ]);
+    }
+
+    public function downloadAttachment(TechnicalNeed $technicalNeed)
+    {
+        return $this->downloadStoredFile($technicalNeed, $technicalNeed->attachment_path);
+    }
+
     public function downloadApproval(TechnicalNeed $technicalNeed)
     {
-        abort_unless($technicalNeed->approval_document_path, 404);
+        return $this->downloadStoredFile(
+            $technicalNeed,
+            $technicalNeed->approval_attachment_path ?? $technicalNeed->approval_document_path,
+            $technicalNeed->approval_document_original_name
+        );
+    }
+
+    private function downloadStoredFile(TechnicalNeed $technicalNeed, ?string $path, ?string $downloadName = null)
+    {
+        abort_unless($path, 404);
         abort_unless(
             $technicalNeed->startup?->userCanAccessFolder(request()->user()),
             403
         );
 
         $disk = Storage::disk('local');
-        abort_unless($disk->exists($technicalNeed->approval_document_path), 404);
+        abort_unless($disk->exists($path), 404);
 
-        return response()->download(
-            $disk->path($technicalNeed->approval_document_path),
-            $technicalNeed->approval_document_original_name ?? basename($technicalNeed->approval_document_path)
-        );
+        return response()->download($disk->path($path), $downloadName ?? basename($path));
     }
 }

@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\ActivityLog;
 use App\Models\Contact;
 use App\Models\ContactRegistrationApplication;
+use App\Models\Event;
+use App\Models\EventInvitation;
 use App\Models\IntakeSubmission;
 use App\Models\Startup;
 use Illuminate\View\View;
@@ -38,6 +40,27 @@ class DashboardController extends Controller
             ->groupBy('track')
             ->pluck('total', 'track');
 
+        $networkContactSides = Contact::query()
+            ->selectRaw('side, count(*) as total')
+            ->groupBy('side')
+            ->pluck('total', 'side');
+
+        $upcomingEvents = Event::query()
+            ->where('ends_at', '>=', now())
+            ->selectRaw('scope, count(*) as total')
+            ->groupBy('scope')
+            ->pluck('total', 'scope');
+
+        $upcomingEventIds = Event::query()
+            ->where('ends_at', '>=', now())
+            ->pluck('id');
+
+        $rsvpCounts = EventInvitation::query()
+            ->whereIn('event_id', $upcomingEventIds)
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
         $statuses = ['Applicant', 'Incubatee', 'Incubatee Extended', 'Graduate', 'Alumni Network'];
         $startupStatuses = Startup::query()
             ->selectRaw('status, track, count(*) as total')
@@ -58,13 +81,20 @@ class DashboardController extends Controller
             'metrics' => [
                 'activeStartups' => $this->trackCounts($activeStartupTracks),
                 'verifiedContacts' => $this->trackCounts($verifiedContactSides),
+                'networkContacts' => $this->trackCounts($networkContactSides),
+                'upcomingEvents' => $this->trackCounts($upcomingEvents),
+                'rsvps' => [
+                    'attending' => (int) ($rsvpCounts['attending'] ?? 0),
+                    'pending' => (int) ($rsvpCounts['pending'] ?? 0),
+                    'declined' => (int) ($rsvpCounts['declined'] ?? 0),
+                ],
                 'graduates' => $this->trackCounts($graduateTracks),
                 'pendingIntakeApplications' => [
                     'all' => (int) $pendingContacts->sum() + (int) $pendingIntake->sum(),
                     'internal' => (int) ($pendingContacts['internal'] ?? 0) + (int) ($pendingIntake['internal'] ?? 0),
                     'external' => (int) ($pendingContacts['external'] ?? 0) + (int) ($pendingIntake['external'] ?? 0),
                 ],
-                'recentActivity' => ActivityLog::query()->latest()->limit(5)->get(),
+                'recentActivity' => ActivityLog::query()->with('user:id,name')->latest('id')->limit(5)->get(),
             ],
             'pipeline' => $pipeline,
         ]);

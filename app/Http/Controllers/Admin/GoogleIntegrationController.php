@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\GoogleDriveConnection;
 use App\Models\Setting;
+use App\Support\GoogleDriveService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -53,6 +54,19 @@ class GoogleIntegrationController extends Controller
         ])->save();
 
         return back()->with('success', 'Google Drive target folder updated successfully.');
+    }
+
+    public function createFolder(GoogleDriveService $drive): RedirectResponse
+    {
+        try {
+            $folderId = $drive->getOrCreateTargetFolderId();
+        } catch (\Throwable $exception) {
+            $drive->logSyncFailure($exception);
+
+            return back()->with('error', 'Could not create the Google Drive storage folder: '.$exception->getMessage());
+        }
+
+        return back()->with('success', 'Google Drive storage folder ready: '.$folderId);
     }
 
     public function disconnect(): RedirectResponse

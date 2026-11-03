@@ -38,39 +38,39 @@
     @php
         $currentUser = auth()->user();
 
-        $adminNav = [
-            ['Dashboard', 'dashboard', 'M3 12l9-9 9 9M5 10v10h14V10'],
-            ['All Files & Drive Manager', 'files', 'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z'],
-            ['Startup Directory', 'incubatees', 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2M5 21H3M9 7h1m-1 4h1m4-4h1m-1 4h1'],
-            ['Intake Queue', 'contact-intake', 'M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2m6-10a4 4 0 100-8 4 4 0 000 8zm8-1v6m3-3h-6'],
-            ['Activity Logs', 'activity-logs', 'M9 17v-6m3 6V7m3 10v-3M5 21h14a1 1 0 001-1V4a1 1 0 00-1-1H5a1 1 0 00-1 1v16a1 1 0 001 1z'],
-            ['Contacts & Network', 'contacts', 'M17 20h5v-2a4 4 0 00-3-3.9M9 20H4v-2a4 4 0 013-3.9m6-4.1a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0'],
-            ['Technical Needs', 'technical-needs', 'M9 3h6m-5 0v5.2L4.5 18a2 2 0 001.7 3h11.6a2 2 0 001.7-3L14 8.2V3m-7 11h10'],
-            ['Events & Outreach', 'events', 'M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z'],
-            ['Archives', 'archives', 'M5 8h14M5 8a2 2 0 010-4h14a2 2 0 010 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4'],
+        $recordsNav = [
+            ['label' => 'Dashboard', 'route' => 'dashboard', 'active' => ['dashboard'], 'super' => false, 'icon' => 'M3 12l9-9 9 9M5 10v10h14V10'],
+            ['label' => 'All Files & Drive Manager', 'route' => 'files.index', 'active' => ['files', 'files.*', 'form-submissions.*'], 'super' => false, 'icon' => 'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z'],
+            ['label' => 'Startup Directory', 'route' => 'startups.index', 'active' => ['startups.*', 'incubatees', 'startup-assessments.*', 'startup-drive-links.*'], 'super' => false, 'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2M5 21H3M9 7h1m-1 4h1m4-4h1m-1 4h1'],
+            ['label' => 'Contacts & Network', 'route' => 'contacts.index', 'active' => ['contacts', 'contacts.*', 'startup-folders.*'], 'super' => false, 'icon' => 'M17 20h5v-2a4 4 0 00-3-3.9M9 20H4v-2a4 4 0 013-3.9m6-4.1a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0'],
+            ['label' => 'Intake Queue', 'route' => 'intake.index', 'active' => ['intake.*', 'contact-intake', 'contact-intake.*'], 'super' => false, 'icon' => 'M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2m6-10a4 4 0 100-8 4 4 0 000 8zm8-1v6m3-3h-6'],
+            ['label' => 'Technical Needs', 'route' => 'technical-needs.index', 'active' => ['technical-needs', 'technical-needs.*'], 'super' => false, 'icon' => 'M9 3h6m-5 0v5.2L4.5 18a2 2 0 001.7 3h11.6a2 2 0 001.7-3L14 8.2V3m-7 11h10'],
+            ['label' => 'Events & Outreach', 'route' => 'events.index', 'active' => ['events', 'events.*', 'event-emails.*', 'event-outreach.*'], 'super' => false, 'icon' => 'M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z'],
+            ['label' => 'User & Credential Management', 'route' => 'users.index', 'active' => ['users.*', 'team', 'team.*'], 'super' => true, 'icon' => 'M12 11c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3zm0 2c-2.8 0-6 1.4-6 4v2h12v-2c0-2.6-3.2-4-6-4z'],
+            ['label' => 'System Integration Settings', 'route' => 'settings.index', 'active' => ['settings.*', 'admin.settings.google.*', 'google-drive.*', 'auth.google.*'], 'super' => true, 'icon' => 'M21 12a9 9 0 11-5.6-8.3M21 3v6h-6'],
+            ['label' => 'Activity Logs', 'route' => 'activity-logs.index', 'active' => ['activity-logs.*'], 'super' => false, 'icon' => 'M9 17v-6m3 6V7m3 10v-3M5 21h14a1 1 0 001-1V4a1 1 0 00-1-1H5a1 1 0 00-1 1v16a1 1 0 001 1z'],
+            ['label' => 'Archives', 'route' => 'archives.index', 'active' => ['archives', 'archives.*'], 'super' => false, 'icon' => 'M5 8h14M5 8a2 2 0 010-4h14a2 2 0 010 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4'],
         ];
 
+        $adminNav = array_values(array_filter($recordsNav, fn (array $item): bool => ! $item['super']));
+
         $memberNav = [
-            ['Dashboard', 'dashboard', 'M3 12l9-9 9 9M5 10v10h14V10'],
-            ['My Submissions & Files', 'files', 'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z'],
-            ['Profile Settings', 'profile', 'M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-3.3 0-6 1.8-6 4v2h12v-2c0-2.2-2.7-4-6-4z'],
+            ['label' => 'Dashboard', 'route' => 'dashboard', 'active' => ['dashboard'], 'icon' => 'M3 12l9-9 9 9M5 10v10h14V10'],
+            ['label' => 'My Submissions & Files', 'route' => 'files', 'active' => ['files', 'files.*', 'form-submissions.*'], 'icon' => 'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z'],
+            ['label' => 'Profile Settings', 'route' => 'profile.edit', 'active' => ['profile.*'], 'icon' => 'M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-3.3 0-6 1.8-6 4v2h12v-2c0-2.2-2.7-4-6-4z'],
         ];
 
         $nav = match (true) {
             $currentUser?->isMember() => $memberNav,
-            $currentUser?->isSuperAdmin() => [
-                ...$adminNav,
-                ['User & Credential Management', 'team', 'M12 11c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3zm0 2c-2.8 0-6 1.4-6 4v2h12v-2c0-2.6-3.2-4-6-4z'],
-                ['System Integration Settings', 'admin/settings/google', 'M21 12a9 9 0 11-5.6-8.3M21 3v6h-6'],
-            ],
+            $currentUser?->isSuperAdmin() => $recordsNav,
             $currentUser?->canManageRecords() => $adminNav,
             default => $memberNav,
         };
     @endphp
     <nav aria-label="Main navigation" class="mt-4 flex-1 space-y-0.5 overflow-y-auto px-4 pb-4">
-        @foreach($nav as [$label, $path, $icon])
-            @php $active = request()->is($path) || request()->is($path.'/*'); @endphp
-            <a href="{{ url('/'.$path) }}"
+        @foreach($nav as $item)
+            @php $active = request()->routeIs(...$item['active']); @endphp
+            <a href="{{ route($item['route']) }}"
                @click="sidebarOpen = false"
                @class([
                    'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
@@ -79,9 +79,9 @@
                ])>
                 <svg class="h-[18px] w-[18px] {{ $active ? 'text-[#b92369]' : 'text-gray-400 group-hover:text-gray-600' }}"
                      fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="{{ $icon }}"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="{{ $item['icon'] }}"/>
                 </svg>
-                <span class="truncate">{{ $label }}</span>
+                <span class="truncate">{{ $item['label'] }}</span>
                 @if($active)<span class="ml-auto h-1.5 w-1.5 rounded-full bg-[#b92369]"></span>@endif
             </a>
         @endforeach

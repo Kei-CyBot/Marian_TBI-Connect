@@ -125,8 +125,7 @@
                 attachmentName:form.attachmentName,
                 attachmentUrl:form.attachmentUrl,
                 driveResponseUrl:form.driveResponseUrl,
-                driveAttachmentUrl:form.driveAttachmentUrl,
-                driveUrl:form.driveAttachmentUrl || form.driveResponseUrl
+                driveAttachmentUrl:form.driveAttachmentUrl
             }));
             const links = Array.isArray(this.driveLinks)
                 ? this.driveLinks
@@ -234,7 +233,6 @@
                             <td class="px-3 py-3 text-gray-700" x-text="file.updated || '—'"></td>
                             <td class="px-5 py-3 text-right whitespace-nowrap">
                                 <a x-show="file.isForm && file.attachmentUrl" x-cloak :href="file.attachmentUrl" class="inline-flex rounded-lg bg-[#146e72] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#10595c]">Download</a>
-                                <a x-show="file.isForm && file.driveUrl" x-cloak :href="file.driveUrl" target="_blank" rel="noopener noreferrer" class="inline-flex rounded-lg border border-[#1a8a8e]/30 bg-[#eaf6f6] px-3 py-1.5 text-xs font-semibold text-[#146e72] hover:bg-[#d8eeee]">Open synced copy</a>
                                 <a x-show="file.isDriveLink" x-cloak :href="file.url" target="_blank" rel="noopener noreferrer" class="inline-flex rounded-lg bg-[#146e72] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#10595c]">Open in Drive</a>
                                 @if (auth()->user()->canManageRecords())
                                     <button type="button" x-show="file.isForm" x-cloak @click="askEdit(file)" class="inline-flex rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50">Edit</button>

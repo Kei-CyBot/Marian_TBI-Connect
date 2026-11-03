@@ -740,7 +740,8 @@ class FormSubmissionTest extends TestCase
         $this->actingAs($manager)
             ->post(route('form-submissions.move', $submission), ['target_folder_id' => 'agrisense-custom'])
             ->assertRedirect(route('files', ['startup' => 'agrisense-labs', 'track' => 'internal']))
-            ->assertSessionHas('drive_sync_warning', 'The file is already in that Drive folder.');
+            ->assertSessionHas('status', 'File moved to custom Drive folder successfully.')
+            ->assertSessionHas('drive_sync_warning', 'Google Drive is not connected, so the Google Drive copies were not relocated. Connect Drive and retry.');
 
         $this->assertSame('AgriSense Labs', $submission->fresh()->startup_name);
         $this->assertSame('agrisense-custom', $submission->fresh()->google_drive_folder_id);
