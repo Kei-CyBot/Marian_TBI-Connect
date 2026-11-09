@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\SaveStartupAssessmentRequest;
+use App\Models\IntakeSubmission;
 use App\Models\Startup;
 use App\Models\StartupAssessment;
 use App\Models\StartupDriveLink;
@@ -15,11 +16,30 @@ class StartupAssessmentController extends Controller
     {
         Startup::ensureConfigured();
 
+        $user = request()->user();
+        $tab = in_array(request()->query('tab'), ['pending', 'archived'], true)
+            ? request()->query('tab')
+            : 'active';
+
+        if ($tab === 'pending') {
+            abort_unless($user->canManageRecords(), 403);
+        }
+
+        $finishedStatuses = ['Graduate', 'Alumni Network'];
+
         $accessibleStartups = Startup::query()
             ->with('folderAccessUsers:id')
             ->orderBy('id')
             ->get()
-            ->filter(fn (Startup $startup): bool => $startup->userCanAccessFolder(request()->user()));
+            ->filter(fn (Startup $startup): bool => $startup->userCanAccessFolder($user))
+            ->reject(fn (Startup $startup): bool => in_array($startup->status, $finishedStatuses, true));
+
+        $archivedStartups = Startup::withTrashed()
+            ->with('folderAccessUsers:id')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (Startup $startup): bool => $startup->userCanAccessFolder($user))
+            ->filter(fn (Startup $startup): bool => $startup->trashed() || in_array($startup->status, $finishedStatuses, true));
 
         $accessibleStartupIds = $accessibleStartups->modelKeys();
 
@@ -66,9 +86,40 @@ class StartupAssessmentController extends Controller
             'legalEntityType' => $startup->legal_entity_type,
         ];
         $startups = $accessibleStartups->map($startupRecord)->values()->all();
+        $archived = $archivedStartups->map(static fn (Startup $startup): array => $startupRecord($startup) + [
+            'archived' => $startup->trashed(),
+            'archivedAt' => $startup->deleted_at?->format('M j, Y'),
+        ])->values()->all();
+
+        $pendingApplications = $user->canManageRecords()
+            ? IntakeSubmission::query()
+                ->where('type', 'startup')
+                ->whereRaw('LOWER(status) = ?', ['pending'])
+                ->latest()
+                ->get()
+                ->map(static fn (IntakeSubmission $submission): array => [
+                    'id' => $submission->id,
+                    'name' => $submission->data['startup_name'] ?? $submission->data['name'] ?? $submission->name,
+                    'founder' => $submission->data['founder'] ?? $submission->data['name'] ?? $submission->name,
+                    'email' => $submission->data['email'] ?? $submission->email,
+                    'sector' => $submission->data['internal_external'] ?? $submission->data['sector'] ?? null,
+                    'pitch' => $submission->data['description'] ?? $submission->data['pitch'] ?? null,
+                    'submitted' => $submission->created_at?->format('M j, Y'),
+                    'driveUrl' => $submission->data['drive_link']
+                        ?? $submission->data['drive_url']
+                        ?? $submission->data['drive_folder_url']
+                        ?? $submission->data['folder_url']
+                        ?? null,
+                ])
+                ->values()
+                ->all()
+            : [];
 
         return view('incubatees', [
+            'tab' => $tab,
             'startups' => $startups,
+            'archivedStartups' => $archived,
+            'pendingApplications' => $pendingApplications,
             'assessments' => $assessments,
             'assessmentAreas' => config('startup_assessment', []),
             'assessmentDefaults' => $defaultRatings,

@@ -3,6 +3,15 @@
 @section('eyebrow','Hybrid Hub · Overview')
 @section('heading','Ecosystem Dashboard')
 @section('subheading','Live snapshot across Internal Academic and External Industry tracks.')
+@section('banner-actions')
+    <a href="{{ route('dashboard.export-csv') }}"
+       class="inline-flex items-center px-4 py-2 bg-white/15 hover:bg-white/25 active:bg-white/30 text-white font-medium text-sm rounded-lg border border-white/25 shadow-sm backdrop-blur-md transition-all duration-200 ease-in-out gap-2 focus:outline-none focus:ring-2 focus:ring-white/50">
+        <svg class="w-4 h-4 text-white/90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 2 0 01-2-2V5a2 2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 2 0 01-2 2z"/>
+        </svg>
+        <span class="text-white tracking-wide font-medium">Export Report (CSV)</span>
+    </a>
+@endsection
 
 @push('head')
 <style>
@@ -47,7 +56,45 @@
         </template>
     </div>
 
-    <div class="grid gap-6 lg:grid-cols-3">
+    <!-- Executive Summary Section Header -->
+    <div class="mt-8 mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white">Executive Summary Analytics</h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Uploaded files, technical needs, and resource allocations at a glance.</p>
+        </div>
+    </div>
+
+    <!-- Analytics Cards Grid (3 Columns) -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Total Uploaded Files</p>
+            <p class="mt-2 text-3xl font-bold tracking-tight text-[#146e72]">{{ number_format($metrics['uploadedFiles']['total']) }}</p>
+            <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                <span><strong class="text-slate-800">{{ number_format($metrics['uploadedFiles']['technicalNeeds']) }}</strong> technical needs</span>
+                <span><strong class="text-slate-800">{{ number_format($metrics['uploadedFiles']['repository']) }}</strong> document repository</span>
+            </div>
+        </section>
+
+        <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Technical Needs Summary</p>
+            <div class="mt-2 flex items-end gap-3">
+                <p class="text-3xl font-bold tracking-tight text-[#b92369]">{{ number_format($metrics['technicalNeeds']['total']) }}</p>
+                <p class="pb-1 text-xs font-medium text-amber-600">{{ number_format($metrics['technicalNeeds']['pending']) }} pending review</p>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold">
+                <span class="inline-flex rounded-full bg-red-50 px-2.5 py-1 text-red-700 ring-1 ring-inset ring-red-200">High {{ $metrics['technicalNeeds']['priorities']['High'] }}</span>
+                <span class="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-amber-700 ring-1 ring-inset ring-amber-200">Moderate {{ $metrics['technicalNeeds']['priorities']['Moderate'] }}</span>
+                <span class="inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-gray-700 ring-1 ring-inset ring-gray-200">Low {{ $metrics['technicalNeeds']['priorities']['Low'] }}</span>
+            </div>
+        </section>
+
+        <section class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Resource &amp; Tool Allocations</p>
+            <p class="mt-2 text-3xl font-bold tracking-tight text-[#1a8a8e]">{{ number_format($metrics['resourceAllocations']['total']) }}</p>
+            <p class="mt-3 text-xs text-gray-500">Estimated cost <strong class="text-slate-800">₱{{ number_format($metrics['resourceAllocations']['estimatedCost'], 2) }}</strong></p>
+        </section>
+    </div>
+
         {{-- Pipeline --}}
         <section class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2">
             <div class="flex items-center justify-between">

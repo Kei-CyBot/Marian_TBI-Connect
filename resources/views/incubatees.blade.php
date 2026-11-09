@@ -163,6 +163,20 @@
      @open-incubatee-onboarding.window="openCreate()"
      @keydown.escape.window="closeModals()">
 
+    <nav aria-label="Startup sections" class="mb-5 flex flex-wrap gap-1 rounded-xl border border-slate-line bg-white p-1 text-sm font-semibold">
+        <a href="{{ route('incubatees', ['tab' => 'active']) }}" class="rounded-lg px-4 py-2 transition {{ $tab === 'active' ? 'bg-[#b92369] text-white' : 'text-gray-600 hover:bg-gray-50' }}">Active Incubatees</a>
+        @if (auth()->user()->canManageRecords())
+            <a href="{{ route('incubatees', ['tab' => 'pending']) }}" class="flex items-center gap-2 rounded-lg px-4 py-2 transition {{ $tab === 'pending' ? 'bg-[#b92369] text-white' : 'text-gray-600 hover:bg-gray-50' }}">
+                Pending Applications
+                @if (count($pendingApplications) > 0)
+                    <span class="rounded-full px-1.5 py-0.5 text-[11px] font-bold {{ $tab === 'pending' ? 'bg-white/20 text-white' : 'bg-[#b92369] text-white' }}">{{ count($pendingApplications) }}</span>
+                @endif
+            </a>
+        @endif
+        <a href="{{ route('incubatees', ['tab' => 'archived']) }}" class="rounded-lg px-4 py-2 transition {{ $tab === 'archived' ? 'bg-[#b92369] text-white' : 'text-gray-600 hover:bg-gray-50' }}">Archived / Graduated</a>
+    </nav>
+
+    @if ($tab === 'active')
     <div class="mb-5 space-y-3">
         <div class="flex flex-wrap items-center gap-3">
             <input x-model="q" type="search" placeholder="Search startups or founders…" class="w-full max-w-xs rounded-xl border border-slate-line bg-white px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
@@ -301,6 +315,95 @@
     </div>
 
     <div x-show="!list.length" x-cloak class="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white py-16 text-center text-sm text-gray-500">No incubatees match the current track, cohort, and status filters.</div>
+    @endif
+
+    @if ($tab === 'pending')
+        <div class="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <table class="min-w-full text-sm">
+                <thead class="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    <tr>
+                        <th class="px-4 py-3">Applicant</th>
+                        <th class="px-4 py-3">Startup idea</th>
+                        <th class="px-4 py-3">Contact email</th>
+                        <th class="px-4 py-3">Submitted</th>
+                        <th class="px-4 py-3">Drive folder</th>
+                        <th class="px-4 py-3">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    @forelse ($pendingApplications as $application)
+                        <tr class="hover:bg-gray-50/70">
+                            <td class="px-4 py-3">
+                                <p class="font-semibold">{{ $application['founder'] }}</p>
+                                <p class="text-xs text-gray-400">{{ $application['sector'] }}</p>
+                            </td>
+                            <td class="max-w-xs px-4 py-3">
+                                <p class="font-semibold">{{ $application['name'] }}</p>
+                                @if ($application['pitch'])
+                                    <p class="mt-1 line-clamp-2 text-xs text-gray-500">{{ $application['pitch'] }}</p>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-gray-600">{{ $application['email'] }}</td>
+                            <td class="px-4 py-3 text-gray-600">{{ $application['submitted'] }}</td>
+                            <td class="px-4 py-3">
+                                @if ($application['driveUrl'])
+                                    <a href="{{ $application['driveUrl'] }}" target="_blank" rel="noopener noreferrer" class="font-semibold text-[#146e72] hover:underline">Open folder</a>
+                                @else
+                                    <span class="text-gray-400">Auto-generate</span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="flex min-w-max items-center gap-2">
+                                    <form method="POST" action="{{ route('startup-intake.approve', $application['id']) }}">
+                                        @csrf
+                                        <button type="submit" class="rounded-lg bg-[#1a8a8e] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#146e72]">Approve &amp; Onboard</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('startup-intake.reject', $application['id']) }}" onsubmit="return confirm('Reject this application?')">
+                                        @csrf
+                                        <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50">Reject</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="6" class="px-4 py-16 text-center text-sm text-gray-500">No pending applications.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    @endif
+
+    @if ($tab === 'archived')
+        <div class="overflow-x-auto rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <table class="min-w-full text-sm">
+                <thead class="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    <tr>
+                        <th class="px-4 py-3">Startup</th>
+                        <th class="px-4 py-3">Founder</th>
+                        <th class="px-4 py-3">Status</th>
+                        <th class="px-4 py-3">Archived</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50">
+                    @forelse ($archivedStartups as $startup)
+                        <tr class="hover:bg-gray-50/70">
+                            <td class="px-4 py-3 font-semibold">{{ $startup['name'] }}</td>
+                            <td class="px-4 py-3 text-gray-600">{{ $startup['founder'] }}</td>
+                            <td class="px-4 py-3">
+                                <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">{{ $startup['archived'] ? 'Archived' : $startup['status'] }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-gray-600">{{ $startup['archivedAt'] ?? '—' }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4" class="px-4 py-16 text-center text-sm text-gray-500">No archived or graduated startups.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        @if (auth()->user()->canManageRecords())
+            <p class="mt-3 text-sm text-gray-500">Restore archived records from the <a href="{{ route('archives.index') }}" class="font-semibold text-[#146e72] hover:underline">Archives</a> page.</p>
+        @endif
+    @endif
 
     {{-- Google Drive links for one incubatee --}}
     <div x-show="driveModalOpen" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="driveModalOpen=false">

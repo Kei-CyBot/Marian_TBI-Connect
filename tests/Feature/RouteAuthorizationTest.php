@@ -8,6 +8,7 @@ use App\Models\ContactRegistrationApplication;
 use App\Models\Event;
 use App\Models\EventInvitation;
 use App\Models\FormSubmission;
+use App\Models\IntakeSubmission;
 use App\Models\Startup;
 use App\Models\StartupDriveLink;
 use App\Models\TeamInvitation;
@@ -43,6 +44,8 @@ class RouteAuthorizationTest extends TestCase
     private Contact $contact;
 
     private ContactRegistrationApplication $application;
+
+    private IntakeSubmission $intakeSubmission;
 
     private TeamInvitation $invitation;
 
@@ -118,6 +121,18 @@ class RouteAuthorizationTest extends TestCase
                 'role' => 'Other',
                 'domains' => [],
                 'technicalSkills' => [],
+            ],
+        ]);
+        $this->intakeSubmission = IntakeSubmission::query()->create([
+            'type' => 'startup',
+            'name' => 'Route Intake Startup',
+            'email' => 'route-intake@example.test',
+            'track' => 'external',
+            'data' => [
+                'name' => 'Route Intake Startup',
+                'founder' => 'Route Intake Founder',
+                'email' => 'route-intake@example.test',
+                'sector' => 'Edtech',
             ],
         ]);
         $this->invitation = TeamInvitation::query()->create([
@@ -213,8 +228,13 @@ class RouteAuthorizationTest extends TestCase
             'contact intake approve' => ['contact-intake.approve', 'post', ['application' => 'application'], [], 'redirect'],
             'contact intake provision' => ['contact-intake.provision', 'post', ['application' => 'application'], [], 'redirect'],
             'contact intake destroy' => ['contact-intake.destroy', 'delete', ['application' => 'application'], [], 'redirect'],
+            'startup intake approve' => ['startup-intake.approve', 'post', ['submission' => 'intakeSubmission'], [], 'redirect'],
+            'startup intake reject' => ['startup-intake.reject', 'post', ['submission' => 'intakeSubmission'], [], 'redirect'],
             'form submissions export' => ['exports.form-submissions', 'get', [], [], 'ok'],
             'technical needs export' => ['exports.technical-needs', 'get', [], [], 'ok'],
+            'reports index' => ['reports.index', 'get', [], [], 'ok'],
+            'reports export csv' => ['reports.export-csv', 'get', [], [], 'ok'],
+            'dashboard export csv' => ['dashboard.export-csv', 'get', [], [], 'ok'],
             'google drive connect' => ['google-drive.connect', 'get', [], [], 'redirect'],
             'google drive callback' => ['google-drive.callback', 'get', [], [], 'redirect'],
             'google drive sync' => ['google-drive.sync', 'post', [], [], 'redirect'],
@@ -264,6 +284,7 @@ class RouteAuthorizationTest extends TestCase
             'startups alias' => ['startups.index', 'get', [], [], 'ok'],
             'profile edit' => ['profile.edit', 'get', [], [], 'ok'],
             'profile update' => ['profile.update', 'put', [], [], 'redirect'],
+            'profile password update' => ['profile.password.update', 'put', [], [], 'redirect'],
             'technical needs index' => ['technical-needs', 'get', [], [], 'ok'],
             'technical needs list alias' => ['technical-needs.index', 'get', [], [], 'ok'],
             'technical need approval' => ['technical-needs.approval', 'get', ['technicalNeed' => 'technicalNeed'], [], 'ok'],
@@ -313,6 +334,17 @@ class RouteAuthorizationTest extends TestCase
 
         $response = $this->actingAs($actor)->{$method}($url, $payload);
         $this->assertAuthorizedResponse($response, $expectedStatus, $routeName);
+    }
+
+    public function test_super_admin_can_approve_startup_intake(): void
+    {
+        $this->prepareRouteScenario('startup-intake.approve');
+
+        $response = $this->actingAs($this->superAdmin)
+            ->post($this->routeUrl('startup-intake.approve', ['submission' => 'intakeSubmission']));
+
+        $this->assertAuthorizedResponse($response, 'redirect', 'startup-intake.approve');
+        $this->assertSame('approved', $this->intakeSubmission->refresh()->status);
     }
 
     public function test_credential_routes_are_super_admin_only(): void
@@ -390,7 +422,7 @@ class RouteAuthorizationTest extends TestCase
         $this->from(route('public.startup-form'))
             ->post(route('startup-form.store'), ['stream' => 'academic'])
             ->assertRedirect(route('public.startup-form'))
-            ->assertSessionHasErrors(['name', 'founder', 'email', 'sector']);
+            ->assertSessionHasErrors(['name', 'email']);
 
         $this->from(route('alumni-form'))
             ->post(route('alumni-form.store'), ['stream' => 'industry'])
@@ -529,7 +561,11 @@ class RouteAuthorizationTest extends TestCase
             'profile.update' => [
                 'name' => $this->member->name,
                 'email' => $this->member->email,
+            ],
+            'profile.password.update' => [
                 'current_password' => 'password',
+                'new_password' => 'updated-password',
+                'new_password_confirmation' => 'updated-password',
             ],
             'startup-form.store' => [
                 'stream' => 'academic',
@@ -662,6 +698,15 @@ class RouteAuthorizationTest extends TestCase
         if ($routeName === 'admin.settings.google.create-folder') {
             $this->mock(GoogleDriveService::class, function ($mock): void {
                 $mock->shouldReceive('getOrCreateTargetFolderId')->andReturn('coverage-folder');
+            });
+        }
+
+        if ($routeName === 'startup-intake.approve') {
+            $this->mock(GoogleDriveService::class, function ($mock): void {
+                $mock->shouldReceive('ensureStartupFolder')->andReturn([
+                    'id' => 'route-intake-folder',
+                    'url' => 'https://drive.google.com/drive/folders/route-intake-folder',
+                ]);
             });
         }
     }

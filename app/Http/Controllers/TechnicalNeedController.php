@@ -26,6 +26,10 @@ class TechnicalNeedController extends Controller
 
         $validated = $request->validate([
             'startup_id' => ['nullable', 'integer', 'exists:startups,id'],
+            'sort_by' => ['nullable', 'string'],
+            'sort_order' => ['nullable', 'in:asc,desc'],
+            'priority' => ['nullable', 'in:Low,Moderate,High'],
+            'status' => ['nullable', 'in:pending,approved,rejected'],
         ]);
         $startupId = $validated['startup_id'] ?? null;
         $user = $request->user();
@@ -37,18 +41,89 @@ class TechnicalNeedController extends Controller
             ->filter(static fn (Startup $startup): bool => $startup->userCanAccessFolder($user))
             ->values();
         $selectedStartup = null;
+        $requirements = [];
+        $responsibleOptions = [];
+
+        $sortColumns = [
+            'title' => 'requirement',
+            'specifications' => 'description',
+            'price_subscription' => 'subscription_price',
+            'months_needed' => 'months_needed',
+            'responsible_team_member' => 'responsible_team_member',
+            'date_entry' => 'date_entry',
+            'date_needed' => 'date_needed',
+            'resource_tool_needed' => 'resource_tool',
+            'prospect_resource_person' => 'prospect_resource_person',
+            'priority' => 'priority',
+            'remarks' => 'remarks',
+            'status' => 'status',
+        ];
+        $sortBy = $validated['sort_by'] ?? 'date_entry';
+        if (! array_key_exists($sortBy, $sortColumns)) {
+            $sortBy = 'date_entry';
+        }
+        $sortOrder = ($validated['sort_order'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
 
         if ($startupId !== null) {
             $selectedStartup = $startups->firstWhere('id', (int) $startupId);
             abort_unless($selectedStartup, 403, 'You do not have access to this incubatee folder.');
         }
 
-        $requirements = $selectedStartup
-            ? TechnicalNeed::query()
+        if ($selectedStartup) {
+            $query = TechnicalNeed::query()
                 ->with('startup:id,name', 'user:id,name', 'reviewer:id,name')
-                ->where('startup_id', $selectedStartup->id)
-                ->latest('date_entry')
-                ->get()
+                ->where('startup_id', $selectedStartup->id);
+
+            foreach ([
+                'title' => 'requirement',
+                'specifications' => 'description',
+                'resource_tool_needed' => 'resource_tool',
+                'prospect_resource_person' => 'prospect_resource_person',
+                'remarks' => 'remarks',
+            ] as $parameter => $column) {
+                $value = trim((string) $request->query($parameter, ''));
+                if ($value !== '') {
+                    $query->where($column, 'like', '%'.$value.'%');
+                }
+            }
+
+            foreach ([
+                'price_min' => ['subscription_price', '>='],
+                'price_max' => ['subscription_price', '<='],
+                'months_min' => ['months_needed', '>='],
+                'months_max' => ['months_needed', '<='],
+            ] as $parameter => [$column, $operator]) {
+                $value = $request->query($parameter);
+                if (is_numeric($value)) {
+                    $query->where($column, $operator, $value);
+                }
+            }
+
+            foreach ([
+                'date_entry_from' => ['date_entry', '>='],
+                'date_entry_to' => ['date_entry', '<='],
+                'date_needed_from' => ['date_needed', '>='],
+                'date_needed_to' => ['date_needed', '<='],
+            ] as $parameter => [$column, $operator]) {
+                $value = $request->query($parameter);
+                if (is_string($value) && $value !== '') {
+                    $query->whereDate($column, $operator, $value);
+                }
+            }
+
+            foreach (['responsible_team_member', 'priority', 'status'] as $parameter) {
+                $value = $request->query($parameter);
+                if (is_string($value) && $value !== '') {
+                    $query->where($parameter, $value);
+                }
+            }
+
+            $query->orderBy($sortColumns[$sortBy], $sortOrder);
+            if ($sortBy !== 'date_entry') {
+                $query->orderByDesc('date_entry');
+            }
+
+            $requirements = $query->get()
                 ->map(static fn (TechnicalNeed $need): array => [
                     'id' => $need->id,
                     'startupId' => $need->startup_id,
@@ -66,6 +141,10 @@ class TechnicalNeedController extends Controller
                     'status' => $need->status,
                     'priority' => $need->priority,
                     'remarks' => $need->remarks,
+                    'attachmentUrl' => $need->attachment_path
+                        ? route('technical-needs.attachment', $need)
+                        : null,
+                    'attachmentName' => $need->attachment_path ? basename($need->attachment_path) : null,
                     'approvalUrl' => $need->approval_attachment_path || $need->approval_document_path
                         ? route('technical-needs.view-document', ['technicalNeed' => $need, 'document' => 'approval'])
                         : null,
@@ -73,8 +152,16 @@ class TechnicalNeedController extends Controller
                     'reviewedBy' => $need->reviewer?->name,
                     'reviewedAt' => $need->reviewed_at?->format('M d, Y g:i A'),
                 ])
-                ->all()
-            : [];
+                ->all();
+
+            $responsibleOptions = TechnicalNeed::query()
+                ->where('startup_id', $selectedStartup->id)
+                ->whereNotNull('responsible_team_member')
+                ->distinct()
+                ->orderBy('responsible_team_member')
+                ->pluck('responsible_team_member')
+                ->all();
+        }
 
         return view('technical-needs', [
             'requirements' => $requirements,
@@ -87,6 +174,9 @@ class TechnicalNeedController extends Controller
                 ])
                 ->all(),
             'selectedStartup' => $selectedStartup,
+            'sortBy' => $sortBy,
+            'sortOrder' => $sortOrder,
+            'responsibleOptions' => $responsibleOptions,
         ]);
     }
 

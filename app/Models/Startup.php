@@ -18,6 +18,8 @@ class Startup extends Model
         'contact_email',
         'track',
         'venture_type',
+        'organization',
+        'description',
         'status',
         'cohort_id',
         'campus_department',

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Mail\TechnicalNeedUpdatedAlert;
 use App\Models\Contact;
+use App\Models\FormSubmission;
 use App\Models\Startup;
 use App\Models\TechnicalNeed;
 use App\Models\User;
@@ -377,6 +378,170 @@ class TechnicalNeedTest extends TestCase
         $this->assertSame($contact->id, $startup->founder_contact_id);
         $this->assertSame('Founder', $contact->role);
         $this->assertSame('Pending Verification', $contact->verification_status);
+    }
+
+    public function test_dashboard_tallies_uploaded_files_and_technical_need_statistics(): void
+    {
+        Startup::ensureConfigured();
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $startup = Startup::query()->findOrFail(1);
+
+        TechnicalNeed::query()->create([
+            'startup_id' => $startup->id,
+            'requirement' => 'Cloud hosting',
+            'date_entry' => '2026-10-01',
+            'priority' => 'High',
+            'status' => 'pending',
+            'subscription_price' => '1500.00',
+            'resource_tool' => 'Cloud credits',
+            'attachment_path' => 'technical-needs/1/cloud.pdf',
+        ]);
+        TechnicalNeed::query()->create([
+            'startup_id' => $startup->id,
+            'requirement' => 'Workstation',
+            'date_entry' => '2026-10-02',
+            'priority' => 'Low',
+            'status' => 'approved',
+            'subscription_price' => '500.00',
+        ]);
+        FormSubmission::query()->create([
+            'user_id' => $admin->id,
+            'form_id' => 1,
+            'form_name' => 'Startup Profile',
+            'startup_name' => $startup->name,
+            'track' => 'internal',
+            'data' => [],
+            'approval_status' => 'submitted',
+            'local_path' => 'submissions/profile.pdf',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Total Uploaded Files')
+            ->assertSee('Technical Needs Summary')
+            ->assertSee('Resource & Tool Allocations')
+            ->assertViewHas('metrics', static function (array $metrics): bool {
+                return $metrics['uploadedFiles']['total'] === 2
+                    && $metrics['uploadedFiles']['technicalNeeds'] === 1
+                    && $metrics['uploadedFiles']['repository'] === 1
+                    && $metrics['technicalNeeds']['total'] === 2
+                    && $metrics['technicalNeeds']['pending'] === 1
+                    && $metrics['technicalNeeds']['priorities'] === ['Low' => 1, 'Moderate' => 0, 'High' => 1]
+                    && $metrics['resourceAllocations']['total'] === 1
+                    && (float) $metrics['resourceAllocations']['estimatedCost'] === 2000.0;
+            });
+    }
+
+    public function test_technical_needs_support_server_side_filtering_and_sorting(): void
+    {
+        Startup::ensureConfigured();
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $startup = Startup::query()->findOrFail(1);
+
+        foreach ([
+            ['requirement' => 'Alpha', 'subscription_price' => '100.00', 'priority' => 'Low', 'date_entry' => '2026-10-01', 'date_needed' => '2026-12-01', 'responsible_team_member' => 'Mia Santos'],
+            ['requirement' => 'Beta', 'subscription_price' => '300.00', 'priority' => 'High', 'date_entry' => '2026-10-02', 'date_needed' => '2026-11-01', 'responsible_team_member' => 'Ana Cruz'],
+            ['requirement' => 'Gamma', 'subscription_price' => '200.00', 'priority' => 'Moderate', 'date_entry' => '2026-10-03', 'date_needed' => '2026-10-20', 'responsible_team_member' => 'Mia Santos'],
+        ] as $attributes) {
+            TechnicalNeed::query()->create($attributes + ['startup_id' => $startup->id]);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('technical-needs', ['startup_id' => $startup->id, 'price_min' => 150, 'price_max' => 250]))
+            ->assertOk()
+            ->assertViewHas('requirements', fn (array $requirements): bool => collect($requirements)->pluck('requirement')->all() === ['Gamma']);
+
+        $this->actingAs($admin)
+            ->get(route('technical-needs', ['startup_id' => $startup->id, 'priority' => 'High']))
+            ->assertOk()
+            ->assertViewHas('requirements', fn (array $requirements): bool => collect($requirements)->pluck('requirement')->all() === ['Beta']);
+
+        $this->actingAs($admin)
+            ->get(route('technical-needs', ['startup_id' => $startup->id, 'date_needed_from' => '2026-11-01', 'date_needed_to' => '2026-11-30']))
+            ->assertOk()
+            ->assertViewHas('requirements', fn (array $requirements): bool => collect($requirements)->pluck('requirement')->all() === ['Beta']);
+
+        $this->actingAs($admin)
+            ->get(route('technical-needs', ['startup_id' => $startup->id, 'responsible_team_member' => 'Mia Santos']))
+            ->assertOk()
+            ->assertViewHas('requirements', fn (array $requirements): bool => collect($requirements)->pluck('requirement')->all() === ['Gamma', 'Alpha']);
+
+        $this->actingAs($admin)
+            ->get(route('technical-needs', ['startup_id' => $startup->id, 'sort_by' => 'price_subscription', 'sort_order' => 'asc']))
+            ->assertOk()
+            ->assertViewHas('requirements', fn (array $requirements): bool => collect($requirements)->pluck('requirement')->all() === ['Alpha', 'Gamma', 'Beta']);
+
+        $this->actingAs($admin)
+            ->get(route('technical-needs', ['startup_id' => $startup->id, 'sort_by' => 'title', 'sort_order' => 'desc']))
+            ->assertOk()
+            ->assertViewHas('requirements', fn (array $requirements): bool => collect($requirements)->pluck('requirement')->all() === ['Gamma', 'Beta', 'Alpha']);
+    }
+
+    public function test_technical_needs_page_renders_card_view_with_filter_and_sort_controls(): void
+    {
+        Startup::ensureConfigured();
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $startup = Startup::query()->findOrFail(1);
+
+        TechnicalNeed::query()->create([
+            'startup_id' => $startup->id,
+            'requirement' => 'Card Alpha',
+            'date_entry' => '2026-10-01',
+            'priority' => 'High',
+            'subscription_price' => '100.00',
+        ]);
+        TechnicalNeed::query()->create([
+            'startup_id' => $startup->id,
+            'requirement' => 'Card Beta',
+            'date_entry' => '2026-10-02',
+            'priority' => 'Low',
+            'subscription_price' => '300.00',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('technical-needs', [
+                'startup_id' => $startup->id,
+                'priority' => 'High',
+                'sort_by' => 'title',
+                'sort_order' => 'asc',
+            ]))
+            ->assertOk()
+            ->assertSee('Filter &amp; Search', false)
+            ->assertSee('Sort by')
+            ->assertSee('More request details')
+            ->assertSee('Card Alpha')
+            ->assertDontSee('Card Beta')
+            ->assertViewHas('requirements', fn (array $requirements): bool => collect($requirements)->pluck('requirement')->all() === ['Card Alpha'])
+            ->assertViewHas('sortBy', 'title')
+            ->assertViewHas('sortOrder', 'asc');
+    }
+
+    public function test_priority_filter_and_technical_need_csv_export_still_work(): void
+    {
+        Startup::ensureConfigured();
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $startup = Startup::query()->findOrFail(1);
+
+        foreach (['Low', 'Moderate', 'High'] as $index => $priority) {
+            TechnicalNeed::query()->create([
+                'startup_id' => $startup->id,
+                'requirement' => $priority.' need',
+                'date_entry' => '2026-10-0'.($index + 1),
+                'priority' => $priority,
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('technical-needs', ['startup_id' => $startup->id, 'priority' => 'Moderate']))
+            ->assertOk()
+            ->assertViewHas('requirements', fn (array $requirements): bool => collect($requirements)->pluck('priority')->unique()->all() === ['Moderate']);
+
+        $response = $this->actingAs($admin)->get(route('exports.technical-needs'));
+        $response->assertOk();
+        $content = $response->streamedContent();
+        $this->assertStringContainsString('Priority', $content);
+        $this->assertStringContainsString('Moderate', $content);
     }
 
     public function test_events_page_includes_create_event_action_and_calendar_details(): void

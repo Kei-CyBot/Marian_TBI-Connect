@@ -15,8 +15,10 @@ use App\Http\Controllers\FileManagerController;
 use App\Http\Controllers\FormSubmissionController;
 use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\GoogleDriveController;
+use App\Http\Controllers\PasswordController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicIntakeController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\StartupAssessmentController;
 use App\Http\Controllers\StartupController;
 use App\Http\Controllers\StartupDriveLinkController;
@@ -117,9 +119,19 @@ Route::middleware(['auth', EnsurePasswordIsConfigured::class])->group(function (
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::put('/profile/password', [PasswordController::class, 'update'])->name('profile.password.update');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard/export-csv', [DashboardController::class, 'exportCsv'])->middleware('role:admin,super_admin')->name('dashboard.export-csv');
+    Route::get('/reports', [ReportController::class, 'index'])->middleware('role:admin,super_admin')->name('reports.index');
+    Route::get('/reports/export-csv', [ReportController::class, 'exportCsv'])->middleware('role:admin,super_admin')->name('reports.export-csv');
     Route::get('/incubatees', [StartupAssessmentController::class, 'index'])->name('incubatees');
     Route::get('/startups', [StartupAssessmentController::class, 'index'])->name('startups.index');
+    Route::post('/startup-intake/{submission}/approve', [StartupController::class, 'approveIntake'])
+        ->middleware('role:admin,super_admin')
+        ->name('startup-intake.approve');
+    Route::post('/startup-intake/{submission}/reject', [StartupController::class, 'rejectIntake'])
+        ->middleware('role:admin,super_admin')
+        ->name('startup-intake.reject');
     Route::post('/incubatees', [StartupController::class, 'store'])->middleware('role:admin,super_admin')->name('incubatees.store');
     Route::put('/incubatees/{startup}', [StartupController::class, 'update'])->middleware('role:admin,super_admin')->name('incubatees.update');
     Route::delete('/incubatees/{startup}', [StartupController::class, 'destroy'])->middleware('role:admin,super_admin')->name('incubatees.destroy');

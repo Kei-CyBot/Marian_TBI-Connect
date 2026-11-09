@@ -37,9 +37,16 @@
 
     @php
         $currentUser = auth()->user();
+        $pendingStartupCount = $currentUser?->canManageRecords()
+            ? \App\Models\IntakeSubmission::query()
+                ->where('type', 'startup')
+                ->whereRaw('LOWER(status) = ?', ['pending'])
+                ->count()
+            : 0;
 
         $recordsNav = [
             ['label' => 'Dashboard', 'route' => 'dashboard', 'active' => ['dashboard'], 'super' => false, 'icon' => 'M3 12l9-9 9 9M5 10v10h14V10'],
+            ['label' => 'Reports', 'route' => 'reports.index', 'active' => ['reports', 'reports.*'], 'super' => false, 'icon' => 'M9 17v-6m3 6V7m3 10v-3M5 21h14a1 1 0 001-1V4a1 1 0 00-1-1H5a1 1 0 00-1 1v16a1 1 0 001 1z'],
             ['label' => 'All Files & Drive Manager', 'route' => 'files.index', 'active' => ['files', 'files.*', 'form-submissions.*'], 'super' => false, 'icon' => 'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z'],
             ['label' => 'Startup Directory', 'route' => 'startups.index', 'active' => ['startups.*', 'incubatees', 'startup-assessments.*', 'startup-drive-links.*'], 'super' => false, 'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2M5 21H3M9 7h1m-1 4h1m4-4h1m-1 4h1'],
             ['label' => 'Contacts & Network', 'route' => 'contacts.index', 'active' => ['contacts', 'contacts.*', 'startup-folders.*'], 'super' => false, 'icon' => 'M17 20h5v-2a4 4 0 00-3-3.9M9 20H4v-2a4 4 0 013-3.9m6-4.1a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0'],
@@ -82,7 +89,11 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="{{ $item['icon'] }}"/>
                 </svg>
                 <span class="truncate">{{ $item['label'] }}</span>
-                @if($active)<span class="ml-auto h-1.5 w-1.5 rounded-full bg-[#b92369]"></span>@endif
+                @if($item['route'] === 'startups.index' && $pendingStartupCount > 0)
+                    <span class="ml-auto rounded-full bg-[#b92369] px-1.5 py-0.5 text-[11px] font-bold text-white">{{ $pendingStartupCount }}</span>
+                @elseif($active)
+                    <span class="ml-auto h-1.5 w-1.5 rounded-full bg-[#b92369]"></span>
+                @endif
             </a>
         @endforeach
     </nav>
@@ -163,7 +174,7 @@
         <section class="grad relative mb-6 overflow-hidden rounded-2xl px-6 py-6 text-white shadow-lg shadow-[#b92369]/10">
             <div class="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full bg-white/10"></div>
             <div class="pointer-events-none absolute -bottom-20 right-32 h-48 w-48 rounded-full bg-white/10"></div>
-            <div class="relative flex flex-wrap items-end justify-between gap-4">
+            <div class="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wider text-white/70">@yield('eyebrow', 'Marian TBI Connect')</p>
                     <h1 class="mt-1 text-2xl font-bold tracking-tight">@yield('heading', 'Dashboard')</h1>

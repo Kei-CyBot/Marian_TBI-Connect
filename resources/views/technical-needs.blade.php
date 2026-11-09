@@ -70,20 +70,106 @@
         </div>
     </div>
 
-    <div class="mb-5 flex flex-wrap items-end gap-3">
-        <label class="block">
-            <span class="mb-1 block text-xs font-semibold text-gray-600">Status</span>
-            <select x-model="statusFilter" class="rounded-xl border border-slate-line bg-white px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
-                <option value="">All statuses</option><option>pending</option><option>approved</option><option>rejected</option>
-            </select>
-        </label>
-        <label class="block">
-            <span class="mb-1 block text-xs font-semibold text-gray-600">Priority</span>
-            <select x-model="priorityFilter" class="rounded-xl border border-slate-line bg-white px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
-                <option value="">All priorities</option><option>Low</option><option>Moderate</option><option>High</option>
-            </select>
-        </label>
-        <p class="ml-auto pb-2 text-sm font-medium text-slate-600"><span x-text="filteredRequirements.length"></span> request<span x-show="filteredRequirements.length!==1">s</span></p>
+    @php
+        $filterParameters = [
+            'title', 'specifications', 'price_min', 'price_max', 'months_min', 'months_max',
+            'responsible_team_member', 'date_entry_from', 'date_entry_to',
+            'date_needed_from', 'date_needed_to', 'resource_tool_needed',
+            'prospect_resource_person', 'priority', 'status', 'remarks',
+        ];
+        $hasFilters = collect($filterParameters)->contains(static fn (string $parameter): bool => request()->filled($parameter));
+        $columns = [
+            'title' => 'Title',
+            'specifications' => 'Specifications',
+            'price_subscription' => 'Price',
+            'months_needed' => 'Months',
+            'responsible_team_member' => 'Responsible',
+            'date_entry' => 'Date Entry',
+            'date_needed' => 'Date Needed',
+            'resource_tool_needed' => 'Resource / Tool',
+            'prospect_resource_person' => 'Prospect',
+            'priority' => 'Priority',
+            'remarks' => 'Remarks',
+        ];
+    @endphp
+
+    <details class="mb-5 rounded-2xl border border-slate-200 bg-white shadow-sm" @if ($hasFilters) open @endif>
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+            <span class="text-sm font-semibold text-slate-900">Filter &amp; Search</span>
+            <span class="text-xs font-medium text-slate-500">{{ count($requirements) }} result{{ count($requirements) === 1 ? '' : 's' }}{{ $hasFilters ? ' · filters active' : '' }}</span>
+        </summary>
+        <form method="GET" action="{{ route('technical-needs') }}" class="grid gap-3 border-t border-slate-100 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
+            <input type="hidden" name="startup_id" value="{{ $selectedStartup->id }}">
+            <input type="hidden" name="sort_by" value="{{ $sortBy }}">
+            <input type="hidden" name="sort_order" value="{{ $sortOrder }}">
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Title</span><input name="title" value="{{ request('title') }}" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Specifications</span><input name="specifications" value="{{ request('specifications') }}" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Price min (PHP)</span><input name="price_min" type="number" min="0" step="0.01" value="{{ request('price_min') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Price max (PHP)</span><input name="price_max" type="number" min="0" step="0.01" value="{{ request('price_max') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Months min</span><input name="months_min" type="number" min="1" value="{{ request('months_min') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Months max</span><input name="months_max" type="number" min="1" value="{{ request('months_max') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Responsible team member</span>
+                <select name="responsible_team_member" class="w-full rounded-xl border border-slate-line bg-white px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                    <option value="">All members</option>
+                    @foreach ($responsibleOptions as $member)
+                        <option value="{{ $member }}" @selected(request('responsible_team_member') === $member)>{{ $member }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Date entry from</span><input name="date_entry_from" type="date" value="{{ request('date_entry_from') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Date entry to</span><input name="date_entry_to" type="date" value="{{ request('date_entry_to') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Date needed from</span><input name="date_needed_from" type="date" value="{{ request('date_needed_from') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Date needed to</span><input name="date_needed_to" type="date" value="{{ request('date_needed_to') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Resource / tool needed</span><input name="resource_tool_needed" value="{{ request('resource_tool_needed') }}" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Prospect resource person</span><input name="prospect_resource_person" value="{{ request('prospect_resource_person') }}" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Priority</span>
+                <select name="priority" class="w-full rounded-xl border border-slate-line bg-white px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                    <option value="">All priorities</option>
+                    @foreach (['Low', 'Moderate', 'High'] as $priority)
+                        <option value="{{ $priority }}" @selected(request('priority') === $priority)>{{ $priority }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Remarks</span><input name="remarks" value="{{ request('remarks') }}" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
+            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Status</span>
+                <select name="status" class="w-full rounded-xl border border-slate-line bg-white px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                    <option value="">All statuses</option>
+                    @foreach (['pending', 'approved', 'rejected'] as $status)
+                        <option value="{{ $status }}" @selected(request('status') === $status)>{{ ucfirst($status) }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <div class="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
+                <button type="submit" class="rounded-xl bg-[#146e72] px-4 py-2 text-sm font-semibold text-white hover:bg-[#10595c]">Apply filters</button>
+                <a href="{{ route('technical-needs', ['startup_id' => $selectedStartup->id]) }}" class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Reset</a>
+            </div>
+        </form>
+    </details>
+
+    <div class="mb-4 flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <form method="GET" action="{{ route('technical-needs') }}" class="flex flex-wrap items-end gap-2">
+            <input type="hidden" name="startup_id" value="{{ $selectedStartup->id }}">
+            @foreach (request()->except(['startup_id', 'sort_by', 'sort_order']) as $key => $value)
+                @if (is_scalar($value) && $value !== '')
+                    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                @endif
+            @endforeach
+            <label class="block">
+                <span class="mb-1 block text-xs font-semibold text-gray-600">Sort by</span>
+                <select name="sort_by" onchange="this.form.submit()" class="rounded-xl border border-slate-line bg-white px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                    @foreach ($columns as $key => $label)
+                        <option value="{{ $key }}" @selected($sortBy === $key)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <input type="hidden" name="sort_order" value="{{ $sortOrder }}">
+        </form>
+        <div class="flex items-center gap-2">
+            <span class="text-xs font-medium text-slate-500">{{ count($requirements) }} result{{ count($requirements) === 1 ? '' : 's' }}</span>
+            <a href="{{ route('technical-needs', array_merge(request()->query(), ['startup_id' => $selectedStartup->id, 'sort_by' => $sortBy, 'sort_order' => $sortOrder === 'asc' ? 'desc' : 'asc'])) }}" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="Toggle sort direction">
+                {{ $sortOrder === 'asc' ? '↑ Ascending' : '↓ Descending' }}
+            </a>
+        </div>
     </div>
 
     <div class="space-y-3">
@@ -100,6 +186,7 @@
                             <p x-show="item.description" class="mt-1 line-clamp-2 text-sm text-slate-600" x-text="item.description"></p>
                         </div>
                         <div class="flex shrink-0 flex-wrap items-center gap-2">
+                            <a x-show="item.attachmentUrl" :href="item.attachmentUrl" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50" :title="item.attachmentName">⬇ Download</a>
                             <a x-show="item.approvalUrl" :href="item.approvalUrl" target="_blank" rel="noopener" class="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-900 hover:bg-teal-100">👁️ View Approval</a>
                             @if (auth()->user()->canManageRecords() && $selectedStartup)
                                 <button type="button" x-show="item.status==='pending'" @click="$dispatch('review-technical-need',item)" class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100">Attach &amp; Review</button>
@@ -136,7 +223,7 @@
 
     <div x-show="!filteredRequirements.length" x-cloak class="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white px-4 py-12 text-center text-sm text-gray-600">
         <p class="font-semibold text-slate-800">No requests match this folder and its filters.</p>
-        <p class="mt-1">Clear the status or priority filters, or add an approved technical need.</p>
+        <p class="mt-1">Clear the filters, or add an approved technical need.</p>
     </div>
     @endif
 

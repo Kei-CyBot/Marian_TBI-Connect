@@ -196,9 +196,7 @@ class ContactLifecycleTest extends TestCase
 
         $this->get(route('dashboard'))->assertRedirect(route('profile.edit'));
 
-        $this->put(route('profile.update'), [
-            'name' => $user->name,
-            'email' => $user->email,
+        $this->put(route('profile.password.update'), [
             'new_password' => 'new-password-123',
             'new_password_confirmation' => 'new-password-123',
         ])->assertRedirect(route('profile.edit'))

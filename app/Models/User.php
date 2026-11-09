@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -33,6 +34,10 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'phone',
+        'affiliation',
+        'startup_id',
+        'contact_id',
         'password',
         'role',
         'google_id',
@@ -69,6 +74,16 @@ class User extends Authenticatable
             'google_refresh_token' => 'encrypted',
             'google_token_expires_at' => 'datetime',
         ];
+    }
+
+    public function startup(): BelongsTo
+    {
+        return $this->belongsTo(Startup::class);
+    }
+
+    public function contact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class);
     }
 
     public function isSuperAdmin(): bool

@@ -107,7 +107,6 @@
             <p>New to the ecosystem? Explore our public forms:</p>
             <div class="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 font-medium">
                 <a href="{{ route('public.startup-form') }}" class="text-[#b92369] hover:text-[#9a1b55]">Startup intake</a>
-                <a href="{{ route('alumni-form') }}" class="text-[#1a8a8e] hover:text-[#146e72]">Alumni form</a>
                 <a href="{{ route('contact-registration') }}" class="text-slate-600 hover:text-slate-900">Contact registration</a>
             </div>
         </div>
