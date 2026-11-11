@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\FormSubmission;
 use App\Models\TechnicalNeed;
+use App\Services\TechnicalNeedMetrics;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -84,35 +85,20 @@ class ReportController extends Controller
 
     private function reportData(): array
     {
-        $technicalNeedFiles = TechnicalNeed::query()->whereNotNull('attachment_path')->count()
-            + TechnicalNeed::query()->whereNotNull('approval_attachment_path')->count()
-            + TechnicalNeed::query()->whereNotNull('approval_document_path')->count();
+        $metrics = TechnicalNeedMetrics::summary();
         $repositoryFiles = FormSubmission::query()
             ->where(static fn ($query) => $query->whereNotNull('local_path')->orWhereNotNull('google_drive_file_id'))
             ->count();
-        $priorities = TechnicalNeed::query()
-            ->selectRaw('priority, count(*) as total')
-            ->groupBy('priority')
-            ->pluck('total', 'priority');
         $technicalNeeds = TechnicalNeed::query()
             ->with('startup:id,name')
             ->orderByDesc('created_at')
             ->get();
-        $allocatedItems = TechnicalNeed::query()
-            ->whereNotNull('resource_tool')
-            ->where('resource_tool', '!=', '')
-            ->count();
-        $estimatedCost = (float) TechnicalNeed::query()->sum('subscription_price');
 
         $auditRows = collect()
             ->merge(
-                TechnicalNeed::query()
-                    ->with('startup:id,name')
-                    ->where(static fn ($query) => $query
-                        ->whereNotNull('attachment_path')
-                        ->orWhereNotNull('approval_attachment_path')
-                        ->orWhereNotNull('approval_document_path'))
-                    ->get()
+                $technicalNeeds
+                    ->filter(static fn (TechnicalNeed $need): bool => $need->attachment_path
+                        || $need->approval_attachment_path)
                     ->map(static fn (TechnicalNeed $need): array => [
                         'document' => $need->requirement,
                         'source' => 'Technical Need',
@@ -142,16 +128,12 @@ class ReportController extends Controller
             ->values();
 
         return [
-            'technicalNeedFiles' => $technicalNeedFiles,
+            'technicalNeedFiles' => $metrics['fileCount'],
             'repositoryFiles' => $repositoryFiles,
-            'priorities' => [
-                'Low' => (int) ($priorities['Low'] ?? 0),
-                'Moderate' => (int) ($priorities['Moderate'] ?? 0),
-                'High' => (int) ($priorities['High'] ?? 0),
-            ],
+            'priorities' => $metrics['priorities'],
             'technicalNeeds' => $technicalNeeds,
-            'allocatedItems' => $allocatedItems,
-            'estimatedCost' => $estimatedCost,
+            'allocatedItems' => $metrics['allocatedItems'],
+            'estimatedCost' => $metrics['estimatedCost'],
             'auditRows' => $auditRows,
         ];
     }

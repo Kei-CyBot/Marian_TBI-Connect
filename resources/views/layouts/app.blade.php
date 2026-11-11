@@ -47,16 +47,16 @@
         $recordsNav = [
             ['label' => 'Dashboard', 'route' => 'dashboard', 'active' => ['dashboard'], 'super' => false, 'icon' => 'M3 12l9-9 9 9M5 10v10h14V10'],
             ['label' => 'Reports', 'route' => 'reports.index', 'active' => ['reports', 'reports.*'], 'super' => false, 'icon' => 'M9 17v-6m3 6V7m3 10v-3M5 21h14a1 1 0 001-1V4a1 1 0 00-1-1H5a1 1 0 00-1 1v16a1 1 0 001 1z'],
-            ['label' => 'All Files & Drive Manager', 'route' => 'files.index', 'active' => ['files', 'files.*', 'form-submissions.*'], 'super' => false, 'icon' => 'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z'],
-            ['label' => 'Startup Directory', 'route' => 'startups.index', 'active' => ['startups.*', 'incubatees', 'startup-assessments.*', 'startup-drive-links.*'], 'super' => false, 'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2M5 21H3M9 7h1m-1 4h1m4-4h1m-1 4h1'],
-            ['label' => 'Contacts & Network', 'route' => 'contacts.index', 'active' => ['contacts', 'contacts.*', 'startup-folders.*'], 'super' => false, 'icon' => 'M17 20h5v-2a4 4 0 00-3-3.9M9 20H4v-2a4 4 0 013-3.9m6-4.1a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0'],
-            ['label' => 'Intake Queue', 'route' => 'intake.index', 'active' => ['intake.*', 'contact-intake', 'contact-intake.*'], 'super' => false, 'icon' => 'M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2m6-10a4 4 0 100-8 4 4 0 000 8zm8-1v6m3-3h-6'],
-            ['label' => 'Technical Needs', 'route' => 'technical-needs.index', 'active' => ['technical-needs', 'technical-needs.*'], 'super' => false, 'icon' => 'M9 3h6m-5 0v5.2L4.5 18a2 2 0 001.7 3h11.6a2 2 0 001.7-3L14 8.2V3m-7 11h10'],
-            ['label' => 'Events & Outreach', 'route' => 'events.index', 'active' => ['events', 'events.*', 'event-emails.*', 'event-outreach.*'], 'super' => false, 'icon' => 'M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z'],
-            ['label' => 'User & Credential Management', 'route' => 'users.index', 'active' => ['users.*', 'team', 'team.*'], 'super' => true, 'icon' => 'M12 11c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3zm0 2c-2.8 0-6 1.4-6 4v2h12v-2c0-2.6-3.2-4-6-4z'],
-            ['label' => 'System Integration Settings', 'route' => 'settings.index', 'active' => ['settings.*', 'admin.settings.google.*', 'google-drive.*', 'auth.google.*'], 'super' => true, 'icon' => 'M21 12a9 9 0 11-5.6-8.3M21 3v6h-6'],
+            ['label' => 'All Files & Drive Manager', 'route' => 'files', 'active' => ['files', 'files.*', 'form-submissions.*'], 'super' => false, 'icon' => 'M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z'],
+            ['label' => 'Startup Directory', 'route' => 'incubatees', 'active' => ['incubatees', 'incubatees.*', 'startup-assessments.*', 'startup-drive-links.*'], 'super' => false, 'icon' => 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2M5 21H3M9 7h1m-1 4h1m4-4h1m-1 4h1'],
+            ['label' => 'Contacts & Network', 'route' => 'contacts', 'active' => ['contacts', 'contacts.*', 'startup-folders.*'], 'super' => false, 'icon' => 'M17 20h5v-2a4 4 0 00-3-3.9M9 20H4v-2a4 4 0 013-3.9m6-4.1a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0'],
+            ['label' => 'Intake Queue', 'route' => 'contact-intake', 'active' => ['contact-intake', 'contact-intake.*'], 'super' => false, 'icon' => 'M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2m6-10a4 4 0 100-8 4 4 0 000 8zm8-1v6m3-3h-6'],
+            ['label' => 'Technical Needs', 'route' => 'technical-needs', 'active' => ['technical-needs', 'technical-needs.*'], 'super' => false, 'icon' => 'M9 3h6m-5 0v5.2L4.5 18a2 2 0 001.7 3h11.6a2 2 0 001.7-3L14 8.2V3m-7 11h10'],
+            ['label' => 'Events & Outreach', 'route' => 'events', 'active' => ['events', 'events.*', 'event-emails.*', 'event-outreach.*'], 'super' => false, 'icon' => 'M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z'],
+            ['label' => 'User & Credential Management', 'route' => 'team', 'active' => ['team', 'team.*'], 'super' => true, 'icon' => 'M12 11c1.7 0 3-1.3 3-3s-1.3-3-3-3-3 1.3-3 3 1.3 3 3 3zm0 2c-2.8 0-6 1.4-6 4v2h12v-2c0-2.6-3.2-4-6-4z'],
+            ['label' => 'System Integration Settings', 'route' => 'admin.settings.google.index', 'active' => ['admin.settings.google.*', 'google-drive.*', 'auth.google.*'], 'super' => true, 'icon' => 'M21 12a9 9 0 11-5.6-8.3M21 3v6h-6'],
             ['label' => 'Activity Logs', 'route' => 'activity-logs.index', 'active' => ['activity-logs.*'], 'super' => false, 'icon' => 'M9 17v-6m3 6V7m3 10v-3M5 21h14a1 1 0 001-1V4a1 1 0 00-1-1H5a1 1 0 00-1 1v16a1 1 0 001 1z'],
-            ['label' => 'Archives', 'route' => 'archives.index', 'active' => ['archives', 'archives.*'], 'super' => false, 'icon' => 'M5 8h14M5 8a2 2 0 010-4h14a2 2 0 010 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4'],
+            ['label' => 'Archives', 'route' => 'archives.index', 'active' => ['archives.*'], 'super' => false, 'icon' => 'M5 8h14M5 8a2 2 0 010-4h14a2 2 0 010 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4'],
         ];
 
         $adminNav = array_values(array_filter($recordsNav, fn (array $item): bool => ! $item['super']));
@@ -89,7 +89,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="{{ $item['icon'] }}"/>
                 </svg>
                 <span class="truncate">{{ $item['label'] }}</span>
-                @if($item['route'] === 'startups.index' && $pendingStartupCount > 0)
+                @if($item['route'] === 'incubatees' && $pendingStartupCount > 0)
                     <span class="ml-auto rounded-full bg-[#b92369] px-1.5 py-0.5 text-[11px] font-bold text-white">{{ $pendingStartupCount }}</span>
                 @elseif($active)
                     <span class="ml-auto h-1.5 w-1.5 rounded-full bg-[#b92369]"></span>
@@ -180,7 +180,7 @@
                     <h1 class="mt-1 text-2xl font-bold tracking-tight">@yield('heading', 'Dashboard')</h1>
                     <p class="mt-1 max-w-2xl text-sm text-white/80">@yield('subheading')</p>
                 </div>
-                <div class="flex gap-2">@yield('banner-actions')</div>
+                <div class="shrink-0 flex flex-wrap items-center gap-2">@yield('banner-actions')</div>
             </div>
         </section>
 

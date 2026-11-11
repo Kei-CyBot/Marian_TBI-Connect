@@ -69,7 +69,7 @@ class StartupTest extends TestCase
             ->assertForbidden();
 
         $this->actingAs($member)
-            ->get(route('startups.index', ['tab' => 'pending']))
+            ->get(route('incubatees', ['tab' => 'pending']))
             ->assertForbidden();
 
         $this->actingAs($member)

@@ -80,7 +80,7 @@ class Startup extends Model
             return true;
         }
 
-        return $this->folderAccessUsers()->whereKey($user->id)->exists();
+        return $this->folderAccessUsers->contains('id', $user->id);
     }
 
     public function userCanManageFolderAccess(User $user): bool

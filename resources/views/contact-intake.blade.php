@@ -178,7 +178,7 @@
                         const id = action.split(':')[1];
                         const form = document.createElement('form');
                         form.method = 'POST';
-                        form.action = '{{ url('/contact-intake') }}/' + id;
+                        form.action = '{{ route('contact-intake') }}/' + id;
                         const csrf = document.createElement('input');
                         csrf.type = 'hidden'; csrf.name = '_token'; csrf.value = '{{ csrf_token() }}';
                         const method = document.createElement('input');
@@ -198,7 +198,7 @@
         <div class="relative w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-visible p-6 border border-gray-100" @click.away="showApproveModal = false">
             <h3 class="text-xl font-bold text-gray-900 mb-2">Confirm Application Approval</h3>
             <p class="text-sm text-gray-600 mb-6">Are you sure you want to approve this applicant and move them to the Contact & Network Directory?</p>
-            <form :action="'/contact-intake/' + selectedAppId + '/approve'" method="POST" class="mt-4">
+            <form :action="'{{ route('contact-intake.approve', ['application' => '__ID__']) }}'.replace('__ID__', selectedAppId)" method="POST" class="mt-4">
                 @csrf
                 <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
                     <button type="button" @click="showApproveModal = false" class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:ring-2 focus:ring-gray-300">

@@ -121,7 +121,7 @@
         </div>
 
         <div class="flex justify-end gap-2 border-t border-gray-100 pt-4">
-            <a href="{{ url('/events') }}" class="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Cancel</a>
+            <a href="{{ route('events') }}" class="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Cancel</a>
             <button type="submit" class="rounded-xl bg-[#b92369] px-4 py-2 text-sm font-semibold text-white hover:bg-[#9a1b55]">{{ $submitLabel }}</button>
         </div>
     </form>

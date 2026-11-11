@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Contracts\Factory as SocialiteFactory;
 use Laravel\Socialite\SocialiteManager;
@@ -156,8 +157,8 @@ class RouteAuthorizationTest extends TestCase
             'status' => 'Ongoing',
             'priority' => 'High',
             'attachment_path' => 'technical-needs/coverage.pdf',
-            'approval_document_path' => 'technical-needs/coverage.pdf',
-            'approval_document_original_name' => 'coverage.pdf',
+            'approval_attachment_path' => 'technical-needs/coverage.pdf',
+            'approval_attachment_original_name' => 'coverage.pdf',
         ]);
         $this->event = Event::query()->create([
             'title' => 'Route Coverage Event',
@@ -217,14 +218,12 @@ class RouteAuthorizationTest extends TestCase
             'startup drive links store' => ['startup-drive-links.store', 'post', [], [], 'redirect'],
             'startup drive links destroy' => ['startup-drive-links.destroy', 'delete', ['driveLink' => 'driveLink'], [], 'redirect'],
             'contacts index' => ['contacts', 'get', [], [], 'ok'],
-            'contacts network alias' => ['contacts.index', 'get', [], [], 'ok'],
             'contacts store' => ['contacts.store', 'post', [], [], 'redirect'],
             'contacts update' => ['contacts.update', 'put', ['contact' => 'contact'], [], 'redirect'],
             'contacts destroy' => ['contacts.destroy', 'delete', ['contact' => 'contact'], [], 'redirect'],
             'contact assignments store' => ['contacts.assignments.store', 'post', ['contact' => 'contact'], [], 'redirect'],
             'contact assignments destroy' => ['contacts.assignments.destroy', 'delete', ['contact' => 'contact', 'startup' => 'startup'], [], 'redirect'],
             'contact intake index' => ['contact-intake', 'get', [], [], 'ok'],
-            'contact intake alias' => ['intake.index', 'get', [], [], 'ok'],
             'contact intake approve' => ['contact-intake.approve', 'post', ['application' => 'application'], [], 'redirect'],
             'contact intake provision' => ['contact-intake.provision', 'post', ['application' => 'application'], [], 'redirect'],
             'contact intake destroy' => ['contact-intake.destroy', 'delete', ['application' => 'application'], [], 'redirect'],
@@ -234,20 +233,18 @@ class RouteAuthorizationTest extends TestCase
             'technical needs export' => ['exports.technical-needs', 'get', [], [], 'ok'],
             'reports index' => ['reports.index', 'get', [], [], 'ok'],
             'reports export csv' => ['reports.export-csv', 'get', [], [], 'ok'],
-            'dashboard export csv' => ['dashboard.export-csv', 'get', [], [], 'ok'],
+            'dashboard export csv' => ['dashboard.export-csv', 'get', [], [], 'redirect'],
             'google drive connect' => ['google-drive.connect', 'get', [], [], 'redirect'],
             'google drive callback' => ['google-drive.callback', 'get', [], [], 'redirect'],
             'google drive sync' => ['google-drive.sync', 'post', [], [], 'redirect'],
             'admin google settings index' => ['admin.settings.google.index', 'get', [], [], 'ok'],
-            'admin settings alias' => ['settings.index', 'get', [], [], 'ok'],
             'admin google settings folder' => ['admin.settings.google.update-folder', 'post', [], ['folder_id' => 'coverage-folder'], 'redirect'],
             'admin google settings create folder' => ['admin.settings.google.create-folder', 'post', [], [], 'redirect'],
             'admin google settings disconnect' => ['admin.settings.google.disconnect', 'post', [], [], 'redirect'],
             'startup folder access' => ['startup-folders.access.update', 'post', ['startup' => 'startup'], ['restricted' => '0', 'user_ids' => []], 'redirect'],
             'team invite' => ['team.invite', 'post', [], ['email' => 'route-new-member@example.test', 'role' => User::ROLE_ADMIN], 'redirect'],
             'team invitation revoke' => ['team.invitations.revoke', 'delete', ['invitation' => 'invitation'], [], 'redirect'],
-            'archives index' => ['archives', 'get', [], [], 'ok'],
-            'archives vault alias' => ['archives.index', 'get', [], [], 'ok'],
+            'archives index' => ['archives.index', 'get', [], [], 'ok'],
             'archived startup restore' => ['archives.startups.restore', 'post', ['startup' => 'trashedStartup'], [], 'redirect'],
             'archived startup destroy' => ['archives.startups.destroy', 'delete', ['startup' => 'trashedStartup'], [], 'redirect'],
             'archived contact restore' => ['archives.contacts.restore', 'post', ['contact' => 'trashedContact'], [], 'redirect'],
@@ -268,7 +265,6 @@ class RouteAuthorizationTest extends TestCase
             'event email send' => ['event-emails.send', 'post', [], [], 'redirect'],
             'event outreach send' => ['event-outreach.send', 'post', [], [], 'redirect'],
             'team index' => ['team', 'get', [], [], 'ok'],
-            'team users alias' => ['users.index', 'get', [], [], 'ok'],
             'team role update' => ['team.roles.update', 'put', ['user' => 'member'], ['role' => User::ROLE_ADMIN], 'redirect'],
         ];
     }
@@ -278,20 +274,16 @@ class RouteAuthorizationTest extends TestCase
         return [
             'dashboard' => ['dashboard', 'get', [], [], 'ok'],
             'files' => ['files', 'get', [], [], 'ok'],
-            'files drive alias' => ['files.index', 'get', [], [], 'ok'],
             'submission attachment' => ['form-submissions.attachment', 'get', ['submission' => 'submission'], [], 'ok'],
             'incubatees' => ['incubatees', 'get', [], [], 'ok'],
-            'startups alias' => ['startups.index', 'get', [], [], 'ok'],
             'profile edit' => ['profile.edit', 'get', [], [], 'ok'],
             'profile update' => ['profile.update', 'put', [], [], 'redirect'],
             'profile password update' => ['profile.password.update', 'put', [], [], 'redirect'],
             'technical needs index' => ['technical-needs', 'get', [], [], 'ok'],
-            'technical needs list alias' => ['technical-needs.index', 'get', [], [], 'ok'],
             'technical need approval' => ['technical-needs.approval', 'get', ['technicalNeed' => 'technicalNeed'], [], 'ok'],
             'technical need attachment' => ['technical-needs.attachment', 'get', ['technicalNeed' => 'technicalNeed'], [], 'ok'],
             'technical need document preview' => ['technical-needs.view-document', 'get', ['technicalNeed' => 'technicalNeed'], [], 'ok'],
             'events' => ['events', 'get', [], [], 'ok'],
-            'events list alias' => ['events.index', 'get', [], [], 'ok'],
             'event show' => ['events.show', 'get', ['event' => 'event'], [], 'ok'],
             'event post document' => ['events.post-event-document', 'get', ['event' => 'event'], [], 'ok'],
             'google disconnect' => ['auth.google.disconnect', 'post', [], [], 'redirect'],
@@ -327,12 +319,14 @@ class RouteAuthorizationTest extends TestCase
         $this->prepareRouteScenario($routeName);
         $actor = $routeName === 'team.roles.update' ? $this->superAdmin : $this->admin;
         $blockedActor = $routeName === 'team.roles.update' ? $this->admin : $this->member;
-        $url = $this->routeUrl($routeName, $params);
         $payload = $this->payloadFor($routeName, $payload);
 
-        $this->actingAs($blockedActor)->{$method}($url, $payload)->assertForbidden();
+        $this->actingAs($blockedActor)
+            ->{$method}($this->routeUrl($routeName, $params), $payload)
+            ->assertForbidden();
 
-        $response = $this->actingAs($actor)->{$method}($url, $payload);
+        $response = $this->actingAs($actor)
+            ->{$method}($this->routeUrl($routeName, $params), $payload);
         $this->assertAuthorizedResponse($response, $expectedStatus, $routeName);
     }
 
@@ -379,6 +373,7 @@ class RouteAuthorizationTest extends TestCase
     #[DataProvider('authenticatedRouteProvider')]
     public function test_authenticated_routes_allow_members_and_reject_guests(string $routeName, string $method, array $params, array $payload, string $expectedStatus): void
     {
+        URL::defaults(['rolePrefix' => 'member']);
         $url = $this->routeUrl($routeName, $params);
         $payload = $this->payloadFor($routeName, $payload);
 
@@ -466,6 +461,82 @@ class RouteAuthorizationTest extends TestCase
             ->values();
 
         $this->assertSame($routes->all(), $covered->sort()->values()->all());
+    }
+
+    public function test_role_prefix_mismatches_redirect_to_the_users_own_prefix(): void
+    {
+        $this->actingAs($this->member)
+            ->get('/admin/dashboard')
+            ->assertRedirect('/member/dashboard');
+
+        $this->actingAs($this->superAdmin)
+            ->get('/admin/dashboard')
+            ->assertRedirect('/superadmin/dashboard');
+
+        $this->actingAs($this->admin)
+            ->get('/member/technical-needs?startup_id=1')
+            ->assertRedirect('/admin/technical-needs?startup_id=1');
+    }
+
+    public function test_unknown_role_prefixes_return_404(): void
+    {
+        $this->actingAs($this->admin)->get('/guest/dashboard')->assertNotFound();
+        $this->actingAs($this->admin)->get('/invalid/dashboard')->assertNotFound();
+    }
+
+    public function test_dashboard_urls_include_the_signed_in_users_role_prefix(): void
+    {
+        $this->actingAs($this->admin);
+        $this->assertSame(url('/admin/dashboard'), route('dashboard'));
+
+        $this->actingAs($this->superAdmin);
+        $this->assertSame(url('/superadmin/dashboard'), route('dashboard'));
+
+        $this->actingAs($this->member);
+        $this->assertSame(url('/member/dashboard'), route('dashboard'));
+    }
+
+    public function test_legacy_unprefixed_app_paths_redirect_to_role_prefixed_equivalents(): void
+    {
+        $this->actingAs($this->admin)
+            ->get('/dashboard')
+            ->assertRedirect('/admin/dashboard');
+
+        $this->actingAs($this->member)
+            ->get('/technical-needs?startup_id=1')
+            ->assertRedirect('/member/technical-needs?startup_id=1');
+
+        $this->actingAs($this->admin)
+            ->get('/startups')
+            ->assertRedirect('/admin/incubatees');
+
+        $this->actingAs($this->admin)
+            ->get('/network')
+            ->assertRedirect('/admin/contacts');
+
+        $this->actingAs($this->admin)
+            ->get('/settings')
+            ->assertRedirect('/admin/settings/google');
+
+        $this->actingAs($this->member)
+            ->get('/drive')
+            ->assertRedirect('/member/files');
+
+        $this->actingAs($this->admin)
+            ->get('/users')
+            ->assertRedirect('/admin/team');
+
+        $this->actingAs($this->admin)
+            ->get('/archive-vault')
+            ->assertRedirect('/admin/archives');
+
+        $this->actingAs($this->admin)
+            ->get('/events-list')
+            ->assertRedirect('/admin/events');
+
+        $this->actingAs($this->admin)
+            ->get('/intake')
+            ->assertRedirect('/admin/contact-intake');
     }
 
     private function assertAuthorizedResponse($response, string $expectedStatus, string $routeName): void

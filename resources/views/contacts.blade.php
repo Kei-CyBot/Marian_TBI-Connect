@@ -86,7 +86,7 @@
                                     <button type="button" @click="manageAssignments()" class="rounded-lg border border-[#1a8a8e]/30 bg-[#eaf6f6] px-3 py-2 text-xs font-semibold text-[#146e72] hover:bg-[#d9eeee]">Manage incubatee assignments</button>
                                     <div class="flex flex-wrap items-center gap-2">
                                         @if (auth()->user()?->isSuperAdmin())
-                                            <form method="POST" :action="'{{ url('/contacts') }}/'+sel.id+'/send-credentials'" class="inline">
+                                            <form method="POST" :action="'{{ route('contacts') }}/'+sel.id+'/send-credentials'" class="inline">
                                                 @csrf
                                                 <button type="submit" class="rounded-lg border border-[#b92369]/40 px-3 py-2 text-xs font-semibold text-[#b92369] hover:bg-[#fcf0f5]">Send One-Time Sign-In Link</button>
                                             </form>
@@ -136,7 +136,7 @@
                                         <li class="rounded-xl border border-gray-100 p-3">
                                             <div class="flex items-start justify-between gap-2">
                                                 <div><p class="font-medium text-slate-800" x-text="assignment.startup"></p><p class="text-xs text-gray-500" x-text="'Founder: '+assignment.founder+' · '+assignment.email"></p></div>
-                                                <button type="button" @click="$dispatch('confirm-unlink-incubatee', {action: '{{ url('/contacts') }}/'+sel.id+'/assignments/'+assignment.startupId, name: assignment.startupName || 'this incubatee'})" class="text-xs font-semibold text-red-700 hover:underline">Remove</button>
+                                                <button type="button" @click="$dispatch('confirm-unlink-incubatee', {action: '{{ route('contacts') }}/'+sel.id+'/assignments/'+assignment.startupId, name: assignment.startupName || 'this incubatee'})" class="text-xs font-semibold text-red-700 hover:underline">Remove</button>
                                             </div>
                                             <p class="mt-2 text-xs text-[#146e72]" x-text="'Confirmed by '+assignment.confirmedBy+' on '+assignment.confirmedAt"></p>
                                             <p class="mt-1 text-xs text-gray-500" x-text="assignment.notes"></p>
@@ -159,7 +159,7 @@
                                     </div>
                                     <button type="button" @click="assignmentModalOpen=false" aria-label="Close assignment form" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100">✕</button>
                                 </header>
-                                <form method="POST" :action="assignmentContact ? '{{ url('/contacts') }}/'+assignmentContact.id+'/assignments' : '#'">
+                                <form method="POST" :action="assignmentContact ? '{{ route('contacts') }}/'+assignmentContact.id+'/assignments' : '#'">
                                     @csrf
                                     <div class="space-y-4 px-6 py-5">
                                         <div>
@@ -212,7 +212,7 @@
                         const id = action.split(':')[1];
                         const form = document.createElement('form');
                         form.method = 'POST';
-                        form.action = '{{ url('/contacts') }}/' + id;
+                        form.action = '{{ route('contacts') }}/' + id;
                         const csrf = document.createElement('input');
                         csrf.type = 'hidden'; csrf.name = '_token'; csrf.value = '{{ csrf_token() }}';
                         const method = document.createElement('input');

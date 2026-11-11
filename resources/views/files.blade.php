@@ -264,7 +264,7 @@
                                 <p class="mt-1 text-sm text-gray-800">The form response is stored here with its uploaded attachment, if provided.</p>
                                 <p class="mt-2 text-xs text-gray-700">Review status: <span class="font-semibold" x-text="drawer.status"></span></p>
                                 @if (auth()->user()->canManageRecords())
-                                    <form method="POST" :action="'{{ url('/form-submissions') }}/'+(drawer.submissionId || '')+'/status'" class="mt-3 flex flex-wrap items-end gap-2 border-t border-[#1a8a8e]/20 pt-3">
+                                    <form method="POST" :action="'{{ route('form-submissions.status', ['submission' => '__ID__']) }}'.replace('__ID__', drawer.submissionId || '')" class="mt-3 flex flex-wrap items-end gap-2 border-t border-[#1a8a8e]/20 pt-3">
                                         @csrf
                                         @method('PATCH')
                                         <label class="text-xs font-semibold text-gray-700">Set review status
@@ -299,7 +299,7 @@
 @if (auth()->user()->canManageRecords())
 <div x-show="accessModal" x-cloak x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="accessModal=false">
     <section role="dialog" aria-modal="true" aria-labelledby="folder-access-title" class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl">
-        <form method="POST" :action="accessStartup ? '{{ url('/startup-folders') }}/'+accessStartup.id+'/access' : '#'">
+        <form method="POST" :action="accessStartup ? '{{ route('startup-folders.access.update', ['startup' => '__ID__']) }}'.replace('__ID__', accessStartup.id) : '#'">
             @csrf
             <input type="hidden" name="restricted" :value="restrictedDraft ? '1' : '0'">
             <header class="flex items-start justify-between gap-4 bg-[#146e72] px-6 py-5 text-white">
@@ -339,7 +339,7 @@
 @if (auth()->user()->canManageRecords())
 <div x-show="editModal" x-cloak x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="closeEdit()">
     <section role="dialog" aria-modal="true" aria-labelledby="edit-submission-title" class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-        <form method="POST" :action="'{{ url('/file-manager/submissions') }}/'+(editFile?.submissionId || '')" enctype="multipart/form-data">
+        <form method="POST" :action="'{{ route('form-submissions.update', ['submission' => '__ID__']) }}'.replace('__ID__', editFile?.submissionId || '')" enctype="multipart/form-data">
             @csrf
             @method('PUT')
             <header class="flex items-start justify-between gap-4 bg-[#146e72] px-6 py-5 text-white">
@@ -410,7 +410,7 @@
 </div>
 
 <div x-show="deleteModal" x-cloak x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="closeDelete()">
-    <form method="POST" :action="'{{ url('/file-manager/submissions') }}/'+(deleteFile?.submissionId || '')" class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <form method="POST" :action="'{{ route('form-submissions.destroy', ['submission' => '__ID__']) }}'.replace('__ID__', deleteFile?.submissionId || '')" class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
         @csrf
         @method('DELETE')
         <header class="flex items-start justify-between gap-4 bg-red-600 px-6 py-5 text-white">
@@ -434,7 +434,7 @@
     </div>
 
 <div x-show="moveModal" x-cloak x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="closeMove()" @keydown.escape.window="moveModal = false">
-    <form method="POST" :action="'/file-manager/submissions/' + (moveFile?.submissionId ?? '') + '/move'" class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <form method="POST" :action="'{{ route('form-submissions.move', ['submission' => '__ID__']) }}'.replace('__ID__', moveFile?.submissionId ?? '')" class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
         @csrf
         <header class="flex items-start justify-between gap-4 bg-[#146e72] px-6 py-5 text-white">
             <div class="min-w-0">

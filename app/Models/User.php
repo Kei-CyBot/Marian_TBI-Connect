@@ -101,6 +101,15 @@ class User extends Authenticatable
         return in_array($this->role, [self::ROLE_MEMBER_INCUBATEE, 'member'], true);
     }
 
+    public function rolePrefix(): string
+    {
+        return match ($this->role) {
+            self::ROLE_SUPER_ADMIN => 'superadmin',
+            self::ROLE_MEMBER_INCUBATEE, 'member' => 'member',
+            default => 'admin',
+        };
+    }
+
     public function roleLabel(): string
     {
         return match ($this->role) {
