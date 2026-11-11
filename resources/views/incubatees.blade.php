@@ -253,7 +253,7 @@
                     <button type="button" @click="startAssessment(row)" class="inline-flex h-10 min-w-0 items-center justify-center whitespace-nowrap rounded-xl border border-[#b92369]/25 bg-[#fcf0f5]/60 px-2 text-xs font-semibold text-[#b92369] transition hover:bg-[#fcf0f5] focus:outline-none focus:ring-2 focus:ring-[#b92369]/20 focus:ring-offset-2">Assessment</button>
                     <button type="button" @click="openEdit(row)" class="inline-flex h-10 min-w-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2">Edit</button>
                     <button type="button" @click="openDriveLinks(row)" class="inline-flex h-10 min-w-0 items-center justify-center whitespace-nowrap rounded-xl border border-[#1a8a8e]/25 bg-[#eaf6f6] px-2 text-xs font-semibold text-[#146e72] transition hover:bg-[#d9eeee] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/20 focus:ring-offset-2">Drive links</button>
-                    <button type="button" @click="$dispatch('confirm-archive-incubatee', {action: '{{ url('/incubatees') }}/'+row.id, name: row.name})" class="col-span-2 w-full rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">Archive</button>
+                    <button type="button" @click="$dispatch('confirm-archive-incubatee', {action: '{{ route('incubatees') }}/'+row.id, name: row.name})" class="col-span-2 w-full rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">Archive</button>
                 </div>
                 @endif
             </article>
@@ -301,7 +301,7 @@
                                 <button type="button" @click="startAssessment(row)" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#b92369] hover:bg-[#fcf0f5]">Assessment</button>
                                 <button type="button" @click="openEdit(row)" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100">Edit</button>
                                 <button type="button" @click="openDriveLinks(row)" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#146e72] hover:bg-[#eaf6f6]">Drive links (<span x-text="linksFor(row).length"></span>)</button>
-                                <form method="POST" :action="'{{ url('/incubatees') }}/'+row.id" @submit="if (!confirm('Archive '+row.name+'? Its related records will be retained.')) $event.preventDefault()">
+                                <form method="POST" :action="'{{ route('incubatees') }}/'+row.id" @submit="if (!confirm('Archive '+row.name+'? Its related records will be retained.')) $event.preventDefault()">
                                     @csrf @method('DELETE')
                                     <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-50">Archive</button>
                                 </form>
@@ -426,7 +426,7 @@
                             <li class="flex items-center justify-between gap-3 rounded-xl border border-gray-100 px-3 py-2.5">
                                 <a :href="link.url" target="_blank" rel="noopener noreferrer" class="min-w-0 truncate text-sm font-semibold text-[#146e72] hover:underline" x-text="link.label"></a>
                                 @if (auth()->user()->canManageRecords())
-                                    <form method="POST" :action="'{{ url('/startup-drive-links') }}/'+link.id" @submit="if (!confirm('Remove this Drive link?')) $event.preventDefault()">
+                                    <form method="POST" :action="'{{ route('startup-drive-links.destroy', ['driveLink' => '__ID__']) }}'.replace('__ID__', link.id)" @submit="if (!confirm('Remove this Drive link?')) $event.preventDefault()">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="shrink-0 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50">Remove</button>
@@ -463,7 +463,7 @@
     {{-- Create and edit incubatee modal --}}
     <div x-show="formModalOpen" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="formModalOpen=false">
         <section role="dialog" aria-modal="true" aria-labelledby="incubatee-modal-title" class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <form x-ref="startupForm" method="POST" :action="formMode==='edit' ? '{{ url('/incubatees') }}/'+draft.id : '{{ route('incubatees.store') }}'" @submit.prevent="saveStartup()">
+            <form x-ref="startupForm" method="POST" :action="formMode==='edit' ? '{{ route('incubatees') }}/'+draft.id : '{{ route('incubatees.store') }}'" @submit.prevent="saveStartup()">
                 @csrf
                 <input type="hidden" name="_method" value="PUT" :disabled="formMode!=='edit'">
                 <header class="grad flex items-start justify-between gap-4 rounded-t-2xl px-6 py-5 text-white">

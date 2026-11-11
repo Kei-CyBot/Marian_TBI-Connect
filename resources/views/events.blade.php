@@ -86,7 +86,7 @@
                             @if (auth()->user()->canManageRecords())
                                 <button @click.stop="menu = menu===e.id ? null : e.id" class="rounded-lg px-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700">⋯</button>
                                 <div x-show="menu===e.id" x-cloak x-transition @click.stop class="absolute right-0 z-10 mt-1 w-44 rounded-2xl border border-gray-200 bg-white p-1.5 text-sm shadow-xl">
-                                    <a :href="'{{ url('/events') }}/'+e.id+'/edit'" class="block w-full rounded-lg px-2.5 py-1.5 text-left hover:bg-gray-50">Edit event</a>
+                                    <a :href="'{{ route('events') }}/'+e.id+'/edit'" class="block w-full rounded-lg px-2.5 py-1.5 text-left hover:bg-gray-50">Edit event</a>
                                     <button class="block w-full rounded-lg px-2.5 py-1.5 text-left hover:bg-gray-50">Manage RSVPs</button>
                                     <button @click="$dispatch('open-broadcast',e); menu=null" class="block w-full rounded-lg px-2.5 py-1.5 text-left font-semibold text-[#1a8a8e] hover:bg-[#eaf6f6]">Email contacts</button>
                                 </div>
@@ -192,7 +192,7 @@
                     </dl>
                     <footer class="flex flex-wrap justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
                         @if (auth()->user()->canManageRecords())
-                            <a :href="'{{ url('/events') }}/'+selectedEvent.id+'/edit'" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100">Edit event</a>
+                            <a :href="'{{ route('events') }}/'+selectedEvent.id+'/edit'" class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100">Edit event</a>
                             <button type="button" @click="$dispatch('open-broadcast',selectedEvent); selectedEvent=null" class="rounded-lg bg-[#1a8a8e] px-3 py-2 text-xs font-semibold text-white hover:bg-[#146e72]">Email contacts</button>
                         @endif
                     </footer>

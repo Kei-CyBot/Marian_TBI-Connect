@@ -80,6 +80,7 @@ class TechnicalNeedTest extends TestCase
         $this->assertNotNull($need->reviewed_at);
         $this->assertSame('Approved by the technical committee.', $need->review_notes);
         $this->assertNotNull($need->approval_attachment_path);
+        $this->assertSame('approval.pdf', $need->approval_attachment_original_name);
         $this->assertTrue(Storage::disk('local')->exists($need->approval_attachment_path));
         $this->assertDatabaseHas('activity_logs', [
             'action' => 'technical_need_reviewed',
@@ -200,35 +201,7 @@ class TechnicalNeedTest extends TestCase
         $this->assertDatabaseMissing('technical_needs', ['id' => $need->id]);
     }
 
-    public function test_updating_a_need_without_a_new_attachment_keeps_the_existing_document(): void
-    {
-        Mail::fake();
-        Startup::ensureConfigured();
-        Storage::fake('local');
-        User::factory()->create(['role' => User::ROLE_ADMIN]);
-        $user = User::factory()->create();
-        $payload = [
-            'startup_id' => 1,
-            'requirement' => 'Lab equipment',
-            'date_entry' => '2026-10-01',
-            'priority' => 'Moderate',
-        ];
-        $oldAttachmentPath = 'technical-needs/1/attachments/specification.pdf';
-        Storage::disk('local')->put($oldAttachmentPath, '%PDF-1.4');
-        $need = TechnicalNeed::query()->create($payload + ['attachment_path' => $oldAttachmentPath]);
-
-        $this->actingAs($user)
-            ->put(route('technical-needs.update', $need), [...$payload, 'requirement' => 'Updated lab equipment'])
-            ->assertRedirect(route('technical-needs', ['startup_id' => 1]));
-
-        $need->refresh();
-        $this->assertSame('Updated lab equipment', $need->requirement);
-        $this->assertSame($oldAttachmentPath, $need->attachment_path);
-        $this->assertTrue(Storage::disk('local')->exists($oldAttachmentPath));
-        Mail::assertQueued(TechnicalNeedUpdatedAlert::class);
-    }
-
-    public function test_updating_a_need_with_a_new_attachment_replaces_the_existing_document(): void
+    public function test_updating_a_need_keeps_the_existing_document_and_ignores_attachment_uploads(): void
     {
         Mail::fake();
         Startup::ensureConfigured();
@@ -255,9 +228,8 @@ class TechnicalNeedTest extends TestCase
 
         $need->refresh();
         $this->assertSame('Updated lab equipment', $need->requirement);
-        $this->assertNotSame($oldAttachmentPath, $need->attachment_path);
-        $this->assertTrue(Storage::disk('local')->exists($need->attachment_path));
-        $this->assertFalse(Storage::disk('local')->exists($oldAttachmentPath));
+        $this->assertSame($oldAttachmentPath, $need->attachment_path);
+        $this->assertTrue(Storage::disk('local')->exists($oldAttachmentPath));
         Mail::assertQueued(TechnicalNeedUpdatedAlert::class);
     }
 

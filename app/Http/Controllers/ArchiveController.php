@@ -82,7 +82,7 @@ class ArchiveController extends Controller
         $record->restore();
         $record->forceFill(['archived_by' => null])->save();
 
-        return to_route('archives')->with('archive_status', $record->name.' was restored.');
+        return to_route('archives.index')->with('archive_status', $record->name.' was restored.');
     }
 
     public function restoreContact(string $contact): RedirectResponse
@@ -91,7 +91,7 @@ class ArchiveController extends Controller
         $record->restore();
         $record->forceFill(['archived_by' => null])->save();
 
-        return to_route('archives')->with('archive_status', $record->name.' was restored.');
+        return to_route('archives.index')->with('archive_status', $record->name.' was restored.');
     }
 
     public function destroyStartup(string $startup): RedirectResponse
@@ -108,7 +108,7 @@ class ArchiveController extends Controller
             $record->forceDelete();
         });
 
-        return to_route('archives')->with('archive_status', $record->name.' was permanently deleted.');
+        return to_route('archives.index')->with('archive_status', $record->name.' was permanently deleted.');
     }
 
     public function destroyContact(string $contact): RedirectResponse
@@ -117,6 +117,6 @@ class ArchiveController extends Controller
         $name = $record->name;
         $record->forceDelete();
 
-        return to_route('archives')->with('archive_status', $name.' was permanently deleted.');
+        return to_route('archives.index')->with('archive_status', $name.' was permanently deleted.');
     }
 }

@@ -5,8 +5,8 @@
 @section('subheading','Manage each incubatee’s equipment, services, subscriptions, owners, deadlines, and progress.')
 @section('banner-actions')
     @if (auth()->user()->canManageRecords() && $selectedStartup)
-        <button type="button" @click="$dispatch('open-technical-need')" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#146e72] shadow-sm hover:bg-[#eaf6f6]">+ Add Technical Need</button>
-        <button type="button" @click="$dispatch('open-technical-approval-form')" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#146e72] shadow-sm hover:bg-[#eaf6f6]">📄 Technical Need Approval Form</button>
+        <button type="button" @click="$dispatch('open-technical-need')" class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#146e72] shadow-sm hover:bg-[#eaf6f6]">+ Add Technical Need</button>
+        <button type="button" @click="$dispatch('open-technical-approval-form')" class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#146e72] shadow-sm hover:bg-[#eaf6f6]">📄 Technical Need Approval Form</button>
     @endif
 @endsection
 
@@ -94,13 +94,25 @@
     @endphp
 
     <details class="mb-5 rounded-2xl border border-slate-200 bg-white shadow-sm" @if ($hasFilters) open @endif>
-        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+        <summary class="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-3">
             <span class="text-sm font-semibold text-slate-900">Filter &amp; Search</span>
-            <span class="text-xs font-medium text-slate-500">{{ count($requirements) }} result{{ count($requirements) === 1 ? '' : 's' }}{{ $hasFilters ? ' · filters active' : '' }}</span>
+            <span class="flex flex-wrap items-center gap-2">
+                <span class="text-xs font-medium text-slate-500">{{ count($requirements) }} result{{ count($requirements) === 1 ? '' : 's' }}{{ $hasFilters ? ' · filters active' : '' }}</span>
+                <label class="flex items-center gap-1.5">
+                    <span class="text-xs font-semibold text-gray-600">Sort by</span>
+                    <select form="technical-need-filters" name="sort_by" onchange="this.form.submit()" class="rounded-xl border border-slate-line bg-white px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                        @foreach ($columns as $key => $label)
+                            <option value="{{ $key }}" @selected($sortBy === $key)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </label>
+                <a href="{{ route('technical-needs', array_merge(request()->query(), ['startup_id' => $selectedStartup->id, 'sort_by' => $sortBy, 'sort_order' => $sortOrder === 'asc' ? 'desc' : 'asc'])) }}" class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="Toggle sort direction">
+                    {{ $sortOrder === 'asc' ? '↑ Ascending' : '↓ Descending' }}
+                </a>
+            </span>
         </summary>
-        <form method="GET" action="{{ route('technical-needs') }}" class="grid gap-3 border-t border-slate-100 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
+        <form id="technical-need-filters" method="GET" action="{{ route('technical-needs') }}" class="grid gap-3 border-t border-slate-100 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
             <input type="hidden" name="startup_id" value="{{ $selectedStartup->id }}">
-            <input type="hidden" name="sort_by" value="{{ $sortBy }}">
             <input type="hidden" name="sort_order" value="{{ $sortOrder }}">
             <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Title</span><input name="title" value="{{ request('title') }}" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
             <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Specifications</span><input name="specifications" value="{{ request('specifications') }}" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
@@ -146,32 +158,6 @@
         </form>
     </details>
 
-    <div class="mb-4 flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <form method="GET" action="{{ route('technical-needs') }}" class="flex flex-wrap items-end gap-2">
-            <input type="hidden" name="startup_id" value="{{ $selectedStartup->id }}">
-            @foreach (request()->except(['startup_id', 'sort_by', 'sort_order']) as $key => $value)
-                @if (is_scalar($value) && $value !== '')
-                    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-                @endif
-            @endforeach
-            <label class="block">
-                <span class="mb-1 block text-xs font-semibold text-gray-600">Sort by</span>
-                <select name="sort_by" onchange="this.form.submit()" class="rounded-xl border border-slate-line bg-white px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
-                    @foreach ($columns as $key => $label)
-                        <option value="{{ $key }}" @selected($sortBy === $key)>{{ $label }}</option>
-                    @endforeach
-                </select>
-            </label>
-            <input type="hidden" name="sort_order" value="{{ $sortOrder }}">
-        </form>
-        <div class="flex items-center gap-2">
-            <span class="text-xs font-medium text-slate-500">{{ count($requirements) }} result{{ count($requirements) === 1 ? '' : 's' }}</span>
-            <a href="{{ route('technical-needs', array_merge(request()->query(), ['startup_id' => $selectedStartup->id, 'sort_by' => $sortBy, 'sort_order' => $sortOrder === 'asc' ? 'desc' : 'asc'])) }}" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50" title="Toggle sort direction">
-                {{ $sortOrder === 'asc' ? '↑ Ascending' : '↓ Descending' }}
-            </a>
-        </div>
-    </div>
-
     <div class="space-y-3">
         <template x-for="item in filteredRequirements" :key="item.id">
             <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -191,7 +177,7 @@
                             @if (auth()->user()->canManageRecords() && $selectedStartup)
                                 <button type="button" x-show="item.status==='pending'" @click="$dispatch('review-technical-need',item)" class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100">Attach &amp; Review</button>
                                 <button type="button" @click="$dispatch('edit-technical-need',item)" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">Edit</button>
-                                <form method="POST" :action="'{{ url('/technical-needs') }}/'+item.id" @submit="if(!confirm('Remove this technical need?')) $event.preventDefault()">
+                                <form method="POST" :action="'{{ route('technical-needs') }}/'+item.id" @submit="if(!confirm('Remove this technical need?')) $event.preventDefault()">
                                     @csrf @method('DELETE')
                                     <button type="submit" class="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50">Delete</button>
                                 </form>
@@ -230,7 +216,7 @@
     @if (auth()->user()->canManageRecords() && $selectedStartup)
     <div x-show="modal" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="modal=false">
         <section role="dialog" aria-modal="true" aria-labelledby="technical-need-modal-title" class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <form method="POST" :action="editing ? '{{ url('/technical-needs') }}/'+draft.id : '{{ route('technical-needs.store') }}'">
+            <form method="POST" :action="editing ? '{{ route('technical-needs') }}/'+draft.id : '{{ route('technical-needs.store') }}'">
                 @csrf
                 <input type="hidden" name="_method" value="PUT" :disabled="!editing">
                 <header class="flex items-start justify-between gap-4 bg-[#146e72] px-6 py-5 text-white">
@@ -265,7 +251,7 @@
 
     <div x-show="reviewModal" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="reviewModal=false">
         <section role="dialog" aria-modal="true" aria-labelledby="technical-need-review-title" class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-            <form method="POST" enctype="multipart/form-data" :action="'{{ url('/technical-needs') }}/'+reviewItem.id+'/review'">
+            <form method="POST" enctype="multipart/form-data" :action="'{{ route('technical-needs') }}/'+reviewItem.id+'/review'">
                 @csrf
                 <input type="hidden" name="action" x-model="reviewAction">
                 <header class="flex items-start justify-between gap-4 bg-[#146e72] px-6 py-5 text-white">

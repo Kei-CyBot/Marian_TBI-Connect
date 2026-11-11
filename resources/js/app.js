@@ -7,8 +7,6 @@ window.technicalNeedsPage = (requirements, startups, selectedStartupId, selected
     startups,
     selectedStartupId,
     selectedStartupName,
-    statusFilter: '',
-    priorityFilter: '',
     modal: false,
     editing: false,
     draft: {},
@@ -18,9 +16,7 @@ window.technicalNeedsPage = (requirements, startups, selectedStartupId, selected
     approvalFormModal: false,
     approvalDraft: {},
     get filteredRequirements() {
-        return this.requirements.filter((item) =>
-            (!this.statusFilter || item.status === this.statusFilter)
-            && (!this.priorityFilter || item.priority === this.priorityFilter));
+        return this.requirements;
     },
     openCreate() {
         this.editing = false;

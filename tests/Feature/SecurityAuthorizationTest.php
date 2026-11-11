@@ -22,7 +22,7 @@ class SecurityAuthorizationTest extends TestCase
     public function test_member_cannot_view_archives(): void
     {
         $this->actingAs($this->member())
-            ->get(route('archives'))
+            ->get(route('archives.index'))
             ->assertForbidden();
     }
 
@@ -37,8 +37,8 @@ class SecurityAuthorizationTest extends TestCase
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
 
-        foreach ([route('contact-intake'), route('archives'), route('contacts')] as $url) {
-            $this->actingAs($admin)->get($url)->assertOk();
+        foreach (['contact-intake', 'archives.index', 'contacts'] as $routeName) {
+            $this->actingAs($admin)->get(route($routeName))->assertOk();
         }
     }
 

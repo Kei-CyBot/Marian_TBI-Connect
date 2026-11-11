@@ -168,7 +168,7 @@
             <h2 class="font-semibold">Quick Actions</h2>
             <div class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <a href="{{ route('events.create') }}" class="rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#b92369]/40 hover:bg-[#fcf0f5]">Create Event</a>
-                <a href="{{ route('events.index') }}" class="rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#1a8a8e]/40 hover:bg-[#eef9f9]">Send Outreach</a>
+                <a href="{{ route('events') }}" class="rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#1a8a8e]/40 hover:bg-[#eef9f9]">Send Outreach</a>
                 <a href="{{ route('incubatees', ['openOnboarding' => '1']) }}" class="rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#b92369]/40 hover:bg-[#fcf0f5]">Add Startup</a>
                 <form method="POST" action="{{ route('google-drive.sync') }}">
                     @csrf

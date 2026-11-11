@@ -70,8 +70,8 @@ class ExportTest extends TestCase
             'status' => 'Ongoing',
             'priority' => 'High',
             'remarks' => 'Urgent',
-            'approval_document_path' => $path,
-            'approval_document_original_name' => 'approval.pdf',
+            'approval_attachment_path' => $path,
+            'approval_attachment_original_name' => 'approval.pdf',
         ]);
 
         $response = $this->actingAs($user)->get(route('exports.technical-needs'));

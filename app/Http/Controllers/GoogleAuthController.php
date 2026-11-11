@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\URL;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\InvalidStateException;
 
@@ -149,6 +150,8 @@ class GoogleAuthController extends Controller
 
     private function redirectAfterGoogleLogin(Request $request, string $status = 'Signed in with Google.'): RedirectResponse
     {
+        URL::defaults(['rolePrefix' => $request->user()->rolePrefix()]);
+
         if ($request->session()->get('force_password_change')) {
             return to_route('profile.edit')->with('status', 'Please set your personal account password to complete your setup.');
         }
@@ -216,6 +219,7 @@ class GoogleAuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
         $request->session()->put('force_password_change', true);
+        URL::defaults(['rolePrefix' => $user->rolePrefix()]);
 
         return redirect()->route('profile.edit')->with('status', 'Welcome to Marian TBI Connect! Please set your personal account password to complete your setup.');
     }

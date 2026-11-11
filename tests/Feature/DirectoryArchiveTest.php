@@ -29,11 +29,11 @@ class DirectoryArchiveTest extends TestCase
         $this->assertDatabaseHas('startups', ['id' => $startup->id, 'archived_by' => $user->id]);
         $this->assertSame(7, Startup::query()->count());
         $this->actingAs($user)->get(route('incubatees'))->assertOk()->assertDontSee($startup->contact_email);
-        $this->actingAs($user)->get(route('archives'))->assertOk()->assertSee('AgriSense Labs');
+        $this->actingAs($user)->get(route('archives.index'))->assertOk()->assertSee('AgriSense Labs');
 
         $this->actingAs($user)
             ->post(route('archives.startups.restore', $startup->id))
-            ->assertRedirect(route('archives'));
+            ->assertRedirect(route('archives.index'));
 
         $this->assertNotSoftDeleted('startups', ['id' => $startup->id]);
         $this->actingAs($user)->get(route('incubatees'))->assertSee('AgriSense Labs');
@@ -84,11 +84,11 @@ class DirectoryArchiveTest extends TestCase
         $this->assertDatabaseHas('contacts', ['id' => $contact->id, 'archived_by' => $user->id]);
         $this->assertSame(6, Contact::query()->count());
         $this->actingAs($user)->get(route('contacts'))->assertOk()->assertDontSee($contact->email);
-        $this->actingAs($user)->get(route('archives'))->assertOk()->assertSee('Dr. Elena Cruz');
+        $this->actingAs($user)->get(route('archives.index'))->assertOk()->assertSee('Dr. Elena Cruz');
 
         $this->actingAs($user)
             ->post(route('archives.contacts.restore', $contact->id))
-            ->assertRedirect(route('archives'));
+            ->assertRedirect(route('archives.index'));
 
         $this->assertNotSoftDeleted('contacts', ['id' => $contact->id]);
         $this->actingAs($user)->get(route('contacts'))->assertSee('Dr. Elena Cruz');

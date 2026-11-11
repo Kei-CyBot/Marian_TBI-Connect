@@ -27,7 +27,6 @@ class SaveTechnicalNeedRequest extends FormRequest
             'prospect_resource_person' => ['nullable', 'string', 'max:255'],
             'priority' => ['required', Rule::in(['Low', 'Moderate', 'High'])],
             'remarks' => ['nullable', 'string', 'max:5000'],
-            'attachment' => ['nullable', 'file', 'mimes:pdf,doc,docx,xls,xlsx,png,jpg,jpeg', 'max:10240'],
         ];
     }
 }

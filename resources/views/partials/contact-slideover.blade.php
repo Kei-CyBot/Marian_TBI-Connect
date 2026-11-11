@@ -106,7 +106,7 @@
                 <button @click="setSide('external')" class="rounded-lg px-3 py-1" :class="side==='external' ? 'bg-white text-[#1a8a8e]' : 'text-white'">External</button>
             </div>
         </div>
-        <form x-ref="contactForm" method="POST" :action="editing ? '{{ url('/contacts') }}/'+contactId : '{{ route('contact-registration.store') }}'" @submit.prevent="submit()" class="flex min-h-0 flex-1 flex-col" style="display:flex;flex:1 1 0%;flex-direction:column;min-height:0">
+        <form x-ref="contactForm" method="POST" :action="editing ? '{{ route('contacts') }}/'+contactId : '{{ route('contact-registration.store') }}'" @submit.prevent="submit()" class="flex min-h-0 flex-1 flex-col" style="display:flex;flex:1 1 0%;flex-direction:column;min-height:0">
         @csrf
         <input type="hidden" name="_method" value="PUT" :disabled="!editing">
         <input type="hidden" name="side" x-model="side">
