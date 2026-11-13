@@ -5,6 +5,8 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use App\Models\Contact;
+use App\Models\User;
 
 class SaveContactRequest extends FormRequest
 {
@@ -87,6 +89,23 @@ class SaveContactRequest extends FormRequest
 
                 if ($this->boolean('technical_other_selected') && ! filled($this->input('technical_other'))) {
                     $validator->errors()->add('technical_other', 'Specify your other technical skill.');
+                }
+
+                $email = strtolower(trim((string) $this->input('email')));
+                if ($email === '') {
+                    return;
+                }
+
+                $linkedUser = User::query()
+                    ->whereRaw('LOWER(email) = ?', [$email])
+                    ->whereNotNull('contact_id')
+                    ->first();
+
+                $contact = $this->route('contact');
+                $contactId = $contact instanceof Contact ? $contact->id : null;
+
+                if ($linkedUser && $linkedUser->contact_id !== $contactId) {
+                    $validator->errors()->add('email', 'This email is already linked to another team account.');
                 }
             },
         ];

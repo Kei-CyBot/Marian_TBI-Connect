@@ -18,14 +18,22 @@ use Illuminate\View\View;
 
 class TeamController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $team = User::query()->orderBy('name')->get(['id', 'name', 'email', 'role']);
+        $team = User::query()->with('contact')->orderBy('name')->get(['id', 'name', 'email', 'role', 'contact_id']);
+        $archivedTeam = User::onlyTrashed()->with('contact')->orderByDesc('deleted_at')->get(['id', 'name', 'email', 'role', 'contact_id', 'deleted_at']);
+        $tab = $request->query('tab') === 'archived' ? 'archived' : 'active';
         $invitations = TeamInvitation::query()
             ->whereNull('accepted_at')
             ->where('expires_at', '>', now())
             ->orderBy('email')
             ->get();
+
+        $contactMatches = Contact::query()
+            ->whereNotNull('email')
+            ->where('email', '<>', '')
+            ->get(['id', 'name', 'email'])
+            ->keyBy(fn (Contact $contact): string => strtolower((string) $contact->email));
 
         $unavailable = $team->pluck('email')
             ->merge($invitations->pluck('email'))
@@ -43,9 +51,74 @@ class TeamController extends Controller
 
         return view('team', [
             'team' => $team,
+            'archivedTeam' => $archivedTeam,
+            'tab' => $tab,
             'invitations' => $invitations,
             'candidates' => $candidates,
+            'contactMatches' => $contactMatches,
         ]);
+    }
+
+    public function archive(Request $request, User $user): RedirectResponse
+    {
+        abort_if($request->user()->is($user), 422, 'You cannot archive your own account.');
+
+        DB::transaction(function () use ($user): void {
+            $target = User::query()->lockForUpdate()->findOrFail($user->id);
+
+            if ($target->isSuperAdmin()) {
+                abort_if(
+                    User::query()->where('role', User::ROLE_SUPER_ADMIN)->lockForUpdate()->count() < 2,
+                    422,
+                    'At least one Super Admin account must remain active.'
+                );
+            }
+
+            $target->contact()->withTrashed()->first()?->delete();
+            $target->delete();
+        });
+
+        return to_route('team')->with('team_status', $user->name.' was archived.');
+    }
+
+    public function restore(string $user): RedirectResponse
+    {
+        $record = User::onlyTrashed()->findOrFail($user);
+        $record->restore();
+        $record->contact()->withTrashed()->first()?->restore();
+
+        return to_route('team', ['tab' => 'archived'])->with('team_status', $record->name.' was restored.');
+    }
+
+    public function linkContact(User $user): RedirectResponse
+    {
+        $contact = Contact::query()
+            ->whereRaw('LOWER(email) = ?', [strtolower((string) $user->email)])
+            ->first();
+
+        if (! $contact) {
+            $contact = Contact::create([
+                'side' => 'external',
+                'name' => $user->name,
+                'email' => $user->email,
+                'affiliation_type' => 'External',
+                'role' => 'Member',
+                'domains' => [],
+                'technical_skills' => [],
+                'incubatees' => [],
+                'activity_log' => [],
+            ]);
+        }
+
+        abort_if(
+            $user->contact_id !== null && $user->contact_id !== $contact->id,
+            422,
+            'This account is already linked to a different contact.'
+        );
+
+        $user->forceFill(['contact_id' => $contact->id])->save();
+
+        return to_route('team')->with('team_status', $user->name.' is linked to contact '.$contact->name.'.');
     }
 
     public function updateRole(Request $request, User $user): RedirectResponse
@@ -152,6 +225,9 @@ class TeamController extends Controller
                 'email' => $invitation->email,
                 'password' => $validated['password'],
                 'role' => $invitation->role,
+                'contact_id' => Contact::query()
+                    ->whereRaw('LOWER(email) = ?', [strtolower($invitation->email)])
+                    ->value('id'),
             ]);
 
             $invitation->forceFill(['accepted_at' => now()])->save();

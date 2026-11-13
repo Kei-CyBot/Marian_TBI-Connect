@@ -90,6 +90,7 @@ class ArchiveController extends Controller
         $record = Contact::onlyTrashed()->findOrFail($contact);
         $record->restore();
         $record->forceFill(['archived_by' => null])->save();
+        $record->restoreLinkedUser();
 
         return to_route('archives.index')->with('archive_status', $record->name.' was restored.');
     }

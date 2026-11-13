@@ -38,17 +38,6 @@
             @method($method)
         @endif
 
-        @if ($errors->any())
-            <div role="alert" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                <p class="font-semibold">Please fix the following:</p>
-                <ul class="mt-1 list-inside list-disc">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
-
         <div>
             <label for="event-title" class="mb-1 block text-xs font-semibold text-slate-600">Event name <span class="text-red-500">*</span></label>
             <input id="event-title" name="title" x-model="f.title" required maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">

@@ -39,6 +39,10 @@ class Startup extends Model
             return;
         }
 
+        if (static::withTrashed()->exists()) {
+            return;
+        }
+
         foreach (config('startups', []) as $startup) {
             static::withTrashed()->firstOrCreate(
                 ['id' => $startup['id']],
@@ -76,7 +80,7 @@ class Startup extends Model
 
     public function userCanAccessFolder(User $user): bool
     {
-        if (! $this->folder_access_restricted || $this->folder_access_manager_id === $user->id) {
+        if (! $this->folder_access_restricted || $user->isSuperAdmin() || $this->folder_access_manager_id === $user->id) {
             return true;
         }
 

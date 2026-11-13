@@ -14,20 +14,12 @@
 @if (session('drive_link_status'))
     <div role="status" class="mb-4 rounded-xl border border-[#1a8a8e]/20 bg-[#eaf6f6] whitespace-nowrap px-4 py-3 text-sm font-medium text-[#146e72]">{{ session('drive_link_status') }}</div>
 @endif
-@if ($errors->any())
-    <div role="alert" class="mb-4 rounded-xl border border-red-200 bg-red-50 whitespace-nowrap px-4 py-3 text-sm text-red-700">
-        <p class="font-semibold">The request could not be completed:</p>
-        <ul class="mt-1 list-inside list-disc">
-            @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
-@endif
 <div x-data="{
         rows:@js($startups),
         assessments:@js($assessments),
         driveLinks:@js($driveLinks),
+        assignments:@js($assignments),
+        assignableUsers:@js($assignableUsers),
         cohorts:[{id:1,name:'Cohort 1'},{id:2,name:'Cohort 2'},{id:3,name:'Cohort 3'}],
         nextCohortNumber:4,
         view:'grid', q:'', cohortFilter:'', trackFilter:'', statusFilter:'', colMenu:false,
@@ -39,6 +31,7 @@
         formModalOpen:false, formMode:'create', formError:'', draft:{},
         cohortModalOpen:false, cohortMode:'add', cohortDraft:{id:null,name:''}, cohortError:'',
         driveModalOpen:false, driveStartup:null,
+        assignmentModalOpen:false, assignmentStartup:null, assignmentUserId:'',
         get colLabels(){ return {track:'Track',cohort:'Cohort',status:'Status',founder:'Founder',ventureType:'Venture type',metadata:this.trackFilter==='internal'?'Campus Department':this.trackFilter==='external'?'Legal Entity Type':'Track Metadata'} },
         get list(){
             return this.rows.filter(r =>
@@ -147,10 +140,19 @@
             this.driveStartup=row;
             this.driveModalOpen=true;
         },
+        openAssignments(row){
+            this.assignmentStartup=row;
+            this.assignmentUserId='';
+            this.assignmentModalOpen=true;
+        },
+        assignedFor(row){
+            return this.assignments[String(row.id)] || [];
+        },
         closeModals(){
             this.formModalOpen=false;
             this.cohortModalOpen=false;
             this.driveModalOpen=false;
+            this.assignmentModalOpen=false;
         },
         openFromHeader(){
             if(new URLSearchParams(window.location.search).get('openOnboarding')==='1'){
@@ -253,6 +255,10 @@
                     <button type="button" @click="startAssessment(row)" class="inline-flex h-10 min-w-0 items-center justify-center whitespace-nowrap rounded-xl border border-[#b92369]/25 bg-[#fcf0f5]/60 px-2 text-xs font-semibold text-[#b92369] transition hover:bg-[#fcf0f5] focus:outline-none focus:ring-2 focus:ring-[#b92369]/20 focus:ring-offset-2">Assessment</button>
                     <button type="button" @click="openEdit(row)" class="inline-flex h-10 min-w-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2">Edit</button>
                     <button type="button" @click="openDriveLinks(row)" class="inline-flex h-10 min-w-0 items-center justify-center whitespace-nowrap rounded-xl border border-[#1a8a8e]/25 bg-[#eaf6f6] px-2 text-xs font-semibold text-[#146e72] transition hover:bg-[#d9eeee] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/20 focus:ring-offset-2">Drive links</button>
+                    <button type="button" @click="openAssignments(row)" class="col-span-2 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200/80 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2">
+                        <span>Assignments</span>
+                        <span class="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-semibold text-teal-800 ring-1 ring-teal-200/70" x-text="assignedFor(row).length"></span>
+                    </button>
                     <button type="button" @click="$dispatch('confirm-archive-incubatee', {action: '{{ route('incubatees') }}/'+row.id, name: row.name})" class="col-span-2 w-full rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50">Archive</button>
                 </div>
                 @endif
@@ -274,6 +280,52 @@
             </form>
         </div>
     </div>
+
+    @if (auth()->user()->canManageRecords())
+    <div x-show="assignmentModalOpen" x-cloak x-transition.opacity class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm" @click.self="assignmentModalOpen=false" @keydown.escape.window="assignmentModalOpen=false">
+        <section role="dialog" aria-modal="true" aria-labelledby="assignment-modal-title" class="w-full max-w-lg rounded-xl border border-slate-200/80 bg-white shadow-xl">
+            <header class="flex items-start justify-between gap-4 border-b border-slate-200/80 px-6 py-4">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Incubatee Assignments</p>
+                    <h2 id="assignment-modal-title" class="mt-1 text-lg font-semibold text-slate-900" x-text="assignmentStartup?.name"></h2>
+                    <p class="mt-1 text-xs leading-5 text-slate-500">Assigned team members can view this incubatee and its records.</p>
+                </div>
+                <button type="button" @click="assignmentModalOpen=false" aria-label="Close assignments" class="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-50">✕</button>
+            </header>
+            <div class="space-y-5 px-6 py-5">
+                <div>
+                    <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Assigned members</h3>
+                    <template x-if="assignmentStartup && assignedFor(assignmentStartup).length">
+                        <ul class="flex flex-wrap gap-2">
+                            <template x-for="member in assignedFor(assignmentStartup)" :key="member.id">
+                                <li class="inline-flex items-center gap-2 rounded-full border border-teal-200/70 bg-teal-50 px-3 py-1 text-xs font-medium text-teal-900">
+                                    <span x-text="member.name"></span>
+                                    <form method="POST" :action="'{{ route('incubatees.assignments.destroy', ['startup' => '__STARTUP__', 'user' => '__USER__']) }}'.replace('__STARTUP__', assignmentStartup.id).replace('__USER__', member.id)">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" aria-label="Unassign member" class="text-teal-700 transition hover:text-rose-700">✕</button>
+                                    </form>
+                                </li>
+                            </template>
+                        </ul>
+                    </template>
+                    <p x-show="!assignmentStartup || !assignedFor(assignmentStartup).length" class="rounded-xl border border-dashed border-slate-200 px-4 py-3 text-sm text-slate-500">No one is assigned yet.</p>
+                </div>
+                <form method="POST" :action="assignmentStartup ? '{{ route('incubatees.assignments.store', ['startup' => '__ID__']) }}'.replace('__ID__', assignmentStartup.id) : '#'" class="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4">
+                    @csrf
+                    <label for="assignment-user" class="mb-1 block text-xs font-semibold text-slate-700">Assign member</label>
+                    <select id="assignment-user" name="user_id" x-model="assignmentUserId" required class="ui-select">
+                        <option value="" disabled>Select a team member or mentor</option>
+                        <template x-for="person in assignableUsers" :key="person.id">
+                            <option :value="person.id" x-text="person.name+' — '+person.role"></option>
+                        </template>
+                    </select>
+                    <button type="submit" :disabled="!assignmentUserId" class="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-[#9E2A5B] px-4 py-2 text-sm font-semibold text-white shadow-2xs transition hover:bg-[#86224C] disabled:cursor-not-allowed disabled:opacity-50">Assign member</button>
+                </form>
+            </div>
+        </section>
+    </div>
+    @endif
 
     <div x-show="view==='table'" x-cloak class="overflow-x-auto ui-card shadow-sm">
         <table class="ui-table">
@@ -301,6 +353,7 @@
                                 <button type="button" @click="startAssessment(row)" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#b92369] hover:bg-[#fcf0f5]">Assessment</button>
                                 <button type="button" @click="openEdit(row)" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100">Edit</button>
                                 <button type="button" @click="openDriveLinks(row)" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-[#146e72] hover:bg-[#eaf6f6]">Drive links (<span x-text="linksFor(row).length"></span>)</button>
+                                <button type="button" @click="openAssignments(row)" class="rounded-lg border border-slate-200/80 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50">Assignments (<span x-text="assignedFor(row).length"></span>)</button>
                                 <form method="POST" :action="'{{ route('incubatees') }}/'+row.id" @submit="if (!confirm('Archive '+row.name+'? Its related records will be retained.')) $event.preventDefault()">
                                     @csrf @method('DELETE')
                                     <button type="submit" class="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-50">Archive</button>

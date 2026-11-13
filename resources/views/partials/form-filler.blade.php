@@ -88,16 +88,6 @@
     @if (session('status'))
         <div role="status" class="mb-4 rounded-xl border border-[#1a8a8e]/20 bg-[#eaf6f6] px-4 py-3 text-sm font-medium text-[#146e72]">{{ session('status') }}</div>
     @endif
-    @if ($errors->any())
-        <div role="alert" class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            <p class="font-semibold">The form could not be submitted:</p>
-            <ul class="mt-1 list-inside list-disc">
-                @foreach ($errors->all() as $error)
-                    <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
     <div x-show="open" x-cloak x-transition.opacity @click.self="close()" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-3 backdrop-blur-sm sm:p-6">
         <form x-ref="submissionForm" role="dialog" aria-modal="true" aria-label="Startup form filler" method="POST" action="{{ route('form-submissions.store') }}" enctype="multipart/form-data" class="flex max-h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
             @csrf

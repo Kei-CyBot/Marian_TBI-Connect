@@ -186,6 +186,12 @@ Route::prefix('{rolePrefix}')
         Route::post('/incubatees', [StartupController::class, 'store'])->middleware('role:admin,super_admin')->name('incubatees.store');
         Route::put('/incubatees/{startup}', [StartupController::class, 'update'])->middleware('role:admin,super_admin')->name('incubatees.update');
         Route::delete('/incubatees/{startup}', [StartupController::class, 'destroy'])->middleware('role:admin,super_admin')->name('incubatees.destroy');
+        Route::post('/incubatees/{startup}/assignments', [StartupFolderAccessController::class, 'assign'])
+            ->middleware('role:admin,super_admin')
+            ->name('incubatees.assignments.store');
+        Route::delete('/incubatees/{startup}/assignments/{user}', [StartupFolderAccessController::class, 'unassign'])
+            ->middleware('role:admin,super_admin')
+            ->name('incubatees.assignments.destroy');
         Route::post('/startup-assessments', [StartupAssessmentController::class, 'store'])
             ->middleware('role:admin,super_admin')
             ->name('startup-assessments.store');
@@ -263,6 +269,9 @@ Route::prefix('{rolePrefix}')
         Route::post('/event-outreach', [EventOutreachController::class, 'sendCommunication'])->middleware('role:admin,super_admin')->name('event-outreach.send');
         Route::get('/team', [TeamController::class, 'index'])->middleware('role:admin,super_admin')->name('team');
         Route::put('/team/{user}/role', [TeamController::class, 'updateRole'])->middleware('role:super_admin')->name('team.roles.update');
+        Route::post('/team/{user}/link-contact', [TeamController::class, 'linkContact'])->middleware('role:admin,super_admin')->name('team.contacts.link');
+        Route::post('/team/{user}/archive', [TeamController::class, 'archive'])->middleware('role:admin,super_admin')->name('team.archive');
+        Route::post('/team/{user}/restore', [TeamController::class, 'restore'])->middleware('role:admin,super_admin')->name('team.restore');
         Route::post('/team/invite', [TeamController::class, 'invite'])->middleware('role:admin,super_admin')->name('team.invite');
         Route::delete('/team/invitations/{invitation}', [TeamController::class, 'revokeInvite'])->middleware('role:admin,super_admin')->name('team.invitations.revoke');
         Route::get('/archives', [ArchiveController::class, 'index'])->middleware('role:admin,super_admin')->name('archives.index');

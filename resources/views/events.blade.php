@@ -18,12 +18,6 @@
 @if (session('email_error'))
     <div role="alert" class="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">{{ session('email_error') }}</div>
 @endif
-@if ($errors->any())
-    <div role="alert" class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-        <p class="font-semibold">The email could not be sent:</p>
-        <ul class="mt-1 list-inside list-disc">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
-    </div>
-@endif
 <div x-data="{
         events:@js($events), view:'list', menu:null, selectedEvent:null,
         cursor:new Date(new Date().getFullYear(),new Date().getMonth(),1),

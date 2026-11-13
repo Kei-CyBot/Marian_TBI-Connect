@@ -14,13 +14,6 @@
 @if (session('technical_need_status'))
     <div role="status" class="mb-4 rounded-xl border border-[#1a8a8e]/20 bg-[#eaf6f6] px-4 py-3 text-sm font-medium text-[#146e72]">{{ session('technical_need_status') }}</div>
 @endif
-@if ($errors->any())
-    <div role="alert" class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        <p class="font-semibold">The technical need could not be saved:</p>
-        <ul class="mt-1 list-inside list-disc">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
-    </div>
-@endif
-
 <div x-data="window.technicalNeedsPage(
         @js($requirements),
         @js($startups),

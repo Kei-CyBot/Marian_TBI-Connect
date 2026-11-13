@@ -62,6 +62,8 @@ class RouteAuthorizationTest extends TestCase
 
     private Contact $trashedContact;
 
+    private User $archivedMember;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -83,6 +85,8 @@ class RouteAuthorizationTest extends TestCase
         $this->admin = User::factory()->create(['role' => User::ROLE_ADMIN, 'email' => 'route-admin@example.test']);
         $this->superAdmin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN, 'email' => 'route-super-admin@example.test']);
         $this->member = User::factory()->create(['role' => User::ROLE_MEMBER_INCUBATEE, 'email' => 'route-member@example.test']);
+        $this->archivedMember = User::factory()->create(['role' => User::ROLE_MEMBER_INCUBATEE, 'email' => 'route-archived-member@example.test']);
+        $this->archivedMember->delete();
 
         Storage::disk('local')->put('form-attachments/coverage.pdf', 'coverage');
         Storage::disk('local')->put('technical-needs/coverage.pdf', 'coverage');
@@ -214,6 +218,8 @@ class RouteAuthorizationTest extends TestCase
             'incubatees store' => ['incubatees.store', 'post', [], [], 'redirect'],
             'incubatees update' => ['incubatees.update', 'put', ['startup' => 'startup'], [], 'redirect'],
             'incubatees destroy' => ['incubatees.destroy', 'delete', ['startup' => 'startup'], [], 'redirect'],
+            'incubatee assignment store' => ['incubatees.assignments.store', 'post', ['startup' => 'startup'], [], 'redirect'],
+            'incubatee assignment destroy' => ['incubatees.assignments.destroy', 'delete', ['startup' => 'startup', 'user' => 'member'], [], 'redirect'],
             'startup assessments store' => ['startup-assessments.store', 'post', [], [], 'redirect'],
             'startup drive links store' => ['startup-drive-links.store', 'post', [], [], 'redirect'],
             'startup drive links destroy' => ['startup-drive-links.destroy', 'delete', ['driveLink' => 'driveLink'], [], 'redirect'],
@@ -265,6 +271,9 @@ class RouteAuthorizationTest extends TestCase
             'event email send' => ['event-emails.send', 'post', [], [], 'redirect'],
             'event outreach send' => ['event-outreach.send', 'post', [], [], 'redirect'],
             'team index' => ['team', 'get', [], [], 'ok'],
+            'team contact link' => ['team.contacts.link', 'post', ['user' => 'member'], [], 'redirect'],
+            'team user archive' => ['team.archive', 'post', ['user' => 'member'], [], 'redirect'],
+            'team user restore' => ['team.restore', 'post', ['user' => 'archivedMember'], [], 'redirect'],
             'team role update' => ['team.roles.update', 'put', ['user' => 'member'], ['role' => User::ROLE_ADMIN], 'redirect'],
         ];
     }
@@ -620,6 +629,7 @@ class RouteAuthorizationTest extends TestCase
                 'data' => ['founder' => 'Route Founder'],
             ],
             'incubatees.store' => $this->startupPayload('Route Coverage Startup'),
+            'incubatees.assignments.store' => ['user_id' => $this->member->id],
             'incubatees.update' => $this->startupPayload('Route Coverage Updated Startup'),
             'startup-assessments.store' => $this->assessmentPayload(),
             'startup-drive-links.store' => [
