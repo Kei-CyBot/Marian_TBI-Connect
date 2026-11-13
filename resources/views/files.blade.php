@@ -6,16 +6,16 @@
 @section('banner-actions')
     @if (auth()->user()->canManageRecords() && $driveConnected)
         <div class="flex flex-wrap items-center gap-2">
-            <span class="rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold text-white">Drive connected · {{ $driveAccountEmail }}</span>
+            <span class="ui-badge bg-slate-50 text-slate-600 ring-slate-200"><span class="ui-badge-dot"></span>Drive connected · {{ $driveAccountEmail }}</span>
             <form method="POST" action="{{ route('google-drive.sync') }}">
                 @csrf
-                <button type="submit" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#146e72] shadow-sm hover:bg-[#eaf6f6]">Sync to Google Drive</button>
+                <button type="submit" class="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-2xs transition hover:bg-slate-50">Sync to Google Drive</button>
             </form>
         </div>
     @elseif (auth()->user()->canManageRecords() && $driveConfigured)
-        <a href="{{ route('google-drive.connect') }}" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#146e72] shadow-sm hover:bg-[#eaf6f6]">Connect Marian TBI Drive</a>
+        <a href="{{ route('google-drive.connect') }}" class="rounded-lg bg-[#1a8a8e] px-3.5 py-2 text-sm font-medium text-white shadow-2xs transition hover:bg-[#146e72]">Connect Marian TBI Drive</a>
     @elseif (auth()->user()->canManageRecords())
-        <span class="rounded-lg bg-white/15 px-3 py-2 text-xs font-semibold text-white">Google Drive setup required</span>
+        <span class="ui-badge bg-amber-50 text-amber-700 ring-amber-200"><span class="ui-badge-dot"></span>Google Drive setup required</span>
     @endif
 @endsection
 
@@ -186,7 +186,7 @@
         <button type="button" @click="tab='external'; currentFolder=null" class="rounded-xl px-4 py-2" :class="tab==='external' ? 'bg-[#146e72] text-white shadow' : 'text-gray-700 hover:bg-gray-50'">External Industry</button>
     </div>
 
-    <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <section class="ui-card overflow-hidden">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-5 py-3 text-sm">
             <nav aria-label="File directory breadcrumb" class="flex flex-wrap items-center gap-2 font-semibold text-gray-700">
                 <button type="button" @click="goToRoot()" class="hover:underline">Incubatee folders</button>
@@ -216,13 +216,13 @@
                     <span aria-hidden="true" class="text-gray-500">›</span>
                 </button>
             </template>
-            <p x-show="!folders.length" class="col-span-full rounded-xl border border-dashed border-gray-300 px-4 py-12 text-center text-sm text-gray-700">No incubatees are available in this track.</p>
+            <p x-show="!folders.length" class="ui-empty col-span-full">No incubatees are available in this track.</p>
         </div>
 
         <div x-show="currentFolder" class="overflow-x-auto">
-            <table class="min-w-full text-sm">
-                <thead class="text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                    <tr><th class="px-5 py-3">Document</th><th class="px-3 py-3">Type</th><th class="px-3 py-3">Added by</th><th class="px-3 py-3">Updated</th><th class="px-5 py-3 text-right">Action</th></tr>
+            <table class="ui-table">
+                <thead class="border-b border-slate-200/80 bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                    <tr><th class="whitespace-nowrap px-5 py-3">Document</th><th class="whitespace-nowrap px-3 py-3">Type</th><th class="whitespace-nowrap px-3 py-3">Added by</th><th class="whitespace-nowrap px-3 py-3">Updated</th><th class="whitespace-nowrap px-5 py-3 text-right">Action</th></tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     <template x-for="file in folderFiles" :key="file.id">
@@ -249,7 +249,7 @@
     </section>
 
     <div x-show="drawer" x-cloak x-transition.opacity @click="drawer=null" class="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm"></div>
-    <aside x-show="drawer" x-cloak x-transition class="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col bg-white shadow-2xl">
+    <aside x-show="drawer" x-cloak x-transition class="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col bg-white shadow-xl">
         <template x-if="drawer">
             <div class="flex h-full flex-col">
                 <header class="bg-[#146e72] px-6 py-5 text-white">
@@ -298,7 +298,7 @@
 
 @if (auth()->user()->canManageRecords())
 <div x-show="accessModal" x-cloak x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="accessModal=false">
-    <section role="dialog" aria-modal="true" aria-labelledby="folder-access-title" class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl">
+    <section role="dialog" aria-modal="true" aria-labelledby="folder-access-title" class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-xl">
         <form method="POST" :action="accessStartup ? '{{ route('startup-folders.access.update', ['startup' => '__ID__']) }}'.replace('__ID__', accessStartup.id) : '#'">
             @csrf
             <input type="hidden" name="restricted" :value="restrictedDraft ? '1' : '0'">
@@ -338,7 +338,7 @@
 
 @if (auth()->user()->canManageRecords())
 <div x-show="editModal" x-cloak x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="closeEdit()">
-    <section role="dialog" aria-modal="true" aria-labelledby="edit-submission-title" class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+    <section role="dialog" aria-modal="true" aria-labelledby="edit-submission-title" class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl">
         <form method="POST" :action="'{{ route('form-submissions.update', ['submission' => '__ID__']) }}'.replace('__ID__', editFile?.submissionId || '')" enctype="multipart/form-data">
             @csrf
             @method('PUT')
@@ -410,7 +410,7 @@
 </div>
 
 <div x-show="deleteModal" x-cloak x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="closeDelete()">
-    <form method="POST" :action="'{{ route('form-submissions.destroy', ['submission' => '__ID__']) }}'.replace('__ID__', deleteFile?.submissionId || '')" class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <form method="POST" :action="'{{ route('form-submissions.destroy', ['submission' => '__ID__']) }}'.replace('__ID__', deleteFile?.submissionId || '')" class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
         @csrf
         @method('DELETE')
         <header class="flex items-start justify-between gap-4 bg-red-600 px-6 py-5 text-white">
@@ -434,7 +434,7 @@
     </div>
 
 <div x-show="moveModal" x-cloak x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="closeMove()" @keydown.escape.window="moveModal = false">
-    <form method="POST" :action="'{{ route('form-submissions.move', ['submission' => '__ID__']) }}'.replace('__ID__', moveFile?.submissionId ?? '')" class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <form method="POST" :action="'{{ route('form-submissions.move', ['submission' => '__ID__']) }}'.replace('__ID__', moveFile?.submissionId ?? '')" class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
         @csrf
         <header class="flex items-start justify-between gap-4 bg-[#146e72] px-6 py-5 text-white">
             <div class="min-w-0">

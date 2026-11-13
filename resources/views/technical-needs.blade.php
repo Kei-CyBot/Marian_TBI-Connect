@@ -5,8 +5,8 @@
 @section('subheading','Manage each incubatee’s equipment, services, subscriptions, owners, deadlines, and progress.')
 @section('banner-actions')
     @if (auth()->user()->canManageRecords() && $selectedStartup)
-        <button type="button" @click="$dispatch('open-technical-need')" class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#146e72] shadow-sm hover:bg-[#eaf6f6]">+ Add Technical Need</button>
-        <button type="button" @click="$dispatch('open-technical-approval-form')" class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#146e72] shadow-sm hover:bg-[#eaf6f6]">📄 Technical Need Approval Form</button>
+        <button type="button" @click="$dispatch('open-technical-need')" class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#9E2A5B] px-3.5 py-2 text-sm font-medium text-white shadow-2xs transition hover:bg-[#86224C]">+ Add Technical Need</button>
+        <button type="button" @click="$dispatch('open-technical-approval-form')" class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-2xs transition hover:bg-slate-50">Technical Need Approval Form</button>
     @endif
 @endsection
 
@@ -93,7 +93,7 @@
         ];
     @endphp
 
-    <details class="mb-5 rounded-2xl border border-slate-200 bg-white shadow-sm" @if ($hasFilters) open @endif>
+    <details class="mb-5 ui-card" @if ($hasFilters) open @endif>
         <summary class="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-3">
             <span class="text-sm font-semibold text-slate-900">Filter &amp; Search</span>
             <span class="flex flex-wrap items-center gap-2">
@@ -114,37 +114,37 @@
         <form id="technical-need-filters" method="GET" action="{{ route('technical-needs') }}" class="grid gap-3 border-t border-slate-100 px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
             <input type="hidden" name="startup_id" value="{{ $selectedStartup->id }}">
             <input type="hidden" name="sort_order" value="{{ $sortOrder }}">
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Title</span><input name="title" value="{{ request('title') }}" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Specifications</span><input name="specifications" value="{{ request('specifications') }}" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Price min (PHP)</span><input name="price_min" type="number" min="0" step="0.01" value="{{ request('price_min') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Price max (PHP)</span><input name="price_max" type="number" min="0" step="0.01" value="{{ request('price_max') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Months min</span><input name="months_min" type="number" min="1" value="{{ request('months_min') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Months max</span><input name="months_max" type="number" min="1" value="{{ request('months_max') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Responsible team member</span>
-                <select name="responsible_team_member" class="w-full rounded-xl border border-slate-line bg-white px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Title</span><input name="title" value="{{ request('title') }}" maxlength="255" class="ui-input"></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Specifications</span><input name="specifications" value="{{ request('specifications') }}" maxlength="255" class="ui-input"></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Price min (PHP)</span><input name="price_min" type="number" min="0" step="0.01" value="{{ request('price_min') }}" class="ui-input"></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Price max (PHP)</span><input name="price_max" type="number" min="0" step="0.01" value="{{ request('price_max') }}" class="ui-input"></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Months min</span><input name="months_min" type="number" min="1" value="{{ request('months_min') }}" class="ui-input"></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Months max</span><input name="months_max" type="number" min="1" value="{{ request('months_max') }}" class="ui-input"></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Responsible team member</span>
+                <select name="responsible_team_member" class="ui-select">
                     <option value="">All members</option>
                     @foreach ($responsibleOptions as $member)
                         <option value="{{ $member }}" @selected(request('responsible_team_member') === $member)>{{ $member }}</option>
                     @endforeach
                 </select>
             </label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Date entry from</span><input name="date_entry_from" type="date" value="{{ request('date_entry_from') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Date entry to</span><input name="date_entry_to" type="date" value="{{ request('date_entry_to') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Date needed from</span><input name="date_needed_from" type="date" value="{{ request('date_needed_from') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Date needed to</span><input name="date_needed_to" type="date" value="{{ request('date_needed_to') }}" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Resource / tool needed</span><input name="resource_tool_needed" value="{{ request('resource_tool_needed') }}" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Prospect resource person</span><input name="prospect_resource_person" value="{{ request('prospect_resource_person') }}" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Priority</span>
-                <select name="priority" class="w-full rounded-xl border border-slate-line bg-white px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Date entry from</span><input name="date_entry_from" type="date" value="{{ request('date_entry_from') }}" class="ui-input"></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Date entry to</span><input name="date_entry_to" type="date" value="{{ request('date_entry_to') }}" class="ui-input"></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Date needed from</span><input name="date_needed_from" type="date" value="{{ request('date_needed_from') }}" class="ui-input"></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Date needed to</span><input name="date_needed_to" type="date" value="{{ request('date_needed_to') }}" class="ui-input"></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Resource / tool needed</span><input name="resource_tool_needed" value="{{ request('resource_tool_needed') }}" maxlength="255" class="ui-input"></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Prospect resource person</span><input name="prospect_resource_person" value="{{ request('prospect_resource_person') }}" maxlength="255" class="ui-input"></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Priority</span>
+                <select name="priority" class="ui-select">
                     <option value="">All priorities</option>
                     @foreach (['Low', 'Moderate', 'High'] as $priority)
                         <option value="{{ $priority }}" @selected(request('priority') === $priority)>{{ $priority }}</option>
                     @endforeach
                 </select>
             </label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Remarks</span><input name="remarks" value="{{ request('remarks') }}" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-            <label class="block"><span class="mb-1 block text-xs font-semibold text-gray-600">Status</span>
-                <select name="status" class="w-full rounded-xl border border-slate-line bg-white px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Remarks</span><input name="remarks" value="{{ request('remarks') }}" maxlength="255" class="ui-input"></label>
+            <label class="block"><span class="mb-1.5 block text-xs font-medium text-slate-700">Status</span>
+                <select name="status" class="ui-select">
                     <option value="">All statuses</option>
                     @foreach (['pending', 'approved', 'rejected'] as $status)
                         <option value="{{ $status }}" @selected(request('status') === $status)>{{ ucfirst($status) }}</option>
@@ -160,7 +160,7 @@
 
     <div class="space-y-3">
         <template x-for="item in filteredRequirements" :key="item.id">
-            <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <article class="overflow-hidden ui-card">
                 <div class="border-l-4 px-4 py-4 sm:px-5" :class="item.priority==='High' ? 'border-red-500' : item.priority==='Moderate' ? 'border-amber-400' : 'border-slate-300'">
                     <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                         <div class="min-w-0 flex-1">
@@ -207,7 +207,7 @@
         </template>
     </div>
 
-    <div x-show="!filteredRequirements.length" x-cloak class="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white px-4 py-12 text-center text-sm text-gray-600">
+    <div x-show="!filteredRequirements.length" x-cloak class="ui-empty mt-4">
         <p class="font-semibold text-slate-800">No requests match this folder and its filters.</p>
         <p class="mt-1">Clear the filters, or add an approved technical need.</p>
     </div>
@@ -215,7 +215,7 @@
 
     @if (auth()->user()->canManageRecords() && $selectedStartup)
     <div x-show="modal" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="modal=false">
-        <section role="dialog" aria-modal="true" aria-labelledby="technical-need-modal-title" class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <section role="dialog" aria-modal="true" aria-labelledby="technical-need-modal-title" class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl">
             <form method="POST" :action="editing ? '{{ route('technical-needs') }}/'+draft.id : '{{ route('technical-needs.store') }}'">
                 @csrf
                 <input type="hidden" name="_method" value="PUT" :disabled="!editing">
@@ -229,20 +229,20 @@
                         <p class="text-xs font-semibold uppercase tracking-wide text-teal-800">Incubatee folder</p>
                         <p class="mt-1 text-sm font-semibold text-slate-900" x-text="selectedStartupName"></p>
                     </div>
-                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Title <span class="text-red-600">*</span></span><input name="requirement" x-model="draft.requirement" required maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Specifications</span><textarea name="description" x-model="draft.description" rows="2" maxlength="5000" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></textarea></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Price / subscription (PHP)</span><div class="flex rounded-xl border border-slate-line focus-within:border-[#1a8a8e]"><span class="px-3 py-2 text-sm font-semibold text-gray-700">₱</span><input name="subscription_price" type="number" min="0" step="0.01" x-model="draft.price" class="min-w-0 flex-1 rounded-r-xl border-0 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></div></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Number of months needed</span><input name="months_needed" type="number" min="1" max="65535" x-model="draft.months" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Responsible team member</span><input name="responsible_team_member" x-model="draft.responsible" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Date entry <span class="text-red-600">*</span></span><input name="date_entry" type="date" x-model="draft.dateEntry" required class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Date needed</span><input name="date_needed" type="date" x-model="draft.dateNeeded" :min="draft.dateEntry" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Resource / tool needed</span><input name="resource_tool" x-model="draft.resource" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Prospect resource person</span><input name="prospect_resource_person" x-model="draft.prospect" maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Priority</span><select name="priority" x-model="draft.priority" required class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"><option>Low</option><option>Moderate</option><option>High</option></select></label>
-                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Remarks</span><textarea name="remarks" x-model="draft.remarks" rows="2" maxlength="5000" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></textarea></label>
+                    <label class="sm:col-span-2"><span class="mb-1.5 block text-xs font-medium text-slate-700">Title <span class="text-red-600">*</span></span><input name="requirement" x-model="draft.requirement" required maxlength="255" class="ui-input"></label>
+                    <label class="sm:col-span-2"><span class="mb-1.5 block text-xs font-medium text-slate-700">Specifications</span><textarea name="description" x-model="draft.description" rows="2" maxlength="5000" class="ui-input"></textarea></label>
+                    <label><span class="mb-1.5 block text-xs font-medium text-slate-700">Price / subscription (PHP)</span><div class="flex rounded-xl border border-slate-line focus-within:border-[#1a8a8e]"><span class="px-3 py-2 text-sm font-semibold text-gray-700">₱</span><input name="subscription_price" type="number" min="0" step="0.01" x-model="draft.price" class="min-w-0 flex-1 rounded-r-xl border-0 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></div></label>
+                    <label><span class="mb-1.5 block text-xs font-medium text-slate-700">Number of months needed</span><input name="months_needed" type="number" min="1" max="65535" x-model="draft.months" class="ui-input"></label>
+                    <label><span class="mb-1.5 block text-xs font-medium text-slate-700">Responsible team member</span><input name="responsible_team_member" x-model="draft.responsible" maxlength="255" class="ui-input"></label>
+                    <label><span class="mb-1.5 block text-xs font-medium text-slate-700">Date entry <span class="text-red-600">*</span></span><input name="date_entry" type="date" x-model="draft.dateEntry" required class="ui-input"></label>
+                    <label><span class="mb-1.5 block text-xs font-medium text-slate-700">Date needed</span><input name="date_needed" type="date" x-model="draft.dateNeeded" :min="draft.dateEntry" class="ui-input"></label>
+                    <label><span class="mb-1.5 block text-xs font-medium text-slate-700">Resource / tool needed</span><input name="resource_tool" x-model="draft.resource" maxlength="255" class="ui-input"></label>
+                    <label><span class="mb-1.5 block text-xs font-medium text-slate-700">Prospect resource person</span><input name="prospect_resource_person" x-model="draft.prospect" maxlength="255" class="ui-input"></label>
+                    <label><span class="mb-1.5 block text-xs font-medium text-slate-700">Priority</span><select name="priority" x-model="draft.priority" required class="ui-select"><option>Low</option><option>Moderate</option><option>High</option></select></label>
+                    <label class="sm:col-span-2"><span class="mb-1.5 block text-xs font-medium text-slate-700">Remarks</span><textarea name="remarks" x-model="draft.remarks" rows="2" maxlength="5000" class="ui-input"></textarea></label>
                 </div>
                 <footer class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
-                    <button type="button" @click="modal=false" class="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100">Cancel</button>
+                    <button type="button" @click="modal=false" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
                     <button type="submit" class="rounded-xl bg-[#146e72] px-5 py-2 text-sm font-semibold text-white hover:bg-[#10595c]" x-text="editing ? 'Save changes' : 'Submit for review'"></button>
                 </footer>
             </form>
@@ -250,7 +250,7 @@
     </div>
 
     <div x-show="reviewModal" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="reviewModal=false">
-        <section role="dialog" aria-modal="true" aria-labelledby="technical-need-review-title" class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <section role="dialog" aria-modal="true" aria-labelledby="technical-need-review-title" class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl">
             <form method="POST" enctype="multipart/form-data" :action="'{{ route('technical-needs') }}/'+reviewItem.id+'/review'">
                 @csrf
                 <input type="hidden" name="action" x-model="reviewAction">
@@ -269,16 +269,16 @@
                         <span class="mt-3 inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1" :class="statusClass(reviewItem.status)" x-text="statusLabel(reviewItem.status)"></span>
                     </div>
                     <label class="block">
-                        <span class="mb-1 block text-xs font-semibold text-gray-700">Attach Institutional Approval Document (PDF, Word, Excel, max 10 MB)</span>
-                        <input name="approval_document" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" class="block w-full rounded-xl border border-slate-line px-3 py-2 text-sm text-slate-800 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-teal-900">
+                        <span class="mb-1.5 block text-xs font-medium text-slate-700">Attach Institutional Approval Document (PDF, Word, Excel, max 10 MB)</span>
+                        <input name="approval_document" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" class="block ui-select text-slate-800 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-teal-900">
                     </label>
                     <label class="block">
-                        <span class="mb-1 block text-xs font-semibold text-gray-700">Review notes</span>
-                        <textarea name="review_notes" rows="3" maxlength="5000" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15"></textarea>
+                        <span class="mb-1.5 block text-xs font-medium text-slate-700">Review notes</span>
+                        <textarea name="review_notes" rows="3" maxlength="5000" class="ui-input"></textarea>
                     </label>
                 </div>
                 <footer class="flex flex-wrap justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
-                    <button type="button" @click="reviewModal=false" class="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100">Cancel</button>
+                    <button type="button" @click="reviewModal=false" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
                     <button type="submit" @click="reviewAction='rejected'" class="rounded-xl bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700">Reject</button>
                     <button type="submit" @click="reviewAction='approved'" class="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Approve</button>
                 </footer>
@@ -287,23 +287,23 @@
     </div>
 
     <div x-show="approvalFormModal" x-cloak x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="approvalFormModal=false">
-        <section role="dialog" aria-modal="true" aria-labelledby="approval-form-title" class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <section role="dialog" aria-modal="true" aria-labelledby="approval-form-title" class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl">
             <form @submit.prevent="printApprovalForm()">
                 <header class="flex items-start justify-between gap-4 bg-[#146e72] px-6 py-5 text-white">
                     <div><p class="text-xs font-semibold uppercase tracking-wider text-white/80">Marian TBI institutional template</p><h2 id="approval-form-title" class="mt-1 text-lg font-bold">Technical Need Approval Form</h2></div>
                     <button type="button" @click="approvalFormModal=false" aria-label="Close approval form" class="rounded-lg p-1.5 text-white/90 hover:bg-white/15">✕</button>
                 </header>
                 <div class="grid gap-4 p-6 sm:grid-cols-2">
-                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Incubatee</span><input x-model="approvalDraft.incubatee" readonly class="w-full rounded-xl border border-slate-line bg-slate-50 px-3 py-2 text-sm"></label>
-                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Technical need / subscription</span><input x-model="approvalDraft.requirement" required maxlength="255" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"></label>
-                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Specifications / purpose</span><textarea x-model="approvalDraft.description" rows="3" maxlength="5000" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"></textarea></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Estimated cost (PHP)</span><input x-model="approvalDraft.price" type="number" min="0" step="0.01" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Date needed</span><input x-model="approvalDraft.dateNeeded" type="date" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"></label>
-                    <label><span class="mb-1 block text-xs font-semibold text-gray-700">Priority</span><select x-model="approvalDraft.priority" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"><option>Low</option><option>Moderate</option><option>High</option></select></label>
-                    <label class="sm:col-span-2"><span class="mb-1 block text-xs font-semibold text-gray-700">Remarks</span><textarea x-model="approvalDraft.remarks" rows="2" maxlength="5000" class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"></textarea></label>
+                    <label class="sm:col-span-2"><span class="mb-1.5 block text-xs font-medium text-slate-700">Incubatee</span><input x-model="approvalDraft.incubatee" readonly class="w-full rounded-xl border border-slate-line bg-slate-50 px-3 py-2 text-sm"></label>
+                    <label class="sm:col-span-2"><span class="mb-1.5 block text-xs font-medium text-slate-700">Technical need / subscription</span><input x-model="approvalDraft.requirement" required maxlength="255" class="ui-select"></label>
+                    <label class="sm:col-span-2"><span class="mb-1.5 block text-xs font-medium text-slate-700">Specifications / purpose</span><textarea x-model="approvalDraft.description" rows="3" maxlength="5000" class="ui-select"></textarea></label>
+                    <label><span class="mb-1.5 block text-xs font-medium text-slate-700">Estimated cost (PHP)</span><input x-model="approvalDraft.price" type="number" min="0" step="0.01" class="ui-select"></label>
+                    <label><span class="mb-1.5 block text-xs font-medium text-slate-700">Date needed</span><input x-model="approvalDraft.dateNeeded" type="date" class="ui-select"></label>
+                    <label><span class="mb-1.5 block text-xs font-medium text-slate-700">Priority</span><select x-model="approvalDraft.priority" class="ui-select"><option>Low</option><option>Moderate</option><option>High</option></select></label>
+                    <label class="sm:col-span-2"><span class="mb-1.5 block text-xs font-medium text-slate-700">Remarks</span><textarea x-model="approvalDraft.remarks" rows="2" maxlength="5000" class="ui-select"></textarea></label>
                 </div>
                 <footer class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-6 py-4">
-                    <button type="button" @click="approvalFormModal=false" class="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-100">Cancel</button>
+                    <button type="button" @click="approvalFormModal=false" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
                     <button type="submit" class="rounded-xl bg-[#146e72] px-5 py-2 text-sm font-semibold text-white hover:bg-[#10595c]">Preview &amp; Print</button>
                 </footer>
             </form>
