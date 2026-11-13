@@ -65,7 +65,7 @@
         @if ($folderId)
             <p class="mt-4 text-sm text-gray-500">
                 Current root folder:
-                <a href="https://drive.google.com/drive/folders/{{ $folderId }}" target="_blank" rel="noopener" class="font-mono font-semibold text-[#146e72] underline">{{ $folderId }}</a>
+                <span class="font-mono font-semibold text-slate-900">{{ '••••••••'.substr($folderId, -4) }}</span>
             </p>
         @else
             <p class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-sm text-amber-800">
@@ -77,7 +77,7 @@
             @csrf
             <div>
                 <label for="folder_id" class="mb-1.5 block text-sm font-semibold text-slate-700">Google Drive folder ID</label>
-                <input id="folder_id" name="folder_id" value="{{ old('folder_id', $folderId) }}" required maxlength="255" placeholder="1AbCdEfGhIjKlMnOpQrStUvWxYz" class="w-full rounded-xl border px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15 {{ $errors->has('folder_id') ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-[#1a8a8e]' }}">
+                <input id="folder_id" name="folder_id" value="" required maxlength="255" placeholder="Paste a new Google Drive folder ID to replace current" class="w-full rounded-xl border px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15 {{ $errors->has('folder_id') ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-[#1a8a8e]' }}">
                 @error('folder_id')
                     <p class="mt-1 text-xs font-medium text-red-600">{{ $message }}</p>
                 @enderror

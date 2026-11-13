@@ -59,14 +59,14 @@ class GoogleIntegrationController extends Controller
     public function createFolder(GoogleDriveService $drive): RedirectResponse
     {
         try {
-            $folderId = $drive->getOrCreateTargetFolderId();
+            $drive->getOrCreateTargetFolderId();
         } catch (\Throwable $exception) {
             $drive->logSyncFailure($exception);
 
             return back()->with('error', 'Could not create the Google Drive storage folder: '.$exception->getMessage());
         }
 
-        return back()->with('success', 'Google Drive storage folder ready: '.$folderId);
+        return back()->with('success', 'Google Drive storage folder is configured and ready.');
     }
 
     public function disconnect(): RedirectResponse

@@ -33,13 +33,15 @@ class GoogleIntegrationSettingsTest extends TestCase
         $this->actingAs($member)->post(route('admin.settings.google.create-folder'))->assertForbidden();
     }
 
-    public function test_admins_and_super_admins_can_view_the_settings_page(): void
+    public function test_super_admins_can_view_the_settings_page_but_admins_cannot(): void
     {
-        foreach ([User::ROLE_ADMIN, User::ROLE_SUPER_ADMIN] as $role) {
-            $this->actingAs(User::factory()->create(['role' => $role]))
-                ->get(route('admin.settings.google.index'))
-                ->assertOk();
-        }
+        $this->actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]))
+            ->get(route('admin.settings.google.index'))
+            ->assertOk();
+
+        $this->actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]))
+            ->get(route('admin.settings.google.index'))
+            ->assertForbidden();
     }
 
     public function test_page_shows_the_active_connection_and_configured_folder(): void
@@ -53,7 +55,8 @@ class GoogleIntegrationSettingsTest extends TestCase
             ->assertSee('drive@example.test')
             ->assertSee('Connected')
             ->assertSee($connection->expires_at->format('M j, Y g:i A'))
-            ->assertSee('configured-folder');
+            ->assertSee('••••••••lder')
+            ->assertDontSee('configured-folder');
     }
 
     public function test_page_requests_action_when_no_active_connection_exists(): void
@@ -64,11 +67,12 @@ class GoogleIntegrationSettingsTest extends TestCase
             'services.google.folder_id' => 'configured-folder',
         ]);
 
-        $this->actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]))
+        $this->actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]))
             ->get(route('admin.settings.google.index'))
             ->assertOk()
             ->assertSee('Action Required')
-            ->assertSee('configured-folder');
+            ->assertSee('••••••••lder')
+            ->assertDontSee('configured-folder');
     }
 
     public function test_super_admin_can_auto_create_the_storage_folder(): void
@@ -86,7 +90,7 @@ class GoogleIntegrationSettingsTest extends TestCase
             ->from(route('admin.settings.google.index'))
             ->post(route('admin.settings.google.create-folder'))
             ->assertRedirect(route('admin.settings.google.index'))
-            ->assertSessionHas('success', 'Google Drive storage folder ready: auto-folder');
+            ->assertSessionHas('success', 'Google Drive storage folder is configured and ready.');
 
         $this->assertDatabaseHas('settings', [
             'key' => 'google.drive_folder_id',
@@ -116,7 +120,7 @@ class GoogleIntegrationSettingsTest extends TestCase
 
     public function test_folder_id_is_required(): void
     {
-        $this->actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]))
+        $this->actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]))
             ->from(route('admin.settings.google.index'))
             ->post(route('admin.settings.google.update-folder'), ['folder_id' => ''])
             ->assertSessionHasErrors('folder_id');

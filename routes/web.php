@@ -225,10 +225,10 @@ Route::prefix('{rolePrefix}')
         Route::get('/google-drive/connect', [GoogleDriveController::class, 'connect'])->middleware('role:admin,super_admin')->name('google-drive.connect');
         Route::get('/google-drive/callback', [GoogleDriveController::class, 'callback'])->middleware('role:admin,super_admin')->name('google-drive.callback');
         Route::post('/google-drive/sync', [GoogleDriveController::class, 'synchronize'])->middleware('role:admin,super_admin')->name('google-drive.sync');
-        Route::get('/settings/google', [GoogleIntegrationController::class, 'index'])->middleware('role:admin,super_admin')->name('admin.settings.google.index');
-        Route::post('/settings/google/folder', [GoogleIntegrationController::class, 'updateFolder'])->middleware('role:admin,super_admin')->name('admin.settings.google.update-folder');
-        Route::post('/settings/google/create-folder', [GoogleIntegrationController::class, 'createFolder'])->middleware('role:admin,super_admin')->name('admin.settings.google.create-folder');
-        Route::post('/settings/google/disconnect', [GoogleIntegrationController::class, 'disconnect'])->middleware('role:admin,super_admin')->name('admin.settings.google.disconnect');
+        Route::get('/settings/google', [GoogleIntegrationController::class, 'index'])->middleware('role:super_admin')->name('admin.settings.google.index');
+        Route::post('/settings/google/folder', [GoogleIntegrationController::class, 'updateFolder'])->middleware('role:super_admin')->name('admin.settings.google.update-folder');
+        Route::post('/settings/google/create-folder', [GoogleIntegrationController::class, 'createFolder'])->middleware('role:super_admin')->name('admin.settings.google.create-folder');
+        Route::post('/settings/google/disconnect', [GoogleIntegrationController::class, 'disconnect'])->middleware('role:super_admin')->name('admin.settings.google.disconnect');
         Route::post('/startup-folders/{startup}/access', [StartupFolderAccessController::class, 'update'])
             ->middleware('role:admin,super_admin')
             ->name('startup-folders.access.update');
