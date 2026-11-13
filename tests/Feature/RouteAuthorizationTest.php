@@ -317,8 +317,15 @@ class RouteAuthorizationTest extends TestCase
     public function test_admin_routes_allow_managers_and_reject_regular_members(string $routeName, string $method, array $params, array $payload, string $expectedStatus): void
     {
         $this->prepareRouteScenario($routeName);
-        $actor = $routeName === 'team.roles.update' ? $this->superAdmin : $this->admin;
-        $blockedActor = $routeName === 'team.roles.update' ? $this->admin : $this->member;
+        $superOnly = in_array($routeName, [
+            'team.roles.update',
+            'admin.settings.google.index',
+            'admin.settings.google.update-folder',
+            'admin.settings.google.create-folder',
+            'admin.settings.google.disconnect',
+        ], true);
+        $actor = $superOnly ? $this->superAdmin : $this->admin;
+        $blockedActor = $superOnly ? $this->admin : $this->member;
         $payload = $this->payloadFor($routeName, $payload);
 
         $this->actingAs($blockedActor)
@@ -494,6 +501,19 @@ class RouteAuthorizationTest extends TestCase
 
         $this->actingAs($this->member);
         $this->assertSame(url('/member/dashboard'), route('dashboard'));
+    }
+
+    public function test_sidebar_alpine_data_is_not_truncated_by_quote_delimiters(): void
+    {
+        $response = $this->actingAs($this->superAdmin)->get('/superadmin/dashboard');
+
+        $response->assertOk();
+        $response->assertSee("x-data=\"appSidebar({ activeSection: null, shortcuts: JSON.parse('", false);
+        $response->assertDontSee("x-data='appSidebar", false);
+        $this->assertMatchesRegularExpression(
+            '/x-data="appSidebar\({ activeSection: null, shortcuts: JSON\.parse\(\'[^"]*\'\) }\)"/',
+            $response->getContent(),
+        );
     }
 
     public function test_legacy_unprefixed_app_paths_redirect_to_role_prefixed_equivalents(): void

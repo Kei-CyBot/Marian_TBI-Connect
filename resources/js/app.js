@@ -152,6 +152,91 @@ window.technicalNeedsPage = (requirements, startups, selectedStartupId, selected
     },
 });
 
+const sidebarStorage = {
+    readRaw(key) {
+        try {
+            return window.localStorage.getItem(key);
+        } catch {
+            return null;
+        }
+    },
+    readJson(key) {
+        try {
+            const parsed = JSON.parse(this.readRaw(key) ?? 'null');
+            return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+        } catch {
+            return {};
+        }
+    },
+    write(key, value) {
+        try {
+            window.localStorage.setItem(key, JSON.stringify(value));
+        } catch {
+            // Storage may be unavailable in private browsing; state stays in memory.
+        }
+    },
+};
+
+window.appSidebar = (options = {}) => ({
+    collapsed: sidebarStorage.readRaw('marian:sidebar:v2:collapsed') === 'true',
+    sections: {
+        operations: true,
+        network: true,
+        administration: true,
+        ...sidebarStorage.readJson('marian:sidebar:v2:sections'),
+    },
+    activeSection: options.activeSection || null,
+    shortcuts: options.shortcuts || {},
+    altHeld: false,
+    init() {
+        if (this.activeSection) {
+            this.sections = { ...this.sections, [this.activeSection]: true };
+            this.persistSections();
+        }
+    },
+    isOpen(section) {
+        return this.sections[section] !== false;
+    },
+    toggle(section) {
+        this.sections = { ...this.sections, [section]: !this.isOpen(section) };
+        this.persistSections();
+    },
+    persistSections() {
+        sidebarStorage.write('marian:sidebar:v2:sections', this.sections);
+    },
+    toggleCollapsed() {
+        this.collapsed = !this.collapsed;
+        sidebarStorage.write('marian:sidebar:v2:collapsed', this.collapsed);
+    },
+    handleShortcut(event) {
+        if (event.key === 'Alt') {
+            this.altHeld = true;
+            return;
+        }
+
+        if (!event.altKey || this.isTyping(event)) {
+            return;
+        }
+
+        if (event.code === 'BracketLeft' || event.key === '[') {
+            event.preventDefault();
+            this.toggleCollapsed();
+            return;
+        }
+
+        const url = this.shortcuts[String(event.key).toLowerCase()];
+        if (url) {
+            event.preventDefault();
+            window.location.href = url;
+        }
+    },
+    isTyping(event) {
+        const target = event.target;
+        return target instanceof HTMLElement
+            && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+    },
+});
+
 Alpine.start();
 
 const startupFormsRoot = document.getElementById('startup-forms-root');
