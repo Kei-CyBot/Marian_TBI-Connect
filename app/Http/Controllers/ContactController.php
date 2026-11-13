@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ContactController extends Controller
@@ -99,12 +100,13 @@ class ContactController extends Controller
 
     public function store(SaveContactRequest $request): RedirectResponse
     {
-        Contact::query()->create($this->attributes($request) + [
+        $contact = Contact::query()->create($this->attributes($request) + [
             'verification_status' => 'Pending Verification',
             'nda_status' => 'Pending',
             'incubatees' => [],
             'activity_log' => [],
         ]);
+        $contact->provisionUserAccount();
 
         return to_route('contacts')->with('contact_status', 'Contact added to the directory.');
     }
@@ -117,16 +119,32 @@ class ContactController extends Controller
             $data['nda_status'] = $validated['nda_status'];
         }
         $contact->update($data);
+        $contact->provisionUserAccount();
 
         return to_route('contacts')->with('contact_status', $contact->name.' was updated.');
     }
 
-    public function destroy(Contact $contact): RedirectResponse
+    public function destroy(Request $request, Contact $contact): RedirectResponse
     {
+        $linkedUser = $contact->user;
+
+        if ($linkedUser && $linkedUser->is($request->user())) {
+            return back()->with('error', 'You cannot archive a contact linked to your own account.');
+        }
+
+        if (
+            $linkedUser
+            && $linkedUser->isSuperAdmin()
+            && User::query()->where('role', User::ROLE_SUPER_ADMIN)->count() < 2
+        ) {
+            return back()->with('error', 'At least one Super Admin account must remain active.');
+        }
+
         $contact->forceFill([
             'archived_by' => request()->user()->id,
             'archive_reason' => null,
         ])->save();
+        $contact->archiveLinkedUser();
         $contact->delete();
 
         return to_route('contacts')->with('contact_status', $contact->name.' was archived. View or restore it from Archives.');
@@ -179,20 +197,45 @@ class ContactController extends Controller
             'password' => ['nullable', 'string', 'min:8'],
         ]);
 
-        $linkedUser = User::query()->where('email', $contact->email)->first();
+        $linkedUser = $contact->user;
+
+        if (! $linkedUser && is_string($contact->email) && trim($contact->email) !== '') {
+            $emailMatch = User::query()
+                ->whereRaw('LOWER(email) = ?', [strtolower($contact->email)])
+                ->first();
+
+            if ($emailMatch && $emailMatch->contact_id !== null && $emailMatch->contact_id !== $contact->id) {
+                throw ValidationException::withMessages([
+                    'email' => 'The contact email already belongs to a different team account. Update the contact email first.',
+                ]);
+            }
+
+            $linkedUser = $emailMatch;
+        }
+
+        $collision = User::query()
+            ->whereRaw('LOWER(email) = ?', [strtolower($validated['email'])])
+            ->when($linkedUser, fn ($query) => $query->whereKeyNot($linkedUser->id))
+            ->first();
+
+        if ($collision) {
+            throw ValidationException::withMessages([
+                'email' => 'Another team account already uses this email address.',
+            ]);
+        }
 
         if (! $linkedUser) {
-            $linkedUser = User::firstOrCreate(
-                ['email' => $validated['email']],
-                [
-                    'name' => $contact->name,
-                    'password' => Hash::make($validated['password'] ?? (string) random_int(10000000, 99999999)),
-                    'role' => 'member_incubatee',
-                ]
-            );
+            $linkedUser = User::create([
+                'name' => $contact->name,
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password'] ?? (string) random_int(10000000, 99999999)),
+                'role' => 'member_incubatee',
+                'contact_id' => $contact->id,
+            ]);
         }
 
         $linkedUser->email = $validated['email'];
+        $linkedUser->contact_id = $contact->id;
         if (! empty($validated['password'])) {
             $linkedUser->password = Hash::make($validated['password']);
         }
@@ -215,15 +258,28 @@ class ContactController extends Controller
             return back()->with('error', 'Contact does not have a valid email address.');
         }
 
-        $linkedUser = User::query()->where('email', $contact->email)->first();
+        $linkedUser = $contact->user;
 
         if (! $linkedUser) {
-            $linkedUser = User::create([
+            $emailMatch = User::query()
+                ->whereRaw('LOWER(email) = ?', [strtolower($contact->email)])
+                ->first();
+
+            if ($emailMatch && $emailMatch->contact_id !== null && $emailMatch->contact_id !== $contact->id) {
+                return back()->with('error', 'This contact email is already linked to a different team account. Update the contact email first.');
+            }
+
+            $linkedUser = $emailMatch ?? User::create([
                 'name' => $contact->name,
                 'email' => $contact->email,
                 'password' => Str::random(32),
                 'role' => 'member_incubatee',
+                'contact_id' => $contact->id,
             ]);
+        }
+
+        if ($linkedUser->contact_id !== $contact->id) {
+            $linkedUser->forceFill(['contact_id' => $contact->id])->save();
         }
 
         $token = Str::random(64);
@@ -289,6 +345,10 @@ class ContactController extends Controller
     private function ensureSampleContacts(): void
     {
         if (! app()->environment('local', 'testing')) {
+            return;
+        }
+
+        if (Contact::withTrashed()->exists()) {
             return;
         }
 

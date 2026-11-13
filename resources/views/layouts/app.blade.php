@@ -403,13 +403,16 @@
     </header>
 
     <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <header class="mb-6 flex flex-col gap-4 border-b border-slate-200/80 pb-5 md:flex-row md:items-end md:justify-between">
-            <div class="min-w-0">
-                <p class="text-xs font-medium text-slate-400">@yield('eyebrow', 'Marian TBI Connect')</p>
-                <h1 class="mt-1 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">@yield('heading', 'Dashboard')</h1>
-                <div class="mt-1 max-w-prose text-sm leading-relaxed text-slate-500">@yield('subheading')</div>
+        <header class="relative mb-6 overflow-hidden rounded-xl border border-slate-200/80 bg-gradient-to-r from-rose-50/45 via-white to-teal-50/35 px-5 py-4 shadow-2xs sm:px-6 sm:py-5">
+            <span class="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-rose-800/75 via-rose-700/45 to-teal-700/75" aria-hidden="true"></span>
+            <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div class="min-w-0">
+                    <p class="mb-2 inline-flex items-center gap-1.5 rounded-md bg-teal-50/80 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-teal-800 ring-1 ring-inset ring-teal-200/70">@yield('eyebrow', 'Marian TBI Connect')</p>
+                    <h1 class="mt-1 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">@yield('heading', 'Dashboard')</h1>
+                    <div class="mt-1 max-w-prose text-sm leading-relaxed text-slate-500">@yield('subheading')</div>
+                </div>
+                <div class="flex shrink-0 flex-wrap items-center gap-2.5">@yield('banner-actions')</div>
             </div>
-            <div class="flex shrink-0 flex-wrap items-center gap-2.5">@yield('banner-actions')</div>
         </header>
 
         @if (session('success'))
@@ -438,7 +441,7 @@
             </div>
         @endif
         @if ($errors->any())
-            <div class="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-800" role="alert">
+            <div class="mb-4 rounded-lg border border-rose-200/80 bg-rose-50/80 p-4 text-sm text-rose-900" role="alert">
                 <span class="font-medium">There were errors with your submission:</span>
                 <ul class="mt-2 list-disc space-y-1 pl-5">
                     @foreach ($errors->all() as $error)

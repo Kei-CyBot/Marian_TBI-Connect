@@ -39,9 +39,6 @@
             </header>
 
             <div class="flex-1 space-y-5 overflow-y-auto bg-slate-50/70 p-4 sm:space-y-6 sm:p-6 lg:p-7">
-                @if ($errors->any() && old('startup_id') !== null)
-                    <div role="alert" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">{{ $errors->first() }}</div>
-                @endif
                 <section class="rounded-2xl border border-[#b92369]/10 bg-white p-4 shadow-sm sm:p-5">
                     <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
                         <div>

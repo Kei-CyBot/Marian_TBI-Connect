@@ -41,9 +41,6 @@
     @confirm-action.window="confirmData = $event.detail; confirmOpen = true"
     class="space-y-4"
 >
-    @if(session('error'))
-        <div class="p-4 mb-4 text-red-800 bg-red-100 rounded-lg">{{ session('error') }}</div>
-    @endif
     @if(session('success'))
         <div class="p-4 mb-4 text-green-800 bg-green-100 rounded-lg">{{ session('success') }}</div>
     @endif

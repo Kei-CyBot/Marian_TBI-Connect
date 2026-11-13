@@ -5,7 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class Contact extends Model
 {
@@ -32,7 +34,6 @@ class Contact extends Model
         'activity_log',
         'archived_by',
         'archive_reason',
-        'user_id',
     ];
 
     protected function casts(): array
@@ -53,5 +54,55 @@ class Contact extends Model
     public function startupAssignments(): HasMany
     {
         return $this->hasMany(ContactStartupAssignment::class);
+    }
+
+    public function user(): HasOne
+    {
+        return $this->hasOne(User::class);
+    }
+
+    public function provisionUserAccount(): ?User
+    {
+        $email = strtolower(trim((string) $this->email));
+
+        if ($email === '') {
+            return null;
+        }
+
+        $user = User::withTrashed()
+            ->where(fn ($query) => $query
+                ->where('contact_id', $this->id)
+                ->orWhereRaw('LOWER(email) = ?', [$email]))
+            ->first();
+
+        if (! $user) {
+            return User::create([
+                'name' => $this->name,
+                'email' => $this->email,
+                'password' => Str::random(32),
+                'role' => User::ROLE_MEMBER_INCUBATEE,
+                'contact_id' => $this->id,
+            ]);
+        }
+
+        if ($user->trashed()) {
+            $user->restore();
+        }
+
+        if ($user->contact_id === null) {
+            $user->forceFill(['contact_id' => $this->id])->save();
+        }
+
+        return $user;
+    }
+
+    public function archiveLinkedUser(): void
+    {
+        User::query()->where('contact_id', $this->id)->get()->each->delete();
+    }
+
+    public function restoreLinkedUser(): void
+    {
+        User::onlyTrashed()->where('contact_id', $this->id)->get()->each->restore();
     }
 }

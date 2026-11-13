@@ -290,6 +290,52 @@ class ContactLifecycleTest extends TestCase
         $this->assertDatabaseHas('one_time_login_tokens', ['email' => $email]);
     }
 
+    public function test_credentials_update_rejects_email_owned_by_another_linked_account(): void
+    {
+        $superAdmin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
+        $contact = Contact::create([
+            'side' => 'external',
+            'name' => 'Collision Contact',
+            'email' => 'collision@example.com',
+            'affiliation_type' => 'Company / Corporation',
+            'role' => 'Industry Mentor',
+            'domains' => [],
+            'technical_skills' => [],
+            'incubatees' => [],
+            'activity_log' => [],
+        ]);
+        $otherContact = Contact::create([
+            'side' => 'external',
+            'name' => 'Account Owner',
+            'email' => 'owner@example.com',
+            'affiliation_type' => 'Company / Corporation',
+            'role' => 'Industry Mentor',
+            'domains' => [],
+            'technical_skills' => [],
+            'incubatees' => [],
+            'activity_log' => [],
+        ]);
+        $otherUser = User::factory()->create([
+            'email' => 'collision@example.com',
+            'role' => User::ROLE_MEMBER_INCUBATEE,
+            'password' => 'keep-this-password',
+            'contact_id' => $otherContact->id,
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->from(route('contacts'))
+            ->patch(route('contacts.credentials.update', $contact), [
+                'email' => 'collision@example.com',
+                'password' => 'hijack-password',
+            ])
+            ->assertSessionHasErrors('email');
+
+        $otherUser->refresh();
+        $this->assertSame($otherContact->id, $otherUser->contact_id);
+        $this->assertTrue(Hash::check('keep-this-password', $otherUser->password));
+        $this->assertSame('collision@example.com', $contact->fresh()->email);
+    }
+
     public function test_regular_members_and_standard_admins_denied_access_to_credential_editing_routes(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);

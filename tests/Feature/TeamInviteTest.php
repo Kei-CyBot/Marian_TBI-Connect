@@ -178,6 +178,36 @@ class TeamInviteTest extends TestCase
         $this->assertNotNull($invite->refresh()->accepted_at);
     }
 
+    public function test_invitation_acceptance_links_the_matching_contact(): void
+    {
+        $contact = $this->contact('Linked Teammate', 'linked@example.com');
+        $invite = $this->invitation(['email' => 'linked@example.com']);
+
+        $this->post(route('invites.accept.process', $invite->token), [
+            'name' => 'Linked Teammate',
+            'password' => 'supersecret123',
+            'password_confirmation' => 'supersecret123',
+        ])->assertRedirect(route('dashboard'));
+
+        $this->assertSame(
+            $contact->id,
+            User::query()->where('email', 'linked@example.com')->sole()->contact_id
+        );
+    }
+
+    public function test_admin_can_link_a_team_member_to_their_matching_contact(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        $contact = $this->contact('Directory Link', 'directory.link@example.com');
+        $member = User::factory()->create(['email' => 'directory.link@example.com']);
+
+        $this->actingAs($admin)
+            ->post(route('team.contacts.link', $member))
+            ->assertRedirect(route('team'));
+
+        $this->assertSame($contact->id, $member->fresh()->contact_id);
+    }
+
     public function test_unknown_or_expired_tokens_are_rejected(): void
     {
         $expired = $this->invitation([

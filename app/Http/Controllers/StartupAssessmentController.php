@@ -7,6 +7,7 @@ use App\Models\IntakeSubmission;
 use App\Models\Startup;
 use App\Models\StartupAssessment;
 use App\Models\StartupDriveLink;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
@@ -28,7 +29,7 @@ class StartupAssessmentController extends Controller
         $finishedStatuses = ['Graduate', 'Alumni Network'];
 
         $accessibleStartups = Startup::query()
-            ->with('folderAccessUsers:id')
+            ->with('folderAccessUsers:id,name,email,role')
             ->orderBy('id')
             ->get()
             ->filter(fn (Startup $startup): bool => $startup->userCanAccessFolder($user))
@@ -115,6 +116,34 @@ class StartupAssessmentController extends Controller
                 ->all()
             : [];
 
+        $assignments = $accessibleStartups
+            ->mapWithKeys(static fn (Startup $startup): array => [
+                $startup->id => $startup->folderAccessUsers
+                    ->map(static fn (User $member): array => [
+                        'id' => $member->id,
+                        'name' => $member->name,
+                        'email' => $member->email,
+                        'role' => $member->roleLabel(),
+                    ])
+                    ->values()
+                    ->all(),
+            ])
+            ->all();
+
+        $assignableUsers = $user->canManageRecords()
+            ? User::query()
+                ->orderBy('name')
+                ->get(['id', 'name', 'email', 'role'])
+                ->map(static fn (User $member): array => [
+                    'id' => $member->id,
+                    'name' => $member->name,
+                    'email' => $member->email,
+                    'role' => $member->roleLabel(),
+                ])
+                ->values()
+                ->all()
+            : [];
+
         return view('incubatees', [
             'tab' => $tab,
             'startups' => $startups,
@@ -124,6 +153,8 @@ class StartupAssessmentController extends Controller
             'assessmentAreas' => config('startup_assessment', []),
             'assessmentDefaults' => $defaultRatings,
             'driveLinks' => $driveLinks,
+            'assignments' => $assignments,
+            'assignableUsers' => $assignableUsers,
         ]);
     }
 

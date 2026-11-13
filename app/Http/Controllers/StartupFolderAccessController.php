@@ -3,17 +3,53 @@
 namespace App\Http\Controllers;
 
 use App\Models\Startup;
+use App\Models\User;
 use App\Support\GoogleDriveService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use RuntimeException;
 
 class StartupFolderAccessController extends Controller
 {
+    public function assign(Request $request, Startup $startup): RedirectResponse
+    {
+        abort_unless($request->user()->canManageRecords(), 403);
+
+        $validated = $request->validate([
+            'user_id' => ['required', 'integer', Rule::exists('users', 'id')->whereNull('deleted_at')],
+        ]);
+        $member = User::query()->findOrFail($validated['user_id']);
+
+        DB::transaction(function () use ($request, $startup, $member): void {
+            if ($startup->folder_access_manager_id === null) {
+                $startup->folder_access_manager_id = $request->user()->id;
+            }
+            $startup->folder_access_restricted = true;
+            $startup->save();
+            $startup->folderAccessUsers()->syncWithoutDetaching([
+                $member->id => ['granted_by' => $request->user()->id],
+            ]);
+        });
+
+        return to_route('incubatees')
+            ->with('startup_status', $member->name.' was assigned to '.$startup->name.'.');
+    }
+
+    public function unassign(Request $request, Startup $startup, User $member): RedirectResponse
+    {
+        abort_unless($request->user()->canManageRecords(), 403);
+
+        $startup->folderAccessUsers()->detach($member->id);
+
+        return to_route('incubatees')
+            ->with('startup_status', $member->name.' was unassigned from '.$startup->name.'.');
+    }
+
     public function update(Request $request, Startup $startup, GoogleDriveService $drive): RedirectResponse
     {
         abort_unless($startup->userCanManageFolderAccess($request->user()), 403);

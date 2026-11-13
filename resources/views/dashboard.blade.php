@@ -2,11 +2,13 @@
 @section('title','Dashboard')
 @section('eyebrow','Hybrid Hub · Overview')
 @section('heading','Ecosystem Dashboard')
-@section('subheading','Live snapshot across Internal Academic and External Industry tracks.')
+@section('subheading')
+    Live snapshot across <span class="font-medium text-rose-800">Internal Academic</span> and <span class="font-medium text-teal-700">External Industry</span> tracks.
+@endsection
 @section('banner-actions')
     <a href="{{ route('dashboard.export-csv') }}"
-       class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-2xs transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-        <svg class="w-4 h-4 text-teal-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+       class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-2xs transition hover:border-teal-300/80 hover:bg-teal-50/40 focus:outline-none focus:ring-2 focus:ring-teal-700/10">
+        <svg class="w-4 h-4 text-teal-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 2 0 01-2-2V5a2 2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 2 0 01-2 2z"/>
         </svg>
         <span>Export Report (CSV)</span>
@@ -31,7 +33,7 @@
     ])->values();
     $rsvps = $metrics['rsvps'];
     $stats = [
-        ['label'=>'Active Startups','all'=>$metrics['activeStartups']['all'],'internal'=>$metrics['activeStartups']['internal'],'external'=>$metrics['activeStartups']['external'],'delta'=>'Non-archived records','deltaTitle'=>'Non-archived records','tone'=>'rose','icon'=>'M20 7l-8-4-8 4m16 0v10l-8 4m8-14l-8 4m0 10V11M4 7v10l8 4'],
+        ['label'=>'Active Startups','all'=>$metrics['activeStartups']['all'],'internal'=>$metrics['activeStartups']['internal'],'external'=>$metrics['activeStartups']['external'],'delta'=>'Active records','deltaTitle'=>'Non-archived records','tone'=>'rose','icon'=>'M20 7l-8-4-8 4m16 0v10l-8 4m8-14l-8 4m0 10V11M4 7v10l8 4'],
         ['label'=>'Network Contacts','all'=>$metrics['networkContacts']['all'],'internal'=>$metrics['networkContacts']['internal'],'external'=>$metrics['networkContacts']['external'],'delta'=>'Total contacts','deltaTitle'=>'Total contacts','tone'=>'teal','icon'=>'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87M16 3.13a4 4 0 010 7.75M12 7a4 4 0 11-8 0 4 4 0 018 0z'],
         ['label'=>'Upcoming Events','all'=>$metrics['upcomingEvents']['all'],'internal'=>$metrics['upcomingEvents']['internal'],'external'=>$metrics['upcomingEvents']['external'],'delta'=>"{$rsvps['attending']} attending · {$rsvps['pending']} pending",'deltaTitle'=>"{$rsvps['attending']} attending · {$rsvps['pending']} pending · {$rsvps['declined']} declined",'tone'=>'teal','icon'=>'M8 7V3m8 4V3M3 11h18M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'],
         ['label'=>'Pending Intake','all'=>$metrics['pendingIntakeApplications']['all'],'internal'=>$metrics['pendingIntakeApplications']['internal'],'external'=>$metrics['pendingIntakeApplications']['external'],'delta'=>'Awaiting review','deltaTitle'=>'Awaiting review','tone'=>'rose','icon'=>'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'],

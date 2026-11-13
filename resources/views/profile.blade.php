@@ -11,12 +11,6 @@
 @if (session('success'))
     <div role="status" class="mb-4 rounded-xl border border-[#1a8a8e]/20 bg-[#eaf6f6] px-4 py-3 text-sm font-medium text-[#146e72]">{{ session('success') }}</div>
 @endif
-@if ($errors->any())
-    <div role="alert" class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-        <p class="font-semibold">Your profile could not be updated.</p>
-        <ul class="mt-1 list-inside list-disc">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
-    </div>
-@endif
 <section class="max-w-2xl rounded-2xl border border-gray-100 bg-white p-6 shadow-sm sm:p-8">
     <div class="mb-6">
         <h2 class="text-base font-bold text-slate-900">Account credentials</h2>
