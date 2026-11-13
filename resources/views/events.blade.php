@@ -5,9 +5,9 @@
 @section('subheading','Internal academic events, external industry events, and hybrid public events — with RSVP tracking and email broadcasts.')
 @section('banner-actions')
     @if (auth()->user()->canManageRecords())
-        <button @click="$dispatch('open-broadcast')" class="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/25">✉️ Email Contacts</button>
-        <a href="{{ route('archives.index', ['tab' => 'events']) }}" class="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/25">📁 View Event Archives</a>
-        <a href="{{ route('events.create') }}" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#b92369] shadow-sm transition hover:bg-[#fcf0f5]">+ Create Event</a>
+        <button @click="$dispatch('open-broadcast')" class="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-2xs transition hover:bg-slate-50">Email Contacts</button>
+        <a href="{{ route('archives.index', ['tab' => 'events']) }}" class="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-2xs transition hover:bg-slate-50">View Event Archives</a>
+        <a href="{{ route('events.create') }}" class="rounded-lg bg-[#9E2A5B] px-3.5 py-2 text-sm font-medium text-white shadow-2xs transition hover:bg-[#86224C]">+ Create Event</a>
     @endif
 @endsection
 
@@ -72,7 +72,7 @@
     {{-- LIST VIEW --}}
     <div x-show="view==='list'" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <template x-for="e in list" :key="e.id">
-            <article class="relative flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <article class="ui-card relative flex flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-sm">
                 <div class="h-1.5" :class="bar(e.scope)"></div>
                 <div class="flex-1 p-5">
                     <div class="flex items-start justify-between gap-2">
@@ -128,7 +128,7 @@
     </div>
 
     {{-- CALENDAR VIEW --}}
-    <div x-show="view==='calendar'" x-cloak class="w-full overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <div x-show="view==='calendar'" x-cloak class="ui-card w-full overflow-hidden">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
             <div>
                 <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">Monthly calendar</p>
@@ -175,7 +175,7 @@
         </div>
         <div x-show="selectedEvent" x-cloak x-transition.opacity class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm" @click.self="selectedEvent=null">
             <template x-if="selectedEvent">
-                <section role="dialog" aria-modal="true" aria-labelledby="calendar-event-title" class="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+                <section role="dialog" aria-modal="true" aria-labelledby="calendar-event-title" class="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl">
                     <header class="flex items-start justify-between gap-4 px-6 py-5 text-white" :class="bar(selectedEvent.scope)">
                         <div>
                             <span class="inline-flex rounded-lg bg-white/20 px-2.5 py-1 text-xs font-semibold" x-text="lbl(selectedEvent.scope)"></span>
@@ -201,7 +201,7 @@
         </div>
     </div>
 
-    <div x-show="!list.length" x-cloak class="rounded-2xl border border-dashed border-gray-300 bg-white py-16 text-center text-sm text-gray-500">No events match this scope.</div>
+    <div x-show="!list.length" x-cloak class="ui-empty">No events match this scope.</div>
 </div>
 @include('partials.broadcast-modal')
 @endsection

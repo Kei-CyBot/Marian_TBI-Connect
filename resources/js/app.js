@@ -138,17 +138,17 @@ window.technicalNeedsPage = (requirements, startups, selectedStartupId, selected
         printWindow.document.close();
     },
     statusClass(status) {
-        return status === 'approved' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-            : status === 'rejected' ? 'bg-red-50 text-red-700 ring-red-200'
-                : 'bg-amber-50 text-amber-700 ring-amber-200';
+        return status === 'approved' ? 'bg-emerald-50/80 text-emerald-800 ring-emerald-200/70'
+            : status === 'rejected' ? 'bg-rose-50/80 text-rose-800 ring-rose-200/70'
+                : 'bg-amber-50/80 text-amber-800 ring-amber-200/70';
     },
     statusLabel(status) {
         return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Pending';
     },
     priorityClass(priority) {
-        return priority === 'High' ? 'bg-red-50 text-red-700 ring-red-200'
-            : priority === 'Moderate' ? 'bg-amber-50 text-amber-700 ring-amber-200'
-                : 'bg-gray-100 text-gray-700 ring-gray-200';
+        return priority === 'High' ? 'bg-rose-50/80 text-rose-800 ring-rose-200/70'
+            : priority === 'Moderate' ? 'bg-amber-50/80 text-amber-800 ring-amber-200/70'
+                : 'bg-slate-100 text-slate-700 ring-slate-200/80';
     },
 });
 

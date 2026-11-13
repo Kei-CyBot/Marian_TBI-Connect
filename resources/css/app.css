@@ -59,6 +59,20 @@ button[class*="bg-[#FF2B5E]"]:hover:not(:disabled) {
     box-shadow: 0 3px 8px rgb(185 35 105 / 18%);
 }
 
+button[class*="bg-[#9E2A5B]"] {
+    background-color: #9e2a5b !important;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+}
+
+button[class*="bg-[#9E2A5B]"]:hover:not(:disabled) {
+    background-color: #86224c !important;
+    box-shadow: 0 3px 8px rgb(158 42 91 / 16%);
+}
+
+button[class*="text-[#9E2A5B]"] {
+    color: #9e2a5b !important;
+}
+
 button[class*="bg-[#1a8a8e]"] {
     background-color: #1a8a8e !important;
     box-shadow: 0 1px 2px rgb(15 23 42 / 10%);
@@ -214,5 +228,79 @@ button[class*="border-slate-line"] {
     .startup-source-form-portal > .fixed.inset-0 > div {
         max-height: calc(100dvh - 6rem) !important;
         border-radius: 1rem !important;
+    }
+}
+
+@layer components {
+    .ui-card {
+        @apply rounded-xl border border-slate-200/80 bg-white shadow-2xs;
+    }
+
+    .ui-label {
+        @apply mb-1.5 block text-xs font-medium text-slate-700;
+    }
+
+    .ui-input,
+    .ui-select,
+    .ui-textarea {
+        @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/10;
+    }
+
+    .ui-select {
+        @apply h-9 py-0;
+    }
+
+    .ui-badge {
+        @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset;
+    }
+
+    .ui-badge-dot {
+        @apply h-1.5 w-1.5 rounded-full bg-current;
+    }
+
+    .ui-kbd {
+        @apply rounded border border-slate-200/90 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-400;
+    }
+
+    .ui-table {
+        @apply min-w-full text-sm;
+    }
+
+    .ui-table thead {
+        @apply border-b border-slate-200/80 bg-slate-50/80 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500;
+    }
+
+    .ui-table th {
+        @apply whitespace-nowrap px-4 py-3;
+    }
+
+    .ui-table td {
+        @apply border-b border-slate-100 px-4 py-3.5 text-sm text-slate-700;
+    }
+
+    .ui-table tbody tr {
+        @apply transition-colors hover:bg-slate-50/70;
+    }
+
+    .ui-empty {
+        @apply rounded-xl border border-dashed border-slate-200 bg-white px-6 py-12 text-center;
+    }
+
+    .ui-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 transparent;
+    }
+
+    .ui-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+
+    .ui-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .ui-scrollbar::-webkit-scrollbar-thumb {
+        @apply rounded-full bg-slate-300;
     }
 }

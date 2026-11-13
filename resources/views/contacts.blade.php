@@ -6,7 +6,7 @@
 
 @section('banner-actions')
     @if (auth()->user()->canManageRecords())
-        <button @click="$dispatch('open-contact-form')" class="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#1a8a8e] shadow-sm transition hover:bg-[#eaf6f6]">+ Add Contact</button>
+        <button @click="$dispatch('open-contact-form')" class="rounded-lg bg-[#9E2A5B] px-3.5 py-2 text-sm font-medium text-white shadow-2xs transition hover:bg-[#86224C]">+ Add Contact</button>
     @endif
 @endsection
 
@@ -53,7 +53,7 @@
         {{-- List --}}
         <div class="grid gap-4 sm:grid-cols-2 xl:col-span-2">
             <template x-for="c in list" :key="c.id">
-                <button @click="sel=c" class="rounded-2xl border bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                <button @click="sel=c" class="ui-card p-5 text-left transition hover:-translate-y-0.5 hover:shadow-sm"
                         :class="sel && sel.id===c.id ? (tab==='internal' ? 'border-[#b92369] ring-2 ring-[#b92369]/15' : 'border-[#1a8a8e] ring-2 ring-[#1a8a8e]/15') : 'border-gray-100'">
                     <div class="flex items-center gap-3">
                         <div class="flex h-11 w-11 items-center justify-center rounded-full text-sm font-bold text-white" :style="'background:'+accent" x-text="c.name.split(' ').map(w=>w[0]).slice(0,2).join('')"></div>
@@ -70,8 +70,8 @@
 
         {{-- Detail card --}}
         <aside class="xl:sticky xl:top-24 xl:self-start">
-            <div x-show="!sel" class="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">Select a contact to see details.</div>
-            <div x-show="sel" x-cloak x-transition class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            <div x-show="!sel" class="ui-empty">Select a contact to see details.</div>
+            <div x-show="sel" x-cloak x-transition class="ui-card overflow-hidden">
                 <template x-if="sel">
                     <div>
                         <div class="px-5 py-5 text-white" :style="'background:'+accent">
@@ -150,7 +150,7 @@
 
                         <div x-show="assignmentModalOpen" x-cloak x-transition.opacity @click.self="assignmentModalOpen=false" @keydown.escape.window="assignmentModalOpen=false"
                              class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
-                            <section role="dialog" aria-modal="true" aria-labelledby="assignment-modal-title" class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+                            <section role="dialog" aria-modal="true" aria-labelledby="assignment-modal-title" class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-xl">
                                 <header class="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-5">
                                     <div>
                                         <p class="text-xs font-semibold uppercase tracking-wider text-[#1a8a8e]">Admin-confirmed relationship</p>
@@ -164,7 +164,7 @@
                                     <div class="space-y-4 px-6 py-5">
                                         <div>
                                             <label for="assignment-startup" class="mb-1 block text-xs font-semibold text-slate-600">Existing incubatee</label>
-                                            <select id="assignment-startup" name="startup_id" required class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm">
+                                            <select id="assignment-startup" name="startup_id" required class="ui-input">
                                                 <option value="">Select an incubatee</option>
                                                 <template x-for="startup in startupOptions" :key="startup.id">
                                                     <option :value="startup.id" x-text="startup.name+' · Founder: '+startup.founder"></option>
@@ -173,7 +173,7 @@
                                         </div>
                                         <div>
                                             <label for="assignment-verification-method" class="mb-1 block text-xs font-semibold text-slate-600">How was the relationship verified?</label>
-                                            <select id="assignment-verification-method" name="verification_method" required class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm">
+                                            <select id="assignment-verification-method" name="verification_method" required class="ui-input">
                                                 <option value="">Choose verification method</option>
                                                 <option value="founder_email_match">Contact email matches the incubatee's registered founder/contact email</option>
                                                 <option value="program_records">Incubation program records checked</option>
@@ -182,7 +182,7 @@
                                         </div>
                                         <div>
                                             <label for="assignment-verification-notes" class="mb-1 block text-xs font-semibold text-slate-600">Verification evidence / notes</label>
-                                            <textarea id="assignment-verification-notes" name="verification_notes" required maxlength="1000" rows="4" placeholder="Record what was checked, such as the matching founder email or the program record reference." class="w-full rounded-xl border border-slate-line px-3 py-2 text-sm"></textarea>
+                                            <textarea id="assignment-verification-notes" name="verification_notes" required maxlength="1000" rows="4" placeholder="Record what was checked, such as the matching founder email or the program record reference." class="ui-input"></textarea>
                                         </div>
                                         <p class="rounded-xl bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-900">Selecting an incubatee creates a confirmed link only after the reviewer records how the contact's relationship was checked. A founder is not automatically linked just because they registered.</p>
                                     </div>
@@ -199,7 +199,7 @@
         </aside>
     </div>
     <div x-data="{confirmOpen:false, confirmData:{title:'', message:'', confirmText:'Confirm', confirmClass:'bg-red-600 hover:bg-red-700', action:''}, unlinkOpen:false, unlink:{action:'', name:''}}" @confirm-action-contact.window="confirmData = $event.detail; confirmOpen = true" @confirm-unlink-incubatee.window="unlink = $event.detail; unlinkOpen = true" x-show="confirmOpen || unlinkOpen" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/50 backdrop-blur-sm">
-        <div x-show="confirmOpen" class="w-full max-w-md rounded-xl bg-white shadow-2xl">
+        <div x-show="confirmOpen" class="w-full max-w-md rounded-xl bg-white shadow-xl">
             <div class="px-6 py-4">
                 <h3 class="text-lg font-semibold text-slate-900" x-text="confirmData.title"></h3>
                 <p class="mt-2 text-sm text-gray-600" x-text="confirmData.message"></p>
@@ -226,7 +226,7 @@
                 " class="px-4 py-2 text-white rounded-lg" :class="confirmData.confirmClass" x-text="confirmData.confirmText"></button>
             </div>
         </div>
-        <div x-show="unlinkOpen" class="w-full max-w-lg bg-white rounded-xl shadow-2xl p-6 border border-gray-100">
+        <div x-show="unlinkOpen" class="w-full max-w-lg bg-white rounded-xl shadow-xl p-6 border border-gray-100">
             <h3 class="text-xl font-bold text-gray-900 mb-2">Remove Incubatee Link</h3>
             <p class="text-sm text-gray-600 mb-6">Are you sure you want to remove this incubatee from this contact? This will update their directory mapping.</p>
             <form :action="unlink.action" method="POST">
