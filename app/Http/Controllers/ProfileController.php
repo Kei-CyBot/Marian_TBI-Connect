@@ -33,6 +33,7 @@ class ProfileController extends Controller
             'domainExpertiseOptions' => config('contact.domains'),
             'technicalSkillsOptions' => config('contact.technical_skills'),
             'toolsOptions' => array_values(array_unique(array_merge(...array_values(config('contact.tool_groups'))))),
+            'classification' => $contact?->side ?? $user->startup?->track ?? 'external',
         ]);
     }
 

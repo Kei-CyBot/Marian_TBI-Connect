@@ -12,7 +12,7 @@ class SaveContactRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return $this->user()?->canManageRecords() ?? false;
     }
 
     protected function prepareForValidation(): void

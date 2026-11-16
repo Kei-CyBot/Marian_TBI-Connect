@@ -243,6 +243,58 @@ class ProfileAndRolesTest extends TestCase
         $this->assertSame('09170000000', $user->phone);
     }
 
+    public function test_profile_update_cannot_change_the_internal_external_classification(): void
+    {
+        $user = User::factory()->create(['email' => 'classified@example.test']);
+
+        $contact = Contact::query()->create([
+            'side' => 'internal',
+            'name' => $user->name,
+            'email' => $user->email,
+            'affiliation_type' => 'University department / office',
+            'role' => 'Student Lead',
+            'domains' => [],
+            'technical_skills' => [],
+            'incubatees' => [],
+            'activity_log' => [],
+        ]);
+
+        $this->actingAs($user)
+            ->put(route('profile.update'), [
+                'name' => $user->name,
+                'email' => $user->email,
+                'side' => 'external',
+                'track' => 'external',
+            ])
+            ->assertRedirect(route('profile.edit'))
+            ->assertSessionHas('profile_status');
+
+        $this->assertSame('internal', $contact->refresh()->side);
+    }
+
+    public function test_only_admins_can_change_a_contact_classification(): void
+    {
+        $member = User::factory()->create(['role' => User::ROLE_MEMBER_INCUBATEE]);
+
+        $contact = Contact::query()->create([
+            'side' => 'external',
+            'name' => 'Classified Contact',
+            'email' => 'contact@example.test',
+            'affiliation_type' => 'Company / Corporation',
+            'role' => 'Angel Investor',
+            'domains' => [],
+            'technical_skills' => [],
+            'incubatees' => [],
+            'activity_log' => [],
+        ]);
+
+        $this->actingAs($member)
+            ->put(route('contacts.update', $contact), ['side' => 'internal'])
+            ->assertForbidden();
+
+        $this->assertSame('external', $contact->refresh()->side);
+    }
+
     public function test_changing_password_requires_the_current_password(): void
     {
         $user = User::factory()->create();
