@@ -1,0 +1,35 @@
+{
+    "version": 2,
+    "functions": {
+        "api/index.php": {
+            "runtime": "vercel-php@0.7.4"
+        }
+    },
+    "routes": [
+        {
+            "src": "/build/(.*)",
+            "dest": "/public/build/$1"
+        },
+        {
+            "src": "/(favicon\\.ico|robots\\.txt|marian-tbi-logo\\.png)",
+            "dest": "/public/$1"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/api/index.php"
+        }
+    ],
+    "env": {
+        "APP_ENV": "staging",
+        "APP_DEBUG": "true",
+        "LOG_CHANNEL": "stderr",
+        "SESSION_DRIVER": "database",
+        "CACHE_STORE": "database",
+        "QUEUE_CONNECTION": "sync",
+        "VIEW_COMPILED_PATH": "/tmp/views",
+        "APP_CONFIG_CACHE": "/tmp/config.php",
+        "APP_ROUTES_CACHE": "/tmp/routes.php",
+        "APP_SERVICES_CACHE": "/tmp/services.php",
+        "APP_EVENTS_CACHE": "/tmp/events.php"
+    }
+}
