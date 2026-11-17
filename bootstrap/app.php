@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Middleware\EnsureRolePrefixMatches;
+use App\Http\Middleware\EnsureUserHasRole;
+use App\Http\Middleware\PreventBackHistory;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,11 +16,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: env('TRUSTED_PROXIES', '*'));
         $middleware->alias([
-            'role' => \App\Http\Middleware\EnsureUserHasRole::class,
+            'role' => EnsureUserHasRole::class,
         ]);
         $middleware->web(append: [
-            \App\Http\Middleware\EnsureRolePrefixMatches::class,
+            EnsureRolePrefixMatches::class,
         ]);
+        $middleware->appendToGroup('web', PreventBackHistory::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

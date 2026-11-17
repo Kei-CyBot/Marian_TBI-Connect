@@ -145,7 +145,7 @@ class GoogleDriveOAuthTest extends TestCase
 
         $this->get(route('google.callback'))
             ->assertRedirect(route('login'))
-            ->assertSessionHas('error', 'Your Google sign-in session expired. Please start again.');
+            ->assertSessionHas('status', 'Your sign-in session expired. Please sign in again.');
     }
 
     public function test_connect_uses_the_configured_marian_tbi_redirect_uri(): void

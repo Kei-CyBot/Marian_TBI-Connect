@@ -62,7 +62,7 @@
                     <div class="mb-1.5 flex items-center justify-between">
                         <label for="password" class="block text-sm font-semibold text-slate-700">Password</label>
                     </div>
-                    <input id="password" name="password" type="password" autocomplete="current-password" required
+                    <input id="password" name="password" type="password" autocomplete="current-password" required value=""
                            class="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-gray-400 focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
                 </div>
 
@@ -114,5 +114,6 @@
         <p class="mt-8 text-center text-xs text-slate-500">Secure access for the Marian TBI team.</p>
     </section>
 </main>
+@include('partials.back-button-guard')
 </body>
 </html>

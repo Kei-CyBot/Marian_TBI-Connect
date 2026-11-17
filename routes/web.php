@@ -29,6 +29,7 @@ use App\Http\Middleware\EnsurePasswordIsConfigured;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 
@@ -162,11 +163,21 @@ Route::prefix('{rolePrefix}')
             ->name('form-submissions.move');
 
         Route::post('/logout', function (Request $request) {
-            Auth::logout();
+            $request->session()->forget([
+                'google_token',
+                'google_access_token',
+                'google_refresh_token',
+                'oauth_state',
+                'oauth_register',
+            ]);
+
+            Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return redirect()->route('home');
+            Cookie::queue(Cookie::forget(config('session.cookie')));
+
+            return redirect()->route('login');
         })->name('logout');
 
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

@@ -15,7 +15,7 @@ class ProfileAndRolesTest extends TestCase
     {
         $this->actingAs(User::factory()->create())
             ->post(route('logout'))
-            ->assertRedirect(route('home'));
+            ->assertRedirect(route('login'));
 
         $this->get(route('home'))
             ->assertOk()
