@@ -37,16 +37,17 @@
                 </div>
                 <div>
                     <label for="password" class="mb-1.5 block text-sm font-semibold text-slate-700">Password</label>
-                    <input id="password" name="password" type="password" autocomplete="new-password" required class="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                    <input id="password" name="password" type="password" autocomplete="new-password" required value="" class="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
                 </div>
                 <div>
                     <label for="password_confirmation" class="mb-1.5 block text-sm font-semibold text-slate-700">Confirm password</label>
-                    <input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" required class="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                    <input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" required value="" class="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
                 </div>
                 <button type="submit" class="inline-flex w-full items-center justify-center rounded-xl bg-[#1a8a8e] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#146e72] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/40 focus:ring-offset-2">Create account</button>
             </form>
         </div>
     </section>
 </main>
+@include('partials.back-button-guard')
 </body>
 </html>

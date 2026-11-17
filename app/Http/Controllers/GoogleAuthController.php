@@ -12,15 +12,19 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\InvalidStateException;
 
 class GoogleAuthController extends Controller
 {
-    public function redirect(): RedirectResponse
+    public function redirect(Request $request): RedirectResponse
     {
+        if (Auth::check() && $request->query('link') !== '1') {
+            return redirect()->route('dashboard');
+        }
+
         $this->ensureConfigured();
 
         return Socialite::driver('google')
@@ -45,12 +49,22 @@ class GoogleAuthController extends Controller
             $googleUser = Socialite::driver('google')->stateless()->user();
         } catch (InvalidStateException $e) {
             Log::warning('Google OAuth state mismatch: '.$e->getMessage());
+            $this->forgetOAuthState($request);
 
-            return to_route('login')->with('error', 'Your Google sign-in session expired. Please start again.');
+            if (Auth::check()) {
+                return redirect()->route('dashboard');
+            }
+
+            return to_route('login')->with('status', 'Your sign-in session expired. Please sign in again.');
         } catch (\Throwable $e) {
             Log::error('Google OAuth Callback Error: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            $this->forgetOAuthState($request);
 
-            return to_route('login')->with('error', 'Google sign-in failed. Please try again.');
+            if (Auth::check()) {
+                return redirect()->route('dashboard');
+            }
+
+            return to_route('login')->with('status', 'Google sign-in failed. Please try again.');
         }
 
         $googleId = (string) $googleUser->getId();
@@ -222,6 +236,17 @@ class GoogleAuthController extends Controller
         URL::defaults(['rolePrefix' => $user->rolePrefix()]);
 
         return redirect()->route('profile.edit')->with('status', 'Welcome to Marian TBI Connect! Please set your personal account password to complete your setup.');
+    }
+
+    private function forgetOAuthState(Request $request): void
+    {
+        $request->session()->forget([
+            'google_token',
+            'google_access_token',
+            'google_refresh_token',
+            'oauth_state',
+            'oauth_register',
+        ]);
     }
 
     private function ensureConfigured(): void

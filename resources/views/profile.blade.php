@@ -110,7 +110,7 @@
                         </form>
                     @else
                         <p class="text-xs leading-5 text-slate-500">Link your Google account for single sign-on and Drive access.</p>
-                        <a href="{{ route('auth.google') }}" class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-[#1a8a8e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#146e72] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]">
+                        <a href="{{ route('auth.google', ['link' => 1]) }}" class="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-[#1a8a8e] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#146e72] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]">
                             Connect Google Account
                         </a>
                     @endif
@@ -302,17 +302,17 @@
                     <div class="grid grid-cols-1 gap-5 px-6 py-6 sm:grid-cols-2 sm:px-8">
                         <div class="sm:col-span-2">
                             <label for="profile-current-password" class="mb-1.5 block text-sm font-semibold text-slate-700">Current password <span class="font-normal text-gray-500">({{ session('force_password_change') ? 'not required during setup' : 'required to save' }})</span></label>
-                            <input id="profile-current-password" name="current_password" type="password" @required(!session('force_password_change')) autocomplete="current-password" class="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                            <input id="profile-current-password" name="current_password" type="password" @required(!session('force_password_change')) autocomplete="new-password" value="" class="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
                             @error('current_password')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label for="profile-new-password" class="mb-1.5 block text-sm font-semibold text-slate-700">New password</label>
-                            <input id="profile-new-password" name="new_password" type="password" minlength="8" autocomplete="new-password" @required(session('force_password_change')) class="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                            <input id="profile-new-password" name="new_password" type="password" minlength="8" autocomplete="new-password" @required(session('force_password_change')) value="" class="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
                             @error('new_password')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label for="profile-new-password-confirmation" class="mb-1.5 block text-sm font-semibold text-slate-700">Confirm new password</label>
-                            <input id="profile-new-password-confirmation" name="new_password_confirmation" type="password" minlength="8" autocomplete="new-password" class="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
+                            <input id="profile-new-password-confirmation" name="new_password_confirmation" type="password" minlength="8" autocomplete="new-password" value="" class="w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 focus:border-[#1a8a8e] focus:outline-none focus:ring-2 focus:ring-[#1a8a8e]/15">
                         </div>
                     </div>
 
